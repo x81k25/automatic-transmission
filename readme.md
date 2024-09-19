@@ -4,6 +4,7 @@ The purpose of this project is to create a back-end service to be deployed from 
 ## set-up
 
 ### install transmission
+The linux application Transmission will be required to be installed on the host machine. To install transmission, run the following commands:
 ```commandline
 sudo apt update
 sudo apt install transmission-daemon
