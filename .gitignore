@@ -1,2 +1,4 @@
 .env
 /venv/
+test.py
+confing/parameters.json

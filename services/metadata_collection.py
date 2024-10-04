@@ -36,94 +36,125 @@ api_key = os.getenv('omdb_api_key')
 # metadata collection helper functions
 # ------------------------------------------------------------------------------
 
-# read in feed_df.csv and store as dataframe
-def read_feed_df():
-	"""
-	read in feed_df.csv and store as dataframe
-	:return: dataframe
-	"""
-	feed_df = pd.read_csv('./feed_df.csv')
-	return feed_df
+
+def get_movie_omdb_data(movie_name, year=None):
+    # Create query parameters
+    params = {
+        't': movie_name,  # 't' stands for title
+        'apikey': api_key
+    }
+
+    # Add the year to the query if provided
+    if year:
+        params['y'] = year
+
+    # Make a request to the OMDb API
+    response = requests.get(BASE_URL, params=params)
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Convert the response to JSON format
+        data = response.json()
+
+        # Check if the movie was found
+        if data['Response'] == 'True':
+            return data
+        else:
+            return f"Error: {data['Error']}"
+    else:
+        return f"Error: Unable to connect to OMDb API. Status code: {response.status_code}"
+
+def get_tv_show_omdb_metadata(tv_shows):
+
+    #subset tv shows to include only shows marked as ingested
+    tv_shows_ingested = tv_shows[tv_shows['status'] == 'ingested']
+
+    # Function to query OMDb API
+    def query_omdb_api(show_title):
+        params = {
+            't': show_title,
+            'apikey': api_key
+        }
+        response = requests.get(BASE_URL, params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return None
+
+    # Iterate through each row and update metadata
+    for index, row in tv_shows_ingested.iterrows():
+        tv_show_name = row['tv_show_name']
+        data = query_omdb_api(tv_show_name)
+        if data and data['Response'] == 'True':
+            tv_shows_ingested.at[index, 'release_year'] = data.get('Year', None).lstrip('–')
+            tv_shows_ingested.at[index, 'genre'] = data.get('Genre', None)
+            tv_shows_ingested.at[index, 'language'] = data.get('Language', None)
+            tv_shows_ingested.at[index, 'metascore'] = data.get('Metascore', None)
+            tv_shows_ingested.at[index, 'imdb_rating'] = data.get('imdbRating', None)
+            tv_shows_ingested.at[index, 'imdb_votes'] = data.get('imdbVotes', None)
+            tv_shows_ingested.at[index, 'imdb_id'] = data.get('imdbID', None)
+            # change status of each element to "queued" if API call successful
+            tv_shows_ingested.at[index, 'status'] = 'queued'
+            # output print the status change
+            print(f"queued: {row['raw_title']} with link {row['magnet_link']}")
+        else:
+            print(f"failed to queue: {row['raw_title']} with link {row['magnet_link']}")
+
+    # Set the index to 'hash' for both DataFrames
+    tv_shows_ingested.set_index('hash', inplace=True)
+    tv_shows.set_index('hash', inplace=True)
+
+    # Combine the DataFrames, replacing rows in tv_shows with those in tv_shows_ingested
+    tv_shows.update(tv_shows_ingested)
+
+    # Reset the index
+    tv_shows.reset_index(inplace=True)
+
+    # Save the updated tv_shows DataFrame
+    return tv_shows
+
+# ------------------------------------------------------------------------------
+# main metadata collection yts pipeline
+# ------------------------------------------------------------------------------
 
 
-def get_movie_data(movie_name, year=None):
-	# Create query parameters
-	params = {
-		't': movie_name,  # 't' stands for title
-		'apikey': api_key
-	}
+def collect_movie_metadata(feed_df):
+    """
+    Loop through all of the movie titles and release years in feed_df,
+    call the OMDb API to get the movie data, save the data into a data frame,
+    and merge it with the existing feed_df.
+    """
+    movie_data_list = []
 
-	# Add the year to the query if provided
-	if year:
-		params['y'] = year
+    for index, row in feed_df.iterrows():
+        movie_name = row['movie_title']
+        release_year = row.get('release_year', None)
+        movie_data = get_movie_data(movie_name, release_year)
 
-	# Make a request to the OMDb API
-	response = requests.get(BASE_URL, params=params)
+        if isinstance(movie_data, dict):
+            movie_data_list.append(movie_data)
+        else:
+            print(f"Error fetching data for {movie_name}: {movie_data}")
 
-	# Check if the request was successful
-	if response.status_code == 200:
-		# Convert the response to JSON format
-		data = response.json()
+    movie_data_df = pd.DataFrame(movie_data_list)
+    merged_df = pd.merge(feed_df, movie_data_df, left_on='movie_title',
+                         right_on='Title', how='left')
 
-		# Check if the movie was found
-		if data['Response'] == 'True':
-			return data
-		else:
-			return f"Error: {data['Error']}"
-	else:
-		return f"Error: Unable to connect to OMDb API. Status code: {response.status_code}"
-
-def get_show_release_year(title, api_key):
-	# Define the base URL for OMDb API
-	base_url = "http://www.omdbapi.com/"
-
-	# Parameters to be sent to the API
-	params = {
-		"t": title,  # 't' is for title
-		"type": "series",  # Specify that we are looking for a TV show
-		"apikey": api_key  # Your OMDb API key
-	}
-
-	# Send a GET request to the API
-	response = requests.get(base_url, params=params)
-
-	# Convert the response to JSON format
-	data = response.json()
-
-	# Check if the request was successful and return the year
-	if response.status_code == 200 and "Year" in data:
-		return data["Year"]
-	else:
-		return "Show not found or invalid API key."
+    return merged_df
 
 
 # ------------------------------------------------------------------------------
-# main metadata collection function
+# main metadata collection showRSS pipeline
 # ------------------------------------------------------------------------------
 
+def get_tv_show_metadata():
+    # red in tv_shows.csv
+    tv_shows = pd.read_csv('./data/tv_shows.csv')
 
-def collect_metadata(feed_df):
-	"""
-	Loop through all of the movie titles and release years in feed_df,
-	call the OMDb API to get the movie data, save the data into a data frame,
-	and merge it with the existing feed_df.
-	"""
-	movie_data_list = []
+    # get omdb for each show
+    tv_shows = get_tv_show_omdb_metadata(tv_shows)
 
-	for index, row in feed_df.iterrows():
-		movie_name = row['movie_title']
-		release_year = row.get('release_year', None)
-		movie_data = get_movie_data(movie_name, release_year)
-
-		if isinstance(movie_data, dict):
-			movie_data_list.append(movie_data)
-		else:
-			print(f"Error fetching data for {movie_name}: {movie_data}")
-
-	movie_data_df = pd.DataFrame(movie_data_list)
-	merged_df = pd.merge(feed_df, movie_data_df, left_on='movie_title',
-						 right_on='Title', how='left')
-
-	return merged_df
+    # write tv shows back to csv
+    tv_shows.to_csv('./data/tv_shows.csv', index=False)
 
 

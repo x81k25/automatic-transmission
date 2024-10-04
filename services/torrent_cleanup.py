@@ -36,12 +36,7 @@ def movie_cleanup():
     :return:
     """
     # instantiate transmission client
-    transmission_client = Transmission_client(
-        host=hostname,
-        port=transmisson_port,
-        username=transmission_username,
-        password=transmission_password
-    )
+    transmission_client = rpcf.get_transmission_client()
 
     # get status of all torrents in transmission and save to dataframe
     torrents = transmission_client.get_torrents()
@@ -72,7 +67,6 @@ def movie_cleanup():
             transmission_client.remove_torrent(row['hash'])
             print(f"Torrent {row['name']} has been removed")
 
-
     sshf.print_dump_contents()
 
     sshf.move_tv_show(
@@ -85,21 +79,31 @@ def movie_cleanup():
         file_name="Can't Hardly Wait (1998) [1080p] [BluRay] [5.1] [YTS.MX]"
     )
 
-def remove_tv_shows():
+def remove_tv_shows(tv_shows):
     # Instantiate transmission client
-    transmission_client = Transmission_client(
-        host=hostname,
-        port=transmisson_port,
-        username=transmission_username,
-        password=transmission_password
-    )
+    transmission_client = rpcf.get_transmission_client()
 
-    # Read in tv_shows.csv
-    tv_shows = pd.read_csv('./data/tv_shows.csv')
+    # Get the torrent all hash from tv_shows DataFrame
+    torrent_hashes = tv_shows['hash']
 
-    # Iterate through each row and check the status
+    # iterate through each hash and get torrent data
+    for hash_id in torrent_hashes:
+        # Query transmission for the status of the download
+        torrent = transmission_client.get_torrent(hash_id)
+
+    # Get the file names
+    file_names = [file.name for file in torrent.files()]
+
+    # Save the updated tv_shows DataFrame
+    print(file_names)
+
+    return tv_shows
+
+
+def transfer_tv_shows(tv_shows):
     for index, row in tv_shows.iterrows():
-        if row['status'] == 'downloading':
+        if row['status'] == 'downloaded':
+
             hash_id = row['hash']
             try:
                 # Query transmission for the status of the download
@@ -109,14 +113,11 @@ def remove_tv_shows():
                     transmission_client.remove_torrent(hash_id)
                     # If removal was successful, change status to "downloaded"
                     tv_shows.at[index, 'status'] = 'downloaded'
-                    print(f"Download successful: {row['raw_title']} with hash {hash_id}")
+                    print(
+                        f"Download successful: {row['raw_title']} with hash {hash_id}")
             except Exception as e:
-                print(f"Failed to update status for {row['raw_title']} with hash {hash_id}. Error: {e}")
-
-    # Save the updated tv_shows DataFrame
-    tv_shows.to_csv('./data/tv_shows.csv', index=False)
-
-
+                print(
+                    f"Failed to update status for {row['raw_title']} with hash {hash_id}. Error: {e}")
 
 
 # ------------------------------------------------------------------------------
@@ -125,4 +126,12 @@ def remove_tv_shows():
 
 
 def tv_show_cleanup():
-    remove_tv_shows()
+    # red in tv_shows.csv
+    tv_shows = pd.read_csv('./data/tv_shows.csv')
+
+    tv_shows = remove_tv_shows(tv_shows)
+
+    tv_shows = transfer_tv_shows(tv_shows)
+
+
+

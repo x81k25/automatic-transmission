@@ -40,7 +40,7 @@ def initiate_yts_torrent():
 
 
 # ------------------------------------------------------------------------------
-# initiate show torrents
+# initiate tv show torrents
 # ------------------------------------------------------------------------------
 
 def initiate_tv_shows():
@@ -52,7 +52,7 @@ def initiate_tv_shows():
 
     # Iterate through each row and check the status
     for index, row in tv_shows.iterrows():
-        if row['status'] == 'ingested':
+        if row['status'] == 'queued':
             # Submit the magnet link to the transmission client
             try:
                 transmission_client.add_torrent(row['magnet_link'])
