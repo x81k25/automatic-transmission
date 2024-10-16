@@ -5,3 +5,4 @@ automatic-transmission.log
 test.py
 config/parameters.json
 /venv/
+data/*
