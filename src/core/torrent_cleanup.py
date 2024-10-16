@@ -1,9 +1,9 @@
 import os
 from dotenv import load_dotenv
-from transmission_rpc import Client as Transmission_client
 import pandas as pd
-from ssh_functions import sshf
-from rpc_functions import rpcf
+import pickle
+from src.utils import rpcf, sshf, logger
+
 
 # ------------------------------------------------------------------------------
 # load environment variables and
@@ -12,16 +12,10 @@ from rpc_functions import rpcf
 # Load environment variables from .env file
 load_dotenv()
 
-# load environment variables for SSH connection details
-hostname = os.getenv('server-ip')
-ssh_username = os.getenv('server-username')
-ssh_password = os.getenv('server-password')
-ssh_port = 22  # Default SSH port
-
-# transmission connection details
-transmission_username = os.getenv('transmission-username')
-transmission_password = os.getenv('transmission-password')
-transmisson_port = 9091
+# set directories from .env
+download_dir=os.getenv('download_dir')
+tv_show_dir=os.getenv('tv_show_dir')
+movie_dir=os.getenv('movie_dir')
 
 # ------------------------------------------------------------------------------
 # torrent clean-up functions
@@ -65,7 +59,7 @@ def movie_cleanup():
     for index, row in torrent_df.iterrows():
         if row.progress == 100:
             transmission_client.remove_torrent(row['hash'])
-            print(f"Torrent {row['name']} has been removed")
+            logger(f"torrent {row['name']} has been removed")
 
     sshf.print_dump_contents()
 
@@ -79,59 +73,70 @@ def movie_cleanup():
         file_name="Can't Hardly Wait (1998) [1080p] [BluRay] [5.1] [YTS.MX]"
     )
 
-def remove_tv_shows(tv_shows):
+def remove_tv_shows(tv_show):
     # Instantiate transmission client
     transmission_client = rpcf.get_transmission_client()
 
-    # Get the torrent all hash from tv_shows DataFrame
-    torrent_hashes = tv_shows['hash']
-
     # iterate through each hash and get torrent data
-    for hash_id in torrent_hashes:
-        # Query transmission for the status of the download
-        torrent = transmission_client.get_torrent(hash_id)
+    try:
+        torrent = transmission_client.get_torrent(tv_show.hash)
 
-    # Get the file names
-    file_names = [file.name for file in torrent.files()]
+        # remove completed downloads and update status
+        if torrent.progress == 100.0:
+            tv_show["file_name"] = torrent.name
+            transmission_client.remove_torrent(tv_show.hash)
+            tv_show["status"] = 'downloaded'
+            logger(f"download successful: {tv_show.raw_title} with hash {tv_show.hash}")
+    except:
+        logger(f"error downloading: {tv_show.raw_title} with hash {tv_show.hash}")
 
-    # Save the updated tv_shows DataFrame
-    print(file_names)
-
-    return tv_shows
+    return tv_show
 
 
-def transfer_tv_shows(tv_shows):
-    for index, row in tv_shows.iterrows():
-        if row['status'] == 'downloaded':
+def transfer_tv_shows(tv_show, download_dir, tv_show_dir):
+    transmission_client = rpcf.get_transmission_client()
 
-            hash_id = row['hash']
-            try:
-                # Query transmission for the status of the download
-                torrent = transmission_client.get_torrent(hash_id)
-                if torrent.progress == 100:
-                    # Remove the torrent from transmission
-                    transmission_client.remove_torrent(hash_id)
-                    # If removal was successful, change status to "downloaded"
-                    tv_shows.at[index, 'status'] = 'downloaded'
-                    print(
-                        f"Download successful: {row['raw_title']} with hash {hash_id}")
-            except Exception as e:
-                print(
-                    f"Failed to update status for {row['raw_title']} with hash {hash_id}. Error: {e}")
+    try:
+        sshf.move_tv_show(
+            download_dir = download_dir,
+            tv_show_dir = tv_show_dir,
+            file_name = tv_show.file_name,
+            tv_show_name = tv_show.tv_show_name,
+            release_year= tv_show.release_year,
+            season = tv_show.season
+        )
+        tv_show["status"] = 'completed'
+        logger(f"transfer complete: {tv_show.raw_title} with hash {tv_show.hash}")
+    except:
+        logger(f"error transferring: {tv_show.raw_title} with hash {tv_show.hash}")
 
+    return tv_show
 
 # ------------------------------------------------------------------------------
 # torrent clean-up full pipelines
 # ------------------------------------------------------------------------------
 
-
 def tv_show_cleanup():
-    # red in tv_shows.csv
-    tv_shows = pd.read_csv('./data/tv_shows.csv')
+    # Read in tv_shows.pkl
+    with open('./data/tv_shows.pkl', 'rb') as file:
+        tv_shows = pickle.load(file)
 
-    tv_shows = remove_tv_shows(tv_shows)
+    # remove downloaded torrents
+    for index, row in tv_shows.iterrows():
+        if row['status'] == 'downloading':
+            row.hash = index
+            updated_row = remove_tv_shows(row)
+            tv_shows.loc[index] = updated_row
 
-    tv_shows = transfer_tv_shows(tv_shows)
+    # transfer completed torrents
+    for index, row in tv_shows.iterrows():
+        if row['status'] == 'downloaded':
+            row.hash = index
+            updated_row = transfer_tv_shows(row, download_dir, tv_show_dir)
+            tv_shows.loc[index] = updated_row
 
+    # Save the updated tv_shows DataFrame
+    with open('./data/tv_shows.pkl', 'wb') as file:
+        pickle.dump(tv_shows, file)
 
 

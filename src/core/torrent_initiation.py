@@ -1,10 +1,5 @@
-from re import search
-import feedparser
-import pandas as pd
-import re
-import json
-from ssh_functions import sshf
-from rpc_functions import rpcf
+import pickle
+from src.utils import rpcf, logger
 
 
 # ------------------------------------------------------------------------------
@@ -47,8 +42,9 @@ def initiate_tv_shows():
     # Instantiate transmission client
     transmission_client = rpcf.get_transmission_client()
 
-    # Read in tv_shows.csv
-    tv_shows = pd.read_csv('./data/tv_shows.csv')
+    # Read in tv_shows.pkl
+    with open('./data/tv_shows.pkl', 'rb') as file:
+        tv_shows = pickle.load(file)
 
     # Iterate through each row and check the status
     for index, row in tv_shows.iterrows():
@@ -58,12 +54,13 @@ def initiate_tv_shows():
                 transmission_client.add_torrent(row['magnet_link'])
                 # If successful, change the status to downloading
                 tv_shows.at[index, 'status'] = 'downloading'
-                print(f"downloading: {row['raw_title']} with link {row['magnet_link']}")
+                logger(f"downloading: {row['raw_title']} with link {row['magnet_link']}")
             except Exception as e:
-                print(f"failed to download: {row['raw_title']} with magnet link {row['magnet_link']}. Error: {e}")
+                logger(f"failed to download: {row['raw_title']} with magnet link {row['magnet_link']}. Error: {e}")
 
     # Save the updated tv_shows DataFrame
-    tv_shows.to_csv('./data/tv_shows.csv', index=False)
+    with open('./data/tv_shows.pkl', 'wb') as file:
+        pickle.dump(tv_shows, file)
 
 # ------------------------------------------------------------------------------
 # testing

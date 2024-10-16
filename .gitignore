@@ -1,4 +1,6 @@
+.bak
 .env
-/venv/
+automatic-transmission.log
 test.py
-confing/parameters.json
+config/parameters.json
+/venv/

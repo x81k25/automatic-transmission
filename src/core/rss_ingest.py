@@ -1,8 +1,10 @@
 from re import search
 import feedparser
 import pandas as pd
+import pickle
 import re
 import json
+from src.utils import logger
 
 # ------------------------------------------------------------------------------
 # read in static parameters
@@ -26,8 +28,8 @@ def yts_rss_ingest(rss_url):
     feed = feedparser.parse(rss_url)
 
     # store the input
-    print(feed.feed.title)
-    print(feed.feed.updated)
+    logger(feed.feed.title)
+    logger(feed.feed.updated)
 
     return feed
 
@@ -134,7 +136,7 @@ def tv_show_rss_ingest(rss_url = parameters["tv_rss_url"]):
     feed = feedparser.parse(rss_url)
 
     # store the input
-    print(feed.channel.title)
+    logger("ingesting from: " + str(feed.channel.title))
 
     # store raw rss feed locally for analysis as json
     with open('./data/show_feed.json', 'w') as f:
@@ -191,24 +193,20 @@ def parse_tv_shows(new_tv_show):
 
     # search for patterns
     title = new_tv_show['raw_title']
-    if season_pattern.search(title).group(0) is not None:
+    if season_pattern.search(title) is not None:
         new_tv_show['season'] = season_pattern.search(title).group(0)
-    if () is not None:
-        new_tv_show['season'] = ()
-    if () is not None:
-        new_tv_show['season'] = ()
-    if () is not None:
-        new_tv_show['season'] = ()
-    if () is not None:
-        new_tv_show['season'] = ()
-    if () is not None:
-        new_tv_show['season'] = ()
-
-    new_tv_show['episode'] = episode_pattern.search(title).group(0)
-    new_tv_show['resolution'] = resolution_pattern.search(title).group(0)
-    new_tv_show['video_codec'] = video_codec_pattern.search(title).group(0)
-    new_tv_show['upload_type'] = upload_type_pattern.search(title).group(0)
-    new_tv_show['audio_codec'] = audio_codec_pattern.search(title).group(0)
+        new_tv_show['season'] = re.sub(r'\D', '', new_tv_show['season'])
+    if episode_pattern.search(title) is not None:
+        new_tv_show['episode'] = episode_pattern.search(title).group(0)
+        new_tv_show['episode'] = re.sub(r'\D', '', new_tv_show['episode'])
+    if resolution_pattern.search(title) is not None:
+        new_tv_show['resolution'] = resolution_pattern.search(title).group(0)
+    if video_codec_pattern.search(title) is not None:
+        new_tv_show['video_codec'] = video_codec_pattern.search(title).group(0)
+    if upload_type_pattern.search(title) is not None:
+        new_tv_show['upload_type'] = upload_type_pattern.search(title).group(0)
+    if audio_codec_pattern.search(title) is not None:
+        new_tv_show['audio_codec'] = audio_codec_pattern.search(title).group(0)
 
     return new_tv_show
 
@@ -216,11 +214,10 @@ def parse_tv_shows(new_tv_show):
 # ------------------------------------------------------------------------------
 # rss ingest for tv
 # ------------------------------------------------------------------------------
-
 def tv_show_full_ingest():
     # read in existing show data
-    tv_shows = pd.read_csv('./data/tv_shows.csv')
-    tv_shows.set_index('hash', inplace=True)
+    with open('./data/tv_shows.pkl', 'rb') as file:
+        tv_shows = pickle.load(file)
 
     # retrieve rss feed
     tv_show_feed = tv_show_rss_ingest()
@@ -237,30 +234,14 @@ def tv_show_full_ingest():
 
         for index in new_tv_shows.index:
             new_tv_show = new_tv_shows.loc[index].copy()
-            new_tv_show = parse_tv_shows(new_tv_show)
-            new_tv_shows.loc[index] = new_tv_show
+            new_tv_shows.loc[index] = parse_tv_shows(new_tv_show)
 
-
-
-
-    for index in new_hashes:
-        print(index)
-
-    # parse fields for new tv fields contained in raw_title
-    new_tv_shows = tv_shows[tv_shows['status'].isna()].copy()
-    new_tv_shows = parse_tv_shows(new_tv_shows)
-
-    # updated status of
-    for index in new_hashes:
-        print(index)
-
-        print(new_tv_shows.loc[index])
-
-        print(f"ingested: {new_tv_shows.loc[index]} with hash {index}")
-
-
-        tv_shows.loc[index]["status"] = "ingested"
+        # updated status of new tv shows
+        for index in new_hashes:
+            tv_shows.loc[index] = new_tv_shows.loc[index]
+            tv_shows.loc[index, 'status'] = 'ingested'
+            logger(f"ingested: {tv_shows.loc[index, 'raw_title']} with hash {index}")
 
     # Save the updated tv_shows DataFrame
-    tv_shows.to_csv('./data/tv_shows.csv', index=True)
-
+    with open('./data/tv_shows.pkl', 'wb') as file:
+        pickle.dump(tv_shows, file)
