@@ -10,7 +10,7 @@ config/parameters.json
 automatic-transmission.log
 # ignore contents of data folder but not the folder itself
 data/*
-!data/.gitignore
+!data/.keep
 
 # folder used for storing test execution scripts
 test.py
