@@ -1,5 +1,6 @@
 .bak
 .env
+.idea
 automatic-transmission.log
 test.py
 config/parameters.json
