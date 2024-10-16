@@ -1,2 +1,6 @@
+feedparser
 python-dotenv
+pandas
 paramiko
+transmission-rpc
+tmdbv3api

@@ -1,2 +1,17 @@
+# ide files
+.idea
+
+# folder containers contents specific to each instance
 .env
 /venv/
+config/parameters.json
+
+# all data should be generated upon ingestion, and not saved to repo
+automatic-transmission.log
+# ignore contents of data folder but not the folder itself
+data/*
+!data/.keep
+
+# folder used for storing test execution scripts
+test.py
+.bak

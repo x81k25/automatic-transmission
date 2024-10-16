@@ -1,110 +1,107 @@
-# automatic-transmission
-The purpose of this project is to create a back-end service to be deployed from a docker container that will ingest RSS feeds, process those feeds, and then feed them into the application Transmission.
+Sure, here is an updated version of your `README.md` file:
 
-## set-up
+```markdown
+# Automatic Transmission
 
-### install transmission
-The linux application Transmission will be required to be installed on the host machine. To install transmission, run the following commands:
-```commandline
-sudo apt update
-sudo apt install transmission-daemon
+## Overview
+Automatic Transmission is a Python-based project designed to manage and automate the downloading, organizing, and processing of TV shows and movies. The project leverages various libraries and tools to interact with remote servers, manage media files, and control the Transmission service.
+
+## Features
+- **SSH Command Execution**: Execute commands on remote servers using SSH.
+- **Transmission Service Management**: Start, stop, and restart the Transmission service.
+- **Media File Management**: Move and organize TV shows and movies into designated directories.
+- **Directory Management**: Create directories if they do not exist.
+- **Media Dump Management**: Print and purge the contents of the media dump directory.
+
+## Requirements
+The project requires the following Python packages:
+
+- `feedparser`
+- `python-dotenv`
+- `pandas`
+- `paramiko`
+- `transmission-rpc`
+- `tmdbv3api`
+
+Ensure these packages are listed in your `requirements.txt` file.
+
+## Installation
+1. Clone the repository:
+    ```shell
+    git clone https://github.com/yourusername/automatic-transmission.git
+    ```
+2. Navigate to the project directory:
+    ```shell
+    cd automatic-transmission
+    ```
+3. Create a virtual environment:
+    ```shell
+    python -m venv venv
+    ```
+4. Activate the virtual environment:
+    - On Windows:
+        ```shell
+        venv\Scripts\activate
+        ```
+    - On macOS/Linux:
+        ```shell
+        source venv/bin/activate
+        ```
+5. Install the required packages:
+    ```shell
+    pip install -r requirements.txt
+    ```
+
+## Usage
+### Running the Main Script
+To execute the `tv_show_pipeline()` function from the Windows shell, use the following command:
+```shell
+python C:/Users/jpeck/py/automatic-transmission/main.py tv_show_pipeline
 ```
 
-### configure transmission
-```commandline
-sudo systemctl stop transmission-daemon
-sudo nano /etc/transmission-daemon/settings.json
+### Managing Transmission Service
+- **Get Transmission Service Status**:
+    ```python
+    get_transmission_service_status()
+    ```
+- **Start Transmission Service**:
+    ```python
+    trans_start()
+    ```
+- **Stop Transmission Service**:
+    ```python
+    trans_stop()
+    ```
+- **Restart Transmission Service**:
+    ```python
+    trans_restart()
+    ```
+
+### Moving Media Files
+- **Move Movie**:
+    ```python
+    move_movie(file_name, download_dir, movie_dir)
+    ```
+- **Move TV Show**:
+    ```python
+    move_tv_show(download_dir, tv_show_dir, file_name, tv_show_name, release_year, season)
+    ```
+
+### Managing Media Dump
+- **Print Media Dump Contents**:
+    ```python
+    print_dump_contents()
+    ```
+- **Purge Media Dump**:
+    ```python
+    purge_media_dump()
+    ```
+
+## Configuration
+Ensure you have a `.env` file in the project root with the necessary environment variables for SSH connection and other configurations.
+
+## License
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
 ```
 
-Likely parameters to modify:
-
-```"rpc-enabled": true,```: Ensure remote access is enabled.
-
-```"rpc-bind-address": "0.0.0.0",```: Set this to 0.0.0.0 to allow access from any IP (or restrict it to a specific IP).
-
-```"rpc-whitelist": "127.0.0.1",```: Replace 127.0.0.1 with your local network IP range (or remove it if you don't want a whitelist).
-
-```"rpc-authentication-required"```: true,: Set this to true to require a username and password.
-
-```"rpc-username": "your_username",```: Set your desired username.
-
-```"rpc-password": "your_password",```: Set your desired password (it will be hashed after the daemon is restarted).
-
-### install python packages
-Pip install all packages located within requirements.txt
-
-### environemnt variables
-Create a .env file in the root directory of the project with the following variables:
-```commandline
-server-ip
-server-username
-server-password
-transmission-username
-transmission-password
-```
-
-## file structure
-
-```
-my-python-project/
-├── app/                    # Main application source code
-│   ├── __init__.py         # Makes app a package
-│   ├── main.py             # Entry point for the application
-│   ├── utils.py            # Utility functions (example)
-│   └── ...                 # Other modules
-├── tests/                  # Unit and integration tests
-│   ├── __init__.py
-│   └── test_main.py        # Test cases for main.py
-├── Dockerfile              # Docker configuration file
-├── docker-compose.yml      # Docker Compose file (optional)
-├── .dockerignore           # Ignore unnecessary files in the Docker image
-├── requirements.txt        # List of Python dependencies
-├── .env                    # Environment variables (ignored by version control)
-├── README.md               # Project documentation
-├── setup.py                # Installation and package details (optional)
-├── config/                 # Configuration files (optional)
-│   └── config.yaml         # Example configuration file
-├── .gitignore              # Ignore specific files in Git
-└── LICENSE                 # License for the project (e.g., MIT)
-```
-
-## Key Files and Directories:
-1. app/ (Main Application Code)
-
-    __init__.py: Marks this directory as a package.
-    main.py: The main script that runs the application (entry point).
-    utils.py: A sample module for utility functions (you can have other modules based on your project’s needs).
-
-2. tests/ (Test Suite)
-
-    test_main.py: Example of unit or integration tests for your application.
-    Tests are important for ensuring that your code behaves as expected.
-
-3. Dockerfile
-
-    Defines how the Docker image is built, including the base image, dependencies, and how to run the application.
-
-4. docker-compose.yml
-
-    Defines multi-container Docker applications, useful if your app relies on other services like databases, message queues, etc.
-
-5. .dockerignore
-
-    Similar to .gitignore, this file prevents unnecessary files from being included in your Docker image (e.g., tests/, .git/, etc.).
-
-6. requirements.txt
-
-    Lists Python dependencies. Use pip freeze > requirements.txt to generate this file.
-
-7. .env
-
-    Stores environment variables (e.g., API keys, database URIs), ignored in version control for security.
-
-8. README.md
-
-    A clear explanation of your project, how to set it up, and how to use it.
-
-9. setup.py (Optional)
-
-    If you plan to distribute your application as a package, setup.py provides metadata about your project and helps with packaging and distribution.
-
+Make sure to replace `yourusername` with your actual GitHub username in the repository URL.
