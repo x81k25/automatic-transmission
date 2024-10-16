@@ -75,7 +75,6 @@ def get_tv_show_omdb_metadata(tv_show):
         tv_show['imdb_rating'] = data.get('imdbRating', None)
         if tv_show['imdb_rating'] != "N/A":
             tv_show['imdb_rating'] = float(re.sub(r"\D", "", tv_show['imdb_rating']))
-        print(tv_show['imdb_rating'])
         tv_show['imdb_votes'] = data.get('imdbVotes', None)
         if tv_show['imdb_rating'] != "N/A":
             tv_show['imdb_votes'] = int(re.sub(r"\D", "", tv_show['imdb_votes']))

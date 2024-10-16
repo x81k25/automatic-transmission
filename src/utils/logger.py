@@ -16,6 +16,6 @@ def logger(input_string=""):
 	current_timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
 	# open file in append mode
-	with open("automatic-transmission.log", "a") as file:
+	with open(log_dir, "a") as file:
 		# write timestamp and input_string to file
 		file.write(f"{current_timestamp} {input_string}\n")
