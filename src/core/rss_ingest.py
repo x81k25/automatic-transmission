@@ -1,24 +1,21 @@
-from re import search
+from dotenv import load_dotenv
 import feedparser
+import os
 import pandas as pd
 import pickle
-import re
-import json
 from src.utils import logger
+import re
+
+# load environment variables
+load_dotenv()
+
 
 # ------------------------------------------------------------------------------
-# read in static parameters
+# rss ingest helper functions
 # ------------------------------------------------------------------------------
 
-# read in filter_parameters.json and store as dict
-with open('./config/parameters.json') as f:
-    parameters = json.load(f)
 
-# ------------------------------------------------------------------------------
-# yts rss ingest helper functions
-# ------------------------------------------------------------------------------
-
-def yts_rss_ingest(rss_url):
+def rss_ingest(rss_url):
     """
     ping rss feed and store the input
     :param rss_url: url of rss feed
@@ -27,221 +24,175 @@ def yts_rss_ingest(rss_url):
     # ping rss feed
     feed = feedparser.parse(rss_url)
 
-    # store the input
-    logger(feed.feed.title)
-    logger(feed.feed.updated)
-
-    return feed
-
-
-def yts_rss_entries_to_dataframe(entries):
-    """
-    Convert RSS feed entries into a pandas DataFrame
-    :param entries: List of RSS feed entries
-    :return: DataFrame containing the RSS feed entries
-    """
-    # Extract relevant fields from each entry
-    data = []
-    for entry in entries:
-        data.append({
-            'entry_title': entry.title,
-            'hash_id': entry.links[1].href.split('/')[-1],
-            'link': entry.link,
-            'published': entry.published,
-            'updated': entry.updated,
-            'guid': entry.guid
-        })
-
-    # Create DataFrame from the extracted data
-    df = pd.DataFrame(data)
-    return df
-
-
-def parse_movie_info(movie_strings):
-    # Define the columns for the DataFrame
-    columns = ['original_string', 'movie_title', 'release_year', 'resolution', 'upload_format', 'audio_format', 'encoding', 'uploader']
-    data = []
-
-    # Define regex patterns for each field
-    title_pattern = re.compile(r'^(.*?) \(')
-    year_pattern = re.compile(r'\((\d{4})\)')
-    resolution_pattern = re.compile(r'\[(\d{3,4}p)\]')
-    upload_format_pattern = re.compile(r'\[(BluRay|WEBRip)\]')
-    audio_format_pattern = re.compile(r'\[(5\.1|10bit)\]')
-    encoding_pattern = re.compile(r'\[(x264|x265)\]')
-    uploader_pattern = re.compile(r'\[YTS\.MX\]$')
-
-    for string in movie_strings:
-        movie_title = title_pattern.search(string)
-        release_year = year_pattern.search(string)
-        resolution = resolution_pattern.search(string)
-        upload_format = upload_format_pattern.search(string)
-        audio_format = audio_format_pattern.search(string)
-        encoding = encoding_pattern.search(string)
-        uploader = uploader_pattern.search(string)
-
-        # Append the parsed data to the list
-        data.append([
-            string,
-            movie_title.group(1).strip() if movie_title else None,
-            release_year.group(1) if release_year else None,
-            resolution.group(1) if resolution else None,
-            upload_format.group(1) if upload_format else None,
-            audio_format.group(1) if audio_format else None,
-            encoding.group(1) if encoding else None,
-            'YTS.MX' if uploader else None
-        ])
-
-    # Create DataFrame from the parsed data
-    df = pd.DataFrame(data, columns=columns)
-    return df
-
-
-# ------------------------------------------------------------------------------
-# full movie ingest pipeline
-# ------------------------------------------------------------------------------
-
-# website to generate rss feed https://yts.torrentbay.st/rss-guide
-
-def ingest_via_yts():
-    # retrieve movie rss feed
-    rss_url = "https://yts.mx/rss/"
-    feed = yts_rss_ingest(rss_url)
-
-    # covert to data frame
-    feed_df = yts_rss_entries_to_dataframe(feed['entries'])
-
-    # parse entry_title field for additional data fields
-    parsed_df = parse_movie_info(feed_df["entry_title"])
-
-    # merge feed_df and parsed_df but to do add any redundant columns
-    feed_df = pd.concat([feed_df, parsed_df], axis=1)
-
-    # save feed_df locally in a format that makes sense
-    feed_df.to_csv('feed_df.csv')
-
-
-# ------------------------------------------------------------------------------
-# show rss ingest helper functions
-# ------------------------------------------------------------------------------
-
-
-def tv_show_rss_ingest(rss_url = parameters["tv_rss_url"]):
-    """
-    ping rss feed and store the input
-    :param rss_url: url of rss feed
-    :return:
-    """
-    # ping rss feed
-    feed = feedparser.parse(rss_url)
-
-    # store the input
+    # print terminal message
     logger("ingesting from: " + str(feed.channel.title))
 
-    # store raw rss feed locally for analysis as json
-    with open('./data/show_feed.json', 'w') as f:
-        json.dump(feed, f, indent=4)
-
     return feed
 
 
-def tv_show_rss_entries_to_dataframe(tv_show_feed):
+def rss_entries_to_dataframe(feed, feed_type):
     """
     Convert RSS feed entries into a pandas DataFrame
-    :param feed: List of RSS feed entries
-    :param tv_shows: empty data frame to store tv show data
+    :param feed: extract rss feed
+    :param feed_type: type of feed, either "movie" or "tv_show"
     :return: DataFrame containing the RSS feed entries
     """
     # Extract the entries
-    entries = tv_show_feed['entries']
+    entries = feed['entries']
 
     # Extract relevant fields from each entry
     extracted_data = []
-    for entry in entries:
-        extracted_data.append({
-            'hash': entry.get('tv_info_hash'),
-            'tv_show_name': entry.get('tv_show_name'),
-            'magnet_link': entry.get('link'),
-            'published_timestamp': entry.get('published'),
-            'summary': entry.get('summary'),
-            'raw_title': entry.get('title'),
-            'feed_id': entry.get('id'),
-            'tv_show_id': entry.get('tv_show_id'),
-            'tv_episode_id': entry.get('tv_episode_id'),
-            'tv_external_id': entry.get('tv_external_id'),
-        })
+
+    if feed_type == 'movie':
+        for entry in entries:
+            extracted_data.append({
+                'hash': entry.links[1].href.split('/')[-1],
+                'raw_title': entry.title,
+                'torrent_link': entry.links[1].href,
+                'published_timestamp': entry.published,
+            })
+    elif feed_type == 'tv_show':
+        for entry in entries:
+            extracted_data.append({
+                'hash': entry.get('tv_info_hash'),
+                'tv_show_name': entry.get('tv_show_name'),
+                'magnet_link': entry.get('link'),
+                'published_timestamp': entry.get('published'),
+                'summary': entry.get('summary'),
+                'raw_title': entry.get('title'),
+                'feed_id': entry.get('id'),
+                'tv_show_id': entry.get('tv_show_id'),
+                'tv_episode_id': entry.get('tv_episode_id'),
+                'tv_external_id': entry.get('tv_external_id'),
+            })
+    else:
+        raise ValueError("Invalid feed type. Must be 'movie' or 'tv_show'")
 
     # convert all of the hash values to lower case
     for entry in extracted_data:
         entry['hash'] = entry['hash'].lower()
 
     # Convert extracted data to DataFrame
-    feed_tv_shows = pd.DataFrame(extracted_data)
-    feed_tv_shows.set_index('hash', inplace=True)
+    feed_items = pd.DataFrame(extracted_data)
+    feed_items.set_index('hash', inplace=True)
 
-    return feed_tv_shows
+    return feed_items
 
 
-def parse_tv_shows(new_tv_show):
-    # Define regex patterns for each field
-    season_pattern = re.compile(r'S(\d{2})E')
-    episode_pattern = re.compile(r'E(\d{2})')
+def parse_new_item(new_item, item_type):
+    """
+    Parse the title of a new item to extract relevant information
+    :param new_item: element from rss feed data frame
+    :param item_type: either "movie" or "tv_show"
+    :return: new item series to be inserted into master data frame
+    """
+    # define regex patterns for both item types
     resolution_pattern = re.compile(r'(\d{3,4}p)')
     video_codec_pattern = re.compile(r'\b(h264|x264|x265|H 264|H 265)\b', re.IGNORECASE)
     upload_type_pattern = re.compile(r'\b(WEB DL|WEB|MAX|AMZN)\b', re.IGNORECASE)
     audio_codec_pattern = re.compile(r'\b(DDP5\.1|AAC5\.1|DDP|AAC)\b', re.IGNORECASE)
+    uploader_pattern = re.compile(r'\[YTS\.MX\]$')
 
-    # search for patterns
-    title = new_tv_show['raw_title']
-    if season_pattern.search(title) is not None:
-        new_tv_show['season'] = season_pattern.search(title).group(0)
-        new_tv_show['season'] = re.sub(r'\D', '', new_tv_show['season'])
-    if episode_pattern.search(title) is not None:
-        new_tv_show['episode'] = episode_pattern.search(title).group(0)
-        new_tv_show['episode'] = re.sub(r'\D', '', new_tv_show['episode'])
+    # define regex for movie items only
+    title_pattern = re.compile(r'^(.*?) \(')
+    year_pattern = re.compile(r'\((\d{4})\)')
+
+    # define regex for tv show items only
+    season_pattern = re.compile(r'S(\d{2})E')
+    episode_pattern = re.compile(r'E(\d{2})')
+
+    # search for patterns in both item types
+    title = new_item['raw_title']
     if resolution_pattern.search(title) is not None:
-        new_tv_show['resolution'] = resolution_pattern.search(title).group(0)
+        new_item['resolution'] = resolution_pattern.search(title).group(0)
     if video_codec_pattern.search(title) is not None:
-        new_tv_show['video_codec'] = video_codec_pattern.search(title).group(0)
+        new_item['video_codec'] = video_codec_pattern.search(title).group(0)
     if upload_type_pattern.search(title) is not None:
-        new_tv_show['upload_type'] = upload_type_pattern.search(title).group(0)
+        new_item['upload_type'] = upload_type_pattern.search(title).group(0)
     if audio_codec_pattern.search(title) is not None:
-        new_tv_show['audio_codec'] = audio_codec_pattern.search(title).group(0)
+        new_item['audio_codec'] = audio_codec_pattern.search(title).group(0)
+    if uploader_pattern.search(title) is not None:
+        new_item['uploader'] = uploader_pattern.search(title).group(0)
+        new_item['uploader'] = new_item['uploader'].strip('[').strip(']')
 
-    return new_tv_show
+    # search for movie only patterns
+    if item_type == 'movie':
+        if title_pattern.search(title) is not None:
+            new_item['movie_title'] = title_pattern.search(title).group(1)
+        if year_pattern.search(title) is not None:
+            new_item['release_year'] = year_pattern.search(title).group(1)
+    # search for tv show only patterns
+    elif item_type == 'tv_show':
+        if season_pattern.search(title) is not None:
+            new_item['season'] = season_pattern.search(title).group(0)
+            new_item['season'] = re.sub(r'\D', '', new_item['season'])
+        if episode_pattern.search(title) is not None:
+            new_item['episode'] = episode_pattern.search(title).group(0)
+            new_item['episode'] = re.sub(r'\D', '', new_item['episode'])
+    else:
+        raise ValueError("Invalid item type. Must be 'movie' or 'tv_show'")
+
+    return new_item
 
 
 # ------------------------------------------------------------------------------
-# rss ingest for tv
+# full ingest for either element type
 # ------------------------------------------------------------------------------
-def tv_show_full_ingest():
-    # read in existing show data
-    with open('./data/tv_shows.pkl', 'rb') as file:
-        tv_shows = pickle.load(file)
 
-    # retrieve rss feed
-    tv_show_feed = tv_show_rss_ingest()
+def rss_full_ingest(ingest_type):
+    """
+    Full ingest pipeline for either movies or tv shows
+    :param ingest_type: either "movie" or "tv_show"
+    :return:
+    """
+    # read in existing data based on ingest_type
+    if ingest_type == 'movie':
+        master_df_dir = './data/movies.pkl'
+    elif ingest_type == 'tv_show':
+        master_df_dir = './data/tv_shows.pkl'
+    else:
+        raise ValueError("Invalid ingest type. Must be 'movie' or 'tv_show'")
 
-    # convert feed items to data frame
-    feed_tv_shows = tv_show_rss_entries_to_dataframe(tv_show_feed)
+    with open(master_df_dir, 'rb') as file:
+        master_df = pickle.load(file)
 
-    # add tv_shows which have not been ingested to main data frame
-    new_hashes = feed_tv_shows.index.difference(tv_shows.index)
+    # retrieve rss feed based on ingest_type
+    if ingest_type == 'movie':
+        rss_url = os.getenv('movie_rss_url')
+    elif ingest_type == 'tv_show':
+        rss_url = os.getenv('tv_rss_url')
 
+    feed = rss_ingest(rss_url)
+
+    # convert feed to data frame
+    feed_items = rss_entries_to_dataframe(
+        feed=feed,
+        feed_type=ingest_type
+    )
+
+    new_hashes = feed_items.index.difference(master_df.index)
+
+    # iterate through all new movies, parse data from the title and add to the main data frame
     if len(new_hashes) > 0:
-        new_tv_shows = pd.DataFrame(columns=tv_shows.columns)
-        new_tv_shows = pd.concat([new_tv_shows, feed_tv_shows.loc[new_hashes]])
+        new_items = feed_items.loc[new_hashes]
 
-        for index in new_tv_shows.index:
-            new_tv_show = new_tv_shows.loc[index].copy()
-            new_tv_shows.loc[index] = parse_tv_shows(new_tv_show)
-
-        # updated status of new tv shows
-        for index in new_hashes:
-            tv_shows.loc[index] = new_tv_shows.loc[index]
-            tv_shows.loc[index, 'status'] = 'ingested'
-            logger(f"ingested: {tv_shows.loc[index, 'raw_title']} with hash {index}")
+        for index in new_items.index:
+            try:
+                new_item = parse_new_item(
+                    new_item=new_items.loc[index].copy(),
+                    item_type=ingest_type
+                )
+                master_df.loc[index] = new_item
+                # set the status at the current loop index value to ingested
+                master_df.loc[index, 'status'] = 'ingested'
+                logger(f"ingested: {master_df.loc[index, 'raw_title']}")
+            except:
+                logger(f"failed to ingest: {new_items.loc[index, 'raw_title']}")
 
     # Save the updated tv_shows DataFrame
-    with open('./data/tv_shows.pkl', 'wb') as file:
-        pickle.dump(tv_shows, file)
+    with open(master_df_dir, 'wb') as file:
+        pickle.dump(master_df, file)
+
+# ------------------------------------------------------------------------------
+#
+# ------------------------------------------------------------------------------

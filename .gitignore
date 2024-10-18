@@ -4,7 +4,6 @@
 # folder containers contents specific to each instance
 .env
 /venv/
-config/parameters.json
 
 # all data should be generated upon ingestion, and not saved to repo
 automatic-transmission.log

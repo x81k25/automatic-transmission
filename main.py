@@ -6,17 +6,21 @@ import argparse
 # ------------------------------------------------------------------------------
 
 def movie_pipeline():
-    print("the movie pipeline will go here")
+    rss_ingest.rss_full_ingest(ingest_type='movie')
+
+    metadata_collection.collect_all_metadata(metadata_type='movie')
 
 #-------------------------------------------------------------------------------
+# end-to-end pipeline for downloading tv shows
+#
 # to execute the tv show pipeline
 # cd C:\Users\jpeck\py\automatic-transmission & python main.py tv_show_pipeline
 #-------------------------------------------------------------------------------
 
 def tv_show_pipeline():
-    rss_ingest.tv_show_full_ingest()
+    rss_ingest.rss_full_ingest(ingest_type='tv_show')
 
-    metadata_collection.get_tv_show_metadata()
+    metadata_collection.collect_all_metadata(metadata_type='tv_show')
 
     torrent_initiation.initiate_tv_shows()
 
@@ -61,6 +65,16 @@ def main():
 # ------------------------------------------------------------------------------
 # test
 # ------------------------------------------------------------------------------
+
+# open OMDB    MOVE    DATA json
+import json
+with open('.bak/omdb_movie_data.json') as f:
+     data = json.load(f)
+
+# save data back to json
+with open('.bak/omdb_movie_data.json', 'w') as f:
+    json.dump(data, f, indent=4)
+
 
 #tv_show_pipeline()
 
