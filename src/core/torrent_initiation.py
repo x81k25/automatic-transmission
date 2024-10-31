@@ -1,66 +1,126 @@
+import numpy as np
 import pickle
-from src.utils import rpcf, logger
-
-
-# ------------------------------------------------------------------------------
-# initiate movie torrents
-# ------------------------------------------------------------------------------
-
-def initiate_yts_torrent():
-    transmission_client = rpcf.get_transmission_client()
-
-    # add a magnet link
-    transmission_client.add_torrent(
-        "magnet:?xt=urn:btih:52612E49D776F211B2A7ED03DAE2050414FFABED&dn=Saturday.Night.Live.S50E01.Jean.Smart.1080p.WEB.h264-EDITH%5BTGx%5D&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce&tr=udp%3A%2F%2Ftracker.bittor.pw%3A1337%2Fannounce&tr=udp%3A%2F%2Fpublic.popcorn-tracker.org%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.dler.org%3A6969%2Fannounce&tr=udp%3A%2F%2Fexodus.desync.com%3A6969&tr=udp%3A%2F%2Fopen.demonii.com%3A1337%2Fannounce"
-    )
-
-    # add torrent link
-    transmission_client.add_torrent(
-        "https://yts.mx/torrent/download/CE030276BAF2D07E66EB50E47D6D33400D09EAA8"
-    )
-
-    torrents = transmission_client.get_torrents()
-
-    for torrent in torrents:
-        print(f"Torrent Name: {torrent.name}")
-        print(f"Status: {torrent.status}")  # Status: downloading, seeding, paused, etc.
-        print(f"Progress: {torrent.progress:.2f}%")
-        print(f"Downloaded: {torrent.downloaded_ever / (1024 * 1024):.2f} MB")
-        print(f"Uploaded: {torrent.uploaded_ever / (1024 * 1024):.2f} MB")
-        print(f"Ratio: {torrent.ratio:.2f}")
-        print(f"Seeders: {torrent.peers_getting_from_us}")
-        print(f"Leechers: {torrent.peers_sending_to_us}")
-        print(f"hash: {torrent.info_hash}")
-        print("-" * 40)
-
+import pandas as pd
+from src.utils import rpcf, logger, safe
+import json
 
 # ------------------------------------------------------------------------------
-# initiate tv show torrents
+# read in static parameters
 # ------------------------------------------------------------------------------
 
-def initiate_tv_shows():
+with open('./config/filter-parameters.json') as file:
+    filters = json.load(file)
+
+# ------------------------------------------------------------------------------
+# initiation helper functions
+# ------------------------------------------------------------------------------
+
+def filter_item(item, filter_type):
+    #filter_type = 'movie'
+    # search separate criteria for move or tv_show
+    if filter_type == 'movie':
+        sieve = filters['movie']
+        for key in sieve:
+            if not sieve[key]["nullable"]:
+                if pd.api.types.is_scalar(item[key]) and pd.isna(item[key]) or (not pd.api.types.is_scalar(item[key]) and pd.isna(item[key]).all()):
+                    item['rejection_reason'] = f'{key} is null'
+                    break
+            if isinstance(item[key], str):
+                if item[key] not in sieve[key]["allowed_values"]:
+                    item['rejection_reason'] = f'{key} {item[key]} is not in allowed_values'
+                    break
+            elif pd.api.types.is_numeric_dtype(type(item[key])) or \
+                 isinstance(item[key], (int, float, np.number)):
+                if item[key] < sieve[key]["min"]:
+                    item['rejection_reason'] = f'{key} {item[key]} is below min'
+                    break
+                elif item[key] > sieve[key]["max"]:
+                    item['rejection_reason'] = f'{key} {item[key]} is above max'
+                    break
+            elif isinstance(item[key], (list, tuple, np.ndarray)) or \
+               (isinstance(item[key], pd.Series) and len(item[key]) > 0):
+                if not any([x in sieve[key]["allowed_values"] for x in item[key]]):
+                    item['rejection_reason'] = f'{key} {item[key]} does not include {sieve[key]["allowed_values"]}'
+                    break
+    elif filter_type == 'tv_show':
+        pass
+    else:
+        raise ValueError('filter_type must be either "movie" or "tv_show"')
+
+    return item
+
+def initiate_item(item, initiation_type):
     # Instantiate transmission client
     transmission_client = rpcf.get_transmission_client()
 
-    # Read in tv_shows.pkl
-    with open('./data/tv_shows.pkl', 'rb') as file:
-        tv_shows = pickle.load(file)
+    # send link or magnet link to transmission
+    if initiation_type == 'movie':
+        transmission_client.add_torrent(item['torrent_link'])
+    elif initiation_type == 'tv_show':
+        transmission_client.add_torrent(item['magnet_link'])
+    else:
+        raise ValueError('initiation_type must be either "movie" or "tv_show')
 
-    # Iterate through each row and check the status
-    for index, row in tv_shows.iterrows():
-        if row['status'] == 'queued':
-            # Submit the magnet link to the transmission client
+
+# ------------------------------------------------------------------------------
+# full initiation pipeline
+# ------------------------------------------------------------------------------
+
+def full_item_initiation(initiation_type):
+    #initiation_type = 'tv_show'
+    # read in existing data based on initiation_type
+    if initiation_type == 'movie':
+        master_df_dir = './data/movies.pkl'
+    elif initiation_type == 'tv_show':
+        master_df_dir = './data/tv_shows.pkl'
+    else:
+        raise ValueError('initiation_type must be either "movie" or "tv_show"')
+
+    with open(master_df_dir, 'rb') as file:
+        master_df = pickle.load(file)
+
+    # select rows that have a status of queued
+    hashes_to_filter = master_df[master_df['status'] == "queued"].index
+
+    # filter through each row and update the status
+    if len(hashes_to_filter) > 0:
+        for index in hashes_to_filter:
             try:
-                transmission_client.add_torrent(row['magnet_link'])
-                # If successful, change the status to downloading
-                tv_shows.at[index, 'status'] = 'downloading'
-                logger(f"downloading: {row['raw_title']} with link {row['magnet_link']}")
+                filtered_item = filter_item(
+                    item=master_df.loc[index].copy(),
+                    filter_type=initiation_type
+                )
+                master_df = safe.assign_row(master_df, index, filtered_item)
+                if pd.notna(master_df.loc[index, 'rejection_reason']):
+                    master_df = safe.update_status(master_df, index, 'rejected')
+                    logger(f"rejected: {master_df.loc[index, 'raw_title']}: {master_df.loc[index, 'rejection_reason']}")
+                else:
+                    master_df = safe.update_status(master_df, index, 'filtered')
+                    logger(f"filtered: {master_df.loc[index, 'raw_title']}")
             except Exception as e:
-                logger(f"failed to download: {row['raw_title']} with magnet link {row['magnet_link']}. Error: {e}")
+                logger(f"failed to filter: {master_df.loc[index, 'raw_title']}")
+                logger(f"filter_item error: {e}")
+
+    # select only that have a status of filtered
+    hashes_to_initiate = master_df[master_df['status'] == "filtered"].index
+
+    # iterate though each item that passed filtration, initiate download, and udpate status
+    if len(hashes_to_initiate) > 0:
+        for index in hashes_to_initiate:
+            try:
+                initiate_item(
+                    item=master_df.loc[index].copy(),
+                    initiation_type=initiation_type
+                )
+                master_df = safe.update_status(master_df, index, 'downloading')
+                logger(f"downloading: {master_df.loc[index, 'raw_title']}")
+            except Exception as e:
+                logger(f"failed to download: {master_df.loc[index, 'raw_title']}")
+                logger(f"initiate_item error: {e}")
 
     # Save the updated tv_shows DataFrame
-    with open('./data/tv_shows.pkl', 'wb') as file:
-        pickle.dump(tv_shows, file)
+    with open(master_df_dir, 'wb') as file:
+        pickle.dump(master_df, file)
 
 # ------------------------------------------------------------------------------
 # testing

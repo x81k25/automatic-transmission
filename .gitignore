@@ -4,10 +4,15 @@
 # folder containers contents specific to each instance
 .env
 /venv/
-config/parameters.json
+!templates/.env
+
+# filter parameters will be personalized per use
+config/filter-parameters.json
+!config/.keep
 
 # all data should be generated upon ingestion, and not saved to repo
 automatic-transmission.log
+
 # ignore contents of data folder but not the folder itself
 data/*
 !data/.keep

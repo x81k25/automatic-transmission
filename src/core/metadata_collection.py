@@ -1,10 +1,9 @@
 from dotenv import load_dotenv
-import pandas as pd
 import pickle
 import os
 import re
 import requests
-from src.utils import logger
+from src.utils import logger, safe
 
 # ------------------------------------------------------------------------------
 # load environment variables and
@@ -13,135 +12,118 @@ from src.utils import logger
 # Load environment variables from .env file
 load_dotenv()
 
-# base URL for OMDb API
-BASE_URL = 'http://www.omdbapi.com/'
-
-# api key for OMDb API
+# omdb environment variables
+omdb_base_url = os.getenv('omdb_base_url')
 api_key = os.getenv('omdb_api_key')
 
 # ------------------------------------------------------------------------------
 # metadata collection helper functions
 # ------------------------------------------------------------------------------
 
-
-def get_movie_omdb_data(movie_name, year=None):
-    # Create query parameters
-    params = {
-        't': movie_name,  # 't' stands for title
-        'apikey': api_key
-    }
-
-    # Add the year to the query if provided
-    if year:
-        params['y'] = year
+def collect_omdb_metadata(item_to_collect, collection_type):
+    """
+    Get metadata for a movie or TV show from the OMDb API
+    :param item_to_collect: panda series of the item to collect
+    :param collection_type: type of collection, either "movie" or "tv_show"
+    :return:
+    """
+    # Define the parameters for the OMDb API request
+    if collection_type == 'movie':
+        params = {
+            't': item_to_collect["movie_title"],
+            'y': item_to_collect["release_year"],
+            'apikey': api_key  # Your OMDb API key
+        }
+    elif collection_type == 'tv_show':
+        params = {
+            't': item_to_collect["tv_show_name"],
+            'apikey': api_key  #
+        }
+    else:
+        raise ValueError("Invalid collection type. Must be 'movie' or 'tv_show'")
 
     # Make a request to the OMDb API
-    response = requests.get(BASE_URL, params=params)
+    response = requests.get(omdb_base_url, params=params)
 
-    # Check if the request was successful
+    # Check if the response was successful
     if response.status_code == 200:
-        # Convert the response to JSON format
         data = response.json()
-
-        # Check if the movie was found
-        if data['Response'] == 'True':
-            return data
-        else:
-            return f"Error: {data['Error']}"
     else:
-        return f"Error: Unable to connect to OMDb API. Status code: {response.status_code}"
+        data = None
+        logger(f"failed to retrieve metadata from OMDB: {item_to_collect['raw_title']}")
 
-def get_tv_show_omdb_metadata(tv_show):
-
-    # Function to query OMDb API
-    def query_omdb_api(show_title):
-        params = {
-            't': show_title,
-            'apikey': api_key
-        }
-        response = requests.get(BASE_URL, params=params)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return None
-
-    data = query_omdb_api(tv_show['tv_show_name'])
+    # Extract the metadata from the response
     if data and data['Response'] == 'True':
-        tv_show['release_year'] = data.get('Year', None)
-        tv_show['release_year'] = re.sub(r'\D', '', tv_show['release_year'])
-        tv_show['genre'] = data.get('Genre', None)
-        tv_show['language'] = data.get('Language', None)
-        tv_show['metascore'] = data.get('Metascore', None)
-        tv_show['imdb_rating'] = data.get('imdbRating', None)
-        if tv_show['imdb_rating'] != "N/A":
-            tv_show['imdb_rating'] = float(re.sub(r"\D", "", tv_show['imdb_rating']))
-        tv_show['imdb_votes'] = data.get('imdbVotes', None)
-        if tv_show['imdb_rating'] != "N/A":
-            tv_show['imdb_votes'] = int(re.sub(r"\D", "", tv_show['imdb_votes']))
-        tv_show['imdb_id'] = data.get('imdbID', None)
+        # items to collect for movies and tv shows
+        if data.get('genre', None) != "N/A":
+            item_to_collect['genre'] = data.get('Genre', '').split(', ')
+        if data.get('Language', None) != "N/A":
+            item_to_collect['language'] = data.get('Language').split(', ')
+        if data.get('Metascore', None) != "N/A":
+            item_to_collect['metascore'] = data.get('Metascore')
+        if data.get('imdbRating', None) != "N/A":
+            item_to_collect['imdb_rating'] = float(re.sub(r"\D", "", data.get('imdbRating')))
+        if data.get('imdbVotes', None) != "N/A":
+            item_to_collect['imdb_votes'] = int(re.sub(r"\D", "", data.get('imdbVotes')))
+        item_to_collect['imdb_id'] = data.get('imdbID', None)
+        # items to collect only for movies
+        if collection_type == 'movie':
+            if "Ratings" in data:
+                # determine if Rotten tomato exists in json
+                for rating in data.get("Ratings", []):
+                    if rating["Source"] == "Rotten Tomatoes":
+                        item_to_collect['rt_score'] = int(rating["Value"].rstrip('%'))
+        # items to collect only for tv shows
+        elif collection_type == 'tv_show':
+            item_to_collect['release_year'] = int(re.sub(r'\D', '', data.get('Year', None)))
 
     # Save the updated tv_shows DataFrame
-    return tv_show
+    return item_to_collect
 
 # ------------------------------------------------------------------------------
-# main metadata collection yts pipeline
+# full metadata collection pipeline
 # ------------------------------------------------------------------------------
 
-
-def collect_movie_metadata(feed_df):
+def collect_all_metadata(metadata_type):
     """
-    Loop through all of the movie titles and release years in feed_df,
-    call the OMDb API to get the movie data, save the data into a data frame,
-    and merge it with the existing feed_df.
+    Collect metadata for all movies or tv shows that have been ingested
+    :param metadata_type: either "movie" or "tv_show"
+    :return:
     """
-    movie_data_list = []
+    # read in existing data based on ingest_type
+    #metadata_type = 'movie'
+    if metadata_type == 'movie':
+        master_df_dir = './data/movies.pkl'
+    elif metadata_type == 'tv_show':
+        master_df_dir = './data/tv_shows.pkl'
+    else:
+        raise ValueError("invalid ingest type. Must be 'movie' or 'tv_show'")
 
-    for index, row in feed_df.iterrows():
-        movie_name = row['movie_title']
-        release_year = row.get('release_year', None)
-        movie_data = get_movie_data(movie_name, release_year)
+    with open(master_df_dir, 'rb') as file:
+        master_df = pickle.load(file)
 
-        if isinstance(movie_data, dict):
-            movie_data_list.append(movie_data)
-        else:
-            logger(f"Error fetching data for {movie_name}: {movie_data}")
+    # select only the rows of the data frame that have a status of ingested
+    hashes_to_collect = master_df[master_df['status'] == "ingested"].index
 
-    movie_data_df = pd.DataFrame(movie_data_list)
-    merged_df = pd.merge(feed_df, movie_data_df, left_on='movie_title',
-                         right_on='Title', how='left')
-
-    return merged_df
-
-
-# ------------------------------------------------------------------------------
-# main metadata collection showRSS pipeline
-# ------------------------------------------------------------------------------
-
-def get_tv_show_metadata():
-    # red in tv_shows.pkl
-    with open('./data/tv_shows.pkl', 'rb') as file:
-        tv_shows = pickle.load(file)
-
-    # for each row of tv_shows pass the individual row to get_tv_show_omdb_metadata and replace all updated files in the original data frame
-    tv_shows = tv_shows.apply(
-        lambda row: get_tv_show_omdb_metadata(row) if row["status"] == "ingested" else row,
-        axis=1
-    )
-
-    # iterate through each column with the status of ingested, if the value of release year is populated, then the status is updated to queued and print an update
-    for index in tv_shows.index:
-        if tv_shows.loc[index, 'status'] == 'ingested' and tv_shows.loc[index, 'release_year'] is not None:
-            tv_shows.loc[index, 'status'] = 'queued'
-            logger(f"queued: {tv_shows.loc[index, 'raw_title']} with hash {index}")
+    # select the release year of the 2nd row of the data frame
+    if len(hashes_to_collect) > 0:
+        for index in hashes_to_collect:
+            try:
+                collected_item = collect_omdb_metadata(
+                    item_to_collect=master_df.loc[index].copy(),
+                    collection_type=metadata_type
+                )
+                master_df = safe.assign_row(master_df, index, collected_item)
+                master_df = safe.update_status(master_df, index, 'queued')
+                logger(f"queued: {master_df.loc[index, 'raw_title']}")
+            except Exception as e:
+                logger(f"failed to queue: {master_df.loc[index, 'raw_title']}")
+                logger(f"collect_all_metadata error: {e}")
 
     # write tv shows back to csv
-    with open('./data/tv_shows.pkl', 'wb') as file:
-        pickle.dump(tv_shows, file)
+    with open(master_df_dir, 'wb') as file:
+        pickle.dump(master_df, file)
 
 # ------------------------------------------------------------------------------
-# test
+#
 # ------------------------------------------------------------------------------
-
-#get_tv_show_metadata()
-
-# get_tv_show
