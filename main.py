@@ -2,7 +2,10 @@ from src.core import rss_ingest, metadata_collection, torrent_initiation, torren
 import argparse
 
 # ------------------------------------------------------------------------------
-# full tv show pipeline
+# end-to-end pipeline for downloading movies
+#
+# to execute the tv show pipeline
+# cd <automatic-transmission-dir> & python main.py movie_pipeline
 # ------------------------------------------------------------------------------
 
 def movie_pipeline():
@@ -10,11 +13,15 @@ def movie_pipeline():
 
     metadata_collection.collect_all_metadata(metadata_type='movie')
 
+    torrent_initiation.full_item_initiation(initiation_type='movie')
+
+    torrent_cleanup.full_item_cleanup(cleanup_type='movie')
+
 #-------------------------------------------------------------------------------
 # end-to-end pipeline for downloading tv shows
 #
 # to execute the tv show pipeline
-# cd C:\Users\jpeck\py\automatic-transmission & python main.py tv_show_pipeline
+# cd <automatic-transmission-dir> & python main.py tv_show_pipeline
 #-------------------------------------------------------------------------------
 
 def tv_show_pipeline():
@@ -22,14 +29,19 @@ def tv_show_pipeline():
 
     metadata_collection.collect_all_metadata(metadata_type='tv_show')
 
-    torrent_initiation.initiate_tv_shows()
+    torrent_initiation.full_item_initiation(initiation_type='tv_show')
 
-    torrent_cleanup.tv_show_cleanup()
+    torrent_cleanup.full_item_cleanup(cleanup_type='tv_show')
+
+#-------------------------------------------------------------------------------
+# main functions
+#
+#-------------------------------------------------------------------------------
 
 def main():
     # Create an argument parser
     parser = argparse.ArgumentParser(
-        description="Command-line interface for running functions"
+       description="Command-line interface for running functions"
     )
 
     # Create subparsers for different functions
@@ -48,7 +60,7 @@ def main():
     parser_two = (
         subparsers.add_parser(
             "tv_show_pipeline",
-            help="Execute function two")
+            help="Execute tv_show_pipeline")
     )
 
     # Parse the arguments from the command line
@@ -62,21 +74,6 @@ def main():
     else:
         parser.print_help()
 
-# ------------------------------------------------------------------------------
-# test
-# ------------------------------------------------------------------------------
-
-# open OMDB    MOVE    DATA json
-import json
-with open('.bak/omdb_movie_data.json') as f:
-     data = json.load(f)
-
-# save data back to json
-with open('.bak/omdb_movie_data.json', 'w') as f:
-    json.dump(data, f, indent=4)
-
-
-#tv_show_pipeline()
 
 # ------------------------------------------------------------------------------
 # main clause
@@ -84,3 +81,7 @@ with open('.bak/omdb_movie_data.json', 'w') as f:
 
 if __name__ == "__main__":
     main()
+
+# ------------------------------------------------------------------------------
+#
+# ------------------------------------------------------------------------------

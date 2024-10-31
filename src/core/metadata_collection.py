@@ -1,10 +1,9 @@
 from dotenv import load_dotenv
-import pandas as pd
 import pickle
 import os
 import re
 import requests
-from src.utils import logger
+from src.utils import logger, safe
 
 # ------------------------------------------------------------------------------
 # load environment variables and
@@ -13,7 +12,7 @@ from src.utils import logger
 # Load environment variables from .env file
 load_dotenv()
 
-# omdb environemnt variables
+# omdb environment variables
 omdb_base_url = os.getenv('omdb_base_url')
 api_key = os.getenv('omdb_api_key')
 
@@ -98,7 +97,7 @@ def collect_all_metadata(metadata_type):
     elif metadata_type == 'tv_show':
         master_df_dir = './data/tv_shows.pkl'
     else:
-        raise ValueError("Invalid ingest type. Must be 'movie' or 'tv_show'")
+        raise ValueError("invalid ingest type. Must be 'movie' or 'tv_show'")
 
     with open(master_df_dir, 'rb') as file:
         master_df = pickle.load(file)
@@ -114,10 +113,12 @@ def collect_all_metadata(metadata_type):
                     item_to_collect=master_df.loc[index].copy(),
                     collection_type=metadata_type
                 )
-                master_df.loc[index] = collected_item
+                master_df = safe.assign_row(master_df, index, collected_item)
+                master_df = safe.update_status(master_df, index, 'queued')
                 logger(f"queued: {master_df.loc[index, 'raw_title']}")
-            except:
+            except Exception as e:
                 logger(f"failed to queue: {master_df.loc[index, 'raw_title']}")
+                logger(f"collect_all_metadata error: {e}")
 
     # write tv shows back to csv
     with open(master_df_dir, 'wb') as file:

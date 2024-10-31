@@ -3,7 +3,7 @@ import feedparser
 import os
 import pandas as pd
 import pickle
-from src.utils import logger
+from src.utils import logger, safe
 import re
 
 # load environment variables
@@ -59,11 +59,7 @@ def rss_entries_to_dataframe(feed, feed_type):
                 'magnet_link': entry.get('link'),
                 'published_timestamp': entry.get('published'),
                 'summary': entry.get('summary'),
-                'raw_title': entry.get('title'),
-                'feed_id': entry.get('id'),
-                'tv_show_id': entry.get('tv_show_id'),
-                'tv_episode_id': entry.get('tv_episode_id'),
-                'tv_external_id': entry.get('tv_external_id'),
+                'raw_title': entry.get('title')
             })
     else:
         raise ValueError("Invalid feed type. Must be 'movie' or 'tv_show'")
@@ -182,12 +178,14 @@ def rss_full_ingest(ingest_type):
                     new_item=new_items.loc[index].copy(),
                     item_type=ingest_type
                 )
-                master_df.loc[index] = new_item
-                # set the status at the current loop index value to ingested
-                master_df.loc[index, 'status'] = 'ingested'
+                # Safely assign the new row
+                master_df = safe.assign_row(master_df, index, new_item)
+                # Safely update the status
+                master_df = safe.update_status(master_df, index, 'ingested')
                 logger(f"ingested: {master_df.loc[index, 'raw_title']}")
-            except:
+            except Exception as e:
                 logger(f"failed to ingest: {new_items.loc[index, 'raw_title']}")
+                logger(f"rss_full_ingest error: {e}")
 
     # Save the updated tv_shows DataFrame
     with open(master_df_dir, 'wb') as file:
