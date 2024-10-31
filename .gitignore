@@ -4,6 +4,7 @@
 # folder containers contents specific to each instance
 .env
 /venv/
+!templates/.env
 
 # filter parameters will be personalized per use
 config/filter-parameters.json
