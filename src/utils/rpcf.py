@@ -10,10 +10,10 @@ from transmission_rpc import Client as Transmission_client
 load_dotenv()
 
 # transmission connection details
-hostname=os.getenv('server-ip')
+hostname=os.getenv('SERVER_IP')
 transmission_port = 9091
-transmission_username = os.getenv('transmission-username')
-transmission_password = os.getenv('transmission-password')
+transmission_username = os.getenv('TRANSMISSION_USERNAME')
+transmission_password = os.getenv('TRANSMISSION_PASSWORD')
 
 # ------------------------------------------------------------------------------
 # functions

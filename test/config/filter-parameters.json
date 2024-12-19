@@ -1,0 +1,26 @@
+{
+    "movie": {
+        "language": {
+            "nullable": false,
+            "allowed_values": [
+                "English"
+            ]
+        },
+        "resolution": {
+            "nullable": false,
+            "allowed_values": [
+                "1080p"
+            ]
+        },
+        "rt_score": {
+            "nullable": false,
+            "min": 75,
+            "max": 100
+        },
+        "release_year": {
+            "nullable": false,
+            "min": 2000,
+            "max": 3000
+        }
+    }
+}
