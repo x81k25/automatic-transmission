@@ -1,5 +1,6 @@
-# ide files
+# ide/runtime files
 .idea
+__pycache__
 
 # folder containers contents specific to each instance
 .env
@@ -17,4 +18,5 @@ automatic-transmission.log
 .bak
 sql/add-media-user.sql
 doc.txt
-dev/*
+dev
+test/__pycache__
