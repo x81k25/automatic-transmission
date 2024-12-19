@@ -2,6 +2,12 @@ feedparser
 python-dotenv
 pandas
 paramiko
+psycopg2-binary~=2.9.10
+pytest
+pytest-cov
 requests
+sqlalchemy~=2.0.36
 transmission-rpc
 tmdbv3api
+
+

@@ -3,10 +3,10 @@ from dotenv import load_dotenv
 from datetime import datetime
 
 load_dotenv()
-log_dir = os.getenv('log_dir')
+log_dir = os.getenv('LOG_DIR')
 
 
-def logger(input_string=""):
+def log(input_string=""):
 	"""
 	write a function that accepts strings arguments and writes them to a file
 	:param input_string: string to write to file

@@ -1,5 +1,9 @@
 import pandas as pd
 
+# ------------------------------------------------------------------------------
+# functions to safely write elements to dataframes without altering dtypes
+# ------------------------------------------------------------------------------
+
 def assign_row(df, index, new_row):
     """
     Safely assign a new row to the DataFrame while preserving dtypes.
@@ -35,3 +39,7 @@ def update_status(df, index, status):
         df.at[index, 'status'] = status
         print(f"Warning: Could not preserve category dtype for status: {e}")
     return df
+
+# ------------------------------------------------------------------------------
+# end of safe.py
+# ------------------------------------------------------------------------------

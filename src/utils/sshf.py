@@ -12,11 +12,12 @@ import stat
 load_dotenv()
 
 # load environment variables for SSH connection details
-ssh_hostname = os.getenv('server-ip')
-ssh_user = os.getenv('media-user')
-ssh_password = os.getenv('media-password')
-ssh_group = os.getenv('media-group')
+ssh_hostname = os.getenv('SERVER_IP')
+ssh_user = os.getenv('SSH_USER')
+ssh_password = os.getenv('SSH_PASSWORD')
+ssh_group = os.getenv('MEDIA_GROUP')
 ssh_port = 22  # Default SSH port
+download_dir = os.getenv('DOWNLOAD_DIR')
 
 # ------------------------------------------------------------------------------
 # low level functions to be used by other functions within this package
@@ -58,7 +59,6 @@ def get_client(
 def ssh_command(command: str = 'uname -a'):
     """
     Execute a command on the server
-    :param client: SSH client object
     :param command: Command to execute
     :return:
     """
@@ -72,7 +72,7 @@ def ssh_command(command: str = 'uname -a'):
     output = stdout.read().decode()
     error = stderr.read().decode()
 
-    # if succseful return the output
+    # if successful return the output
     # if error log and raise exception
     if output:
         client.close()
@@ -94,7 +94,7 @@ def print_dump_contents():
     print the contents of the media-dump directory
     :return: contents
     """
-    command = "ls -l /k/media/media-dump "
+    command = f"ls -l {download_dir}"
 
     response = ssh_command(command)
 
@@ -118,11 +118,9 @@ def get_transmission_service_status():
     """
     return ssh_command('systemctl status transmission-daemon')
 
-
 # ------------------------------------------------------------------------------
 # file operation functions
 # ------------------------------------------------------------------------------
-
 
 def check_dir_or_file_exists(remote_path: str = None):
     """
@@ -496,7 +494,6 @@ def delete_dir_or_file(
 # functions that will be called directly by functions in the core dir
 # ------------------------------------------------------------------------------
 
-
 def move_movie(
     download_dir,
     movie_dir,
@@ -506,7 +503,7 @@ def move_movie(
     move movie from media-dump to movie directory
     :param download_dir: directory where the file is downloaded
     :param movie_dir: directory where the movie will be moved
-    :param file_name: only the name of the file itself
+    :param dir_or_file_name: only the name of the file itself
     :return:
     """
     # determine if item is a file or directory

@@ -10,13 +10,11 @@
 config/filter-parameters.json
 !config/.keep
 
-# all data should be generated upon ingestion, and not saved to repo
+# data should be generated upon ingestion, and not saved to repo
 automatic-transmission.log
 
-# ignore contents of data folder but not the folder itself
-data/*
-!data/.keep
-
-# folder used for storing test execution scripts
-test.py
+# files used for development purposes and that will not be used by the application
 .bak
+sql/add-media-user.sql
+doc.txt
+dev/*
