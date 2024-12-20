@@ -29,7 +29,7 @@ def initiate_item(media_item, media_type):
 # ------------------------------------------------------------------------------
 
 def initiate_media_download(media_type):
-    #media_type = 'movie'
+    #media_type = 'tv_show'
     # read in existing data based on ingest_type
     engine = utils.create_db_engine()
 

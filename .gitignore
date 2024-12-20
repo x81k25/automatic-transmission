@@ -16,7 +16,6 @@ automatic-transmission.log
 
 # files used for development purposes and that will not be used by the application
 .bak
-sql/add-media-user.sql
 doc.txt
 dev
 test/__pycache__
