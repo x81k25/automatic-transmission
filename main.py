@@ -11,6 +11,10 @@ import argparse
 # to execute the tv show pipeline
 # cd <automatic-transmission-dir> & python main.py tv_show_pipeline
 #
+#statements for testing
+#media_type = "movie"
+#media_type = "tv_show"
+#
 # ------------------------------------------------------------------------------
 
 def full_pipeline(media_type):

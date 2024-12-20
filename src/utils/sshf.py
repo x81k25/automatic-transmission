@@ -51,7 +51,7 @@ def get_client(
         return client
     except Exception as e:
         error_message = f"get_client error: {str(e)}"
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -81,7 +81,7 @@ def ssh_command(command: str = 'uname -a'):
         error_message = f"ssh_command error: \n" + \
             "command: " + command + "\n" + \
             "error: " + error
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         client.close()
         raise Exception(error_message)
@@ -160,7 +160,7 @@ def check_dir_or_file_exists(remote_path: str = None):
         error_message = f"check_file_exists error: \n" + \
             f"remote_path: {remote_path} \n" + \
             f"error: {str(e)}"
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -213,7 +213,7 @@ def create_dir(remote_path: str) -> bool:
         error_message = f"create_remote_directory error: \n" + \
             f"remote_path: {remote_path} \n" + \
             f"error: {str(e)}"
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -318,7 +318,7 @@ def copy_dir(
             sftp.stat(full_source)
         except FileNotFoundError:
             error_message = f"Source directory does not exist: {full_source}"
-            logger.logger(error_message)
+            logger.log(error_message)
             print(error_message)
             raise Exception(error_message)
 
@@ -332,7 +332,7 @@ def copy_dir(
                         f"source: {source_dir.rstrip('/')}/{dir_name} \n" + \
                         f"destination: {destination_dir.rstrip('/')}/{dir_name} \n" + \
                         f"error: {str(e)}"
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -383,12 +383,12 @@ def copy_file(
             source_attr = sftp.stat(full_source)
             if not stat.S_ISREG(source_attr.st_mode):
                 error_message = f"Source path is not a regular file: {full_source}"
-                logger.logger(error_message)
+                logger.log(error_message)
                 print(error_message)
                 return False
         except FileNotFoundError:
             error_message = f"Source file does not exist: {full_source}"
-            logger.logger(error_message)
+            logger.log(error_message)
             print(error_message)
             raise Exception(error_message)
 
@@ -417,7 +417,7 @@ def copy_file(
                         f"source: {source_dir.rstrip('/')}/{file_name} \n" + \
                         f"destination: {destination_dir.rstrip('/')}/{file_name} \n" + \
                         f"error: {str(e)}"
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -479,7 +479,7 @@ def delete_dir_or_file(
         error_message = f"delete_dir_or_file error: \n" + \
                         f"remote_dir: {remote_dir.rstrip('/')}/{dir_or_file_name} \n" + \
                         f"error: {str(e)}"
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -518,7 +518,7 @@ def move_movie(
         error_message = 'move_movie error: dir or file does not exist\n' + \
                         f"download_dir: {download_dir}\n" + \
                         f"dir_or_file_name: {dir_or_file_name}"
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
     elif dir_or_file_attr[1] == 'file':
@@ -569,7 +569,7 @@ def move_tv_show(
     if dir_or_file_attr[0] == False:
         error_message = 'move_tv_show error: dir or file does not exist\n' + \
                         f"full_download_path: {full_download_path}\n"
-        logger.logger(error_message)
+        logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
 

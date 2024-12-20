@@ -10,9 +10,9 @@ import src.utils as utils
 load_dotenv()
 
 # set directories from .env
-download_dir = os.getenv('download_dir')
-tv_show_dir = os.getenv('tv_show_dir')
-movie_dir = os.getenv('movie_dir')
+download_dir = os.getenv('DOWNLOAD_DIR')
+tv_show_dir = os.getenv('TV_SHOW_DIR')
+movie_dir = os.getenv('MOVIE_DIR')
 
 # ------------------------------------------------------------------------------
 # torrent clean-up functions
@@ -53,7 +53,7 @@ def transfer_media(media_type):
 	:param media_type: type of cleanup, either 'movie' or 'tv_show'
 	:return:
 	"""
-	#media_type = 'tv_show'
+	#media_type = 'movie'
 	# read in existing data based on ingest_type
 	engine = utils.create_db_engine()
 

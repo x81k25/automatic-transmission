@@ -80,7 +80,7 @@ python C:/Users/jpeck/py/automatic-transmission/main.py tv_show_pipeline
 ### Moving Media Files
 - **Move Movie**:
     ```python
-    move_movie(file_name, download_dir, movie_dir)
+    move_movie(file_name, DOWNLOAD_DIR, movie_dir)
     ```
 - **Move TV Show**:
     ```python
