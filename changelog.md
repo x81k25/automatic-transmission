@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.1]
+- added special condition to convery tv_show_title "60 Minutes (US)" to "60 Minutes"
+- added error handling for failing to connect to SQL database
+
 ## [1.1.0]
 - reconfigured to use database rather than storing data internally in local objects
 - reconfigured test/dev environment to use transmission instance hosted via WSL and not on production server

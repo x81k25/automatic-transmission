@@ -67,6 +67,11 @@ def rss_entries_to_dataframe(feed, media_type):
     for entry in extracted_data:
         entry['hash'] = entry['hash'].lower()
 
+    # special exceptions for known issues
+    for entry in extracted_data:
+        if entry['tv_show_name'] == '60 Minutes (US)':
+            entry['tv_show_name'] = '60 Minutes'
+
     # Convert extracted data to DataFrame
     feed_items = pd.DataFrame(extracted_data)
     # set hash as index

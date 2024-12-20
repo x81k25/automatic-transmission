@@ -96,6 +96,8 @@ def create_db_engine(
     except Exception as e:
         raise Exception(f"Failed to create database engine: {str(e)}")
 
+engine = create_db_engine()
+
 # ------------------------------------------------------------------------------
 # non SQL helper functions
 # ------------------------------------------------------------------------------
