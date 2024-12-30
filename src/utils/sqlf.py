@@ -3,10 +3,11 @@ from dotenv	import load_dotenv
 import os
 import pandas as pd
 from pandas import DataFrame
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, Engine
 from sqlalchemy.engine import URL
 from sqlalchemy.sql import quoted_name
 from sqlalchemy.exc import SQLAlchemyError
+import sys
 from typing import List, Optional
 import src.utils as utils
 
@@ -33,7 +34,7 @@ def create_db_engine(
     port: Optional[str] = pg_port,
     database: Optional[str] = pg_database,
     schema: Optional[str] = pg_schema
-):
+) -> Engine:
     """
     Creates and returns a SQLAlchemy engine for PostgreSQL connection with specified schema.
     Uses environment variables if parameters are not provided.
@@ -47,9 +48,12 @@ def create_db_engine(
     schema (str): Database schema (default: PG_SCHEMA env var or 'public')
 
     Returns:
-    SQLAlchemy Engine: Configured database engine
+    Engine: Configured database engine
+
+    Raises:
+    RuntimeError: If connection cannot be established with detailed error message
+    ValueError: If required parameters are missing
     """
-    # Validate required parameters
     required_params = {
         'username': username,
         'password': password,
@@ -60,43 +64,43 @@ def create_db_engine(
 
     missing_params = [k for k, v in required_params.items() if not v]
     if missing_params:
-        raise ValueError(
-            f"Missing required parameters: {', '.join(missing_params)}")
+        error_msg = f"Missing required database parameters: {', '.join(missing_params)}"
+        utils.log(error_msg)
+        raise ValueError(error_msg)
+
+    url = URL.create(
+        drivername="postgresql+psycopg2",
+        username=username,
+        password=password,
+        host=host,
+        port=port,
+        database=database
+    )
+
+    engine = create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        pool_timeout=30,
+        pool_recycle=1800,
+        echo=False
+    )
 
     try:
-        # Create URL object for connection
-        url = URL.create(
-            drivername="postgresql+psycopg2",
-            username=username,
-            password=password,
-            host=host,
-            port=port,
-            database=database
+        with engine.connect():
+            #utils.log(f"Successfully connected to PostgreSQL database at {host}:{port}/{database}")
+            return engine
+    except:  # This will catch and suppress the connection error
+        error_msg = (
+            f"Unable to connect to database at {host}:{port}\n"
+            f"Connection timed out. Please check:\n"
+            f"- The database server is running\n"
+            f"- The host and port are correct\n"
+            f"- Any firewalls or network settings are blocking the connection"
         )
-
-        # Create the engine with updated settings
-        engine = create_engine(
-            url,
-            pool_pre_ping=True,  # Enable connection health checks
-            pool_size=5,
-            max_overflow=10,
-            pool_timeout=30,
-            pool_recycle=1800,
-            echo=False
-        )
-
-        # Test connection
-        with engine.connect() as conn:
-            # Test basic connection
-            conn.execute(text("SELECT 1"))
-            #print(f"connected to {host}.{database}.{schema} successfully")
-
-        return engine
-
-    except Exception as e:
-        raise Exception(f"Failed to create database engine: {str(e)}")
-
-engine = create_db_engine()
+        utils.log(error_msg)
+        sys.exit(1)  # This will exit the program silently
 
 # ------------------------------------------------------------------------------
 # non SQL helper functions

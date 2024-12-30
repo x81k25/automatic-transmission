@@ -63,14 +63,15 @@ def rss_entries_to_dataframe(feed, media_type):
     else:
         raise ValueError("Invalid feed type. Must be 'movie' or 'tv_show'")
 
-    # convert all of the hash values to lower case
+    # convert all the hash values to lower case
     for entry in extracted_data:
         entry['hash'] = entry['hash'].lower()
 
     # special exceptions for known issues
     for entry in extracted_data:
-        if entry['tv_show_name'] == '60 Minutes (US)':
-            entry['tv_show_name'] = '60 Minutes'
+        if media_type == 'tv_show':
+            if entry['tv_show_name'] == '60 Minutes (US)':
+                entry['tv_show_name'] = '60 Minutes'
 
     # Convert extracted data to DataFrame
     feed_items = pd.DataFrame(extracted_data)

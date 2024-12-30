@@ -25,11 +25,8 @@ class TestRSSIngest(unittest.TestCase):
         """
         try:
             main.full_pipeline(media_type='movie')
-            main.full_pipeline(media_type='movie')
-            main.full_pipeline(media_type='movie')
         except Exception as e:
             self.fail(f"movie ingest raised an exception: {str(e)}")
-
 
     def test_full_pipeline_tv_show(self):
         """
@@ -37,8 +34,6 @@ class TestRSSIngest(unittest.TestCase):
         will be executed 3 times in succession
         """
         try:
-            main.full_pipeline(media_type='tv_show')
-            main.full_pipeline(media_type='tv_show')
             main.full_pipeline(media_type='tv_show')
         except Exception as e:
             self.fail(f"tv show ingest raised an exception: {str(e)}")

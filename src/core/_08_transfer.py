@@ -53,7 +53,7 @@ def transfer_media(media_type):
 	:param media_type: type of cleanup, either 'movie' or 'tv_show'
 	:return:
 	"""
-	#media_type = 'movie'
+	#media_type = 'tv_show'
 	# read in existing data based on ingest_type
 	engine = utils.create_db_engine()
 
