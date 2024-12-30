@@ -19,3 +19,4 @@ automatic-transmission.log
 doc.txt
 dev
 test/__pycache__
+test/temp_file
