@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS movies (
     release_year INTEGER,
     status media_status,
     torrent_link TEXT,
+    magnet_link TEXT,
     rejection_reason VARCHAR(255),
     published_timestamp TIMESTAMP WITH TIME ZONE,
     summary TEXT,
@@ -82,6 +83,7 @@ COMMENT ON TABLE movies IS 'Stores movie metadata and torrent information';
 -- Add column comments
 COMMENT ON COLUMN movies.hash IS 'primary key - unique identifier for the movie entry';
 COMMENT ON COLUMN movies.movie_title IS 'official title of the movie';
+COMMENT ON COLUMN movies.torrent_link IS 'may contain either the direct download link or the magnet link';
 COMMENT ON COLUMN movies.release_year IS 'year the movie was released';
 COMMENT ON COLUMN movies.genre IS 'array of genres associated with the movie';
 COMMENT ON COLUMN movies.language IS 'array of languages available';

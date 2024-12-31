@@ -19,6 +19,7 @@ import argparse
 
 def full_pipeline(media_type):
     core.rss_ingest(media_type=media_type)
+    core.collect_media(media_type=media_type)
     core.parse_media(media_type=media_type)
     core.collect_metadata(media_type=media_type)
     core.filter_media(media_type=media_type)

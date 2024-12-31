@@ -87,8 +87,8 @@ def rss_entries_to_dataframe(feed, media_type):
 def rss_ingest(media_type):
     """
     Full ingest pipeline for either movies or tv shows
+
     :param media_type: either "movie" or "tv_show"
-    :return:
     """
     #media_type='movie'
     #media_type='tv_show'
@@ -141,5 +141,5 @@ def rss_ingest(media_type):
             utils.log(f"ingested: {new_items.loc[index, 'raw_title']}")
 
 # ------------------------------------------------------------------------------
-# end of _01_rss_ingest_test.py
+# end of _01_rss_ingest.py
 # ------------------------------------------------------------------------------

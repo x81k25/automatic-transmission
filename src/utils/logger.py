@@ -15,7 +15,8 @@ def log(input_string=""):
 	# get current timestamp and format as [YYYY-MM-DD HH:MM:SS]
 	current_timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
-	# open file in append mode
-	with open(log_dir, "a") as file:
-		# write timestamp and input_string to file
-		file.write(f"{current_timestamp} {input_string}\n")
+	# create log output
+	log_output = f"{current_timestamp} {input_string}\n"
+
+	# print with log formatting
+	print(log_output)
