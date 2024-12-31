@@ -20,3 +20,5 @@ doc.txt
 dev
 test/__pycache__
 test/temp_file
+src/core/__pycache__/
+src/utils/__pycache__/
