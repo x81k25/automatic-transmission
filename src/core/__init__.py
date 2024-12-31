@@ -1,6 +1,6 @@
 # import all full pipelines functions from their respective scripts
 from ._01_rss_ingest import rss_ingest
-#from #._02_transmission_collector
+from ._02_collect import collect_media
 from ._03_parse import parse_media
 from ._04_metadata_collection import collect_metadata
 from ._05_filter import filter_media

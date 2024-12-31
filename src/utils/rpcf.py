@@ -31,6 +31,51 @@ def get_transmission_client():
         password=transmission_password
     )
 
+
+def return_current_torrents():
+    """
+    hit transmission rpc and return all current torrents
+
+    :return: DataFrame containing all relevant torrent information if torrents exist, None if no torrents
+    """
+    import pandas as pd
+
+    # Get transmission client
+    client = get_transmission_client()
+
+    # Get all torrents
+    torrents = client.get_torrents()
+
+    # If no torrents, return None
+    if not torrents:
+        return None
+
+    # Create list to store torrent data
+    torrent_data = []
+
+    # Extract relevant information from each torrent
+    for torrent in torrents:
+        torrent_info = {
+            'hash': torrent.hashString,
+            'id': torrent.id,
+            'name': torrent.name,
+            'status': torrent.status,
+            'magnet_link': torrent.magnet_link,
+            'progress': round(torrent.progress, 2),
+            'size': torrent.total_size,
+            'upload_speed': torrent.rate_upload,
+            'download_speed': torrent.rate_download,
+            'peers_connected': torrent.peers_connected,
+            'eta': torrent.eta,
+            'download_dir': torrent.download_dir
+        }
+        torrent_data.append(torrent_info)
+
+    # Convert to dataframe
+    torrent_df = pd.DataFrame(torrent_data)
+    return torrent_df
+
+
 def purge_torrent_queue():
     """
     purge entire queue of torrents
@@ -50,9 +95,6 @@ def purge_torrent_queue():
         except Exception as e:
             print(f"Failed to remove torrent: {torrent.name} with hash {torrent.hashString}. Error: {e}")
 
-
 # ------------------------------------------------------------------------------
-# test
+# end of rpcf.py
 # ------------------------------------------------------------------------------
-
-#purge_torrent_queue()

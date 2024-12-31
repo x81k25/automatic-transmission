@@ -1,7 +1,16 @@
 # Changelog
 
+## [1.1.2]
+- utils.log now print to console rather than directly to log file; logs will be captured from console and migrated to log file
+- added src.core._02_collect
+  - collect will search for torrents download ad hoc
+  - ad hoc torrents will be scanned to test for inclusion in tv_show or movie database
+  - once collected they will become part of the standard download flow
+  - currently only individual episodes and movies will be collected
+  - later version will include functionality to collect entire seasons
+
 ## [1.1.1]
-- added special condition to convery tv_show_title "60 Minutes (US)" to "60 Minutes"
+- added special condition to convert tv_show_title "60 Minutes (US)" to "60 Minutes"
 - added error handling for failing to connect to SQL database
 
 ## [1.1.0]
