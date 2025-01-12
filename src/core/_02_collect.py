@@ -83,6 +83,7 @@ def collect_media(media_type):
 
 	:param media_type: type of media to collect, either 'movie' or 'tv_show'
 	"""
+	#media_type = "tv_show"
 	# get torrents currently in transmission
 	# if no torrents in transmission end function
 	current_media_items = utils.return_current_torrents()
@@ -100,7 +101,7 @@ def collect_media(media_type):
 	pg_engine = utils.sqlf.create_db_engine()
 
 	# end function if torrent queue is empty
-	if len(collected_media_items) > 0:
+	if len(collected_media_items) == 0:
 		return
 
 	# determine which items are new
