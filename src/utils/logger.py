@@ -16,7 +16,7 @@ def log(input_string=""):
 	current_timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
 	# create log output
-	log_output = f"{current_timestamp} {input_string}\n"
+	log_output = f"{current_timestamp} {input_string}"
 
 	# print with log formatting
 	print(log_output)

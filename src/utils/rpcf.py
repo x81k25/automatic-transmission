@@ -11,9 +11,9 @@ load_dotenv()
 
 # transmission connection details
 hostname=os.getenv('SERVER_IP')
-transmission_port = 9091
 transmission_username = os.getenv('TRANSMISSION_USERNAME')
 transmission_password = os.getenv('TRANSMISSION_PASSWORD')
+transmission_port = os.getenv('TRANSMISSION_PORT')
 
 # ------------------------------------------------------------------------------
 # functions

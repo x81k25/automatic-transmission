@@ -16,7 +16,7 @@ ssh_hostname = os.getenv('SERVER_IP')
 ssh_user = os.getenv('SSH_USER')
 ssh_password = os.getenv('SSH_PASSWORD')
 ssh_group = os.getenv('MEDIA_GROUP')
-ssh_port = 22  # Default SSH port
+ssh_port = os.getenv('SSH_PORT')
 download_dir = os.getenv('DOWNLOAD_DIR')
 
 # ------------------------------------------------------------------------------

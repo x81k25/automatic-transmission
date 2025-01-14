@@ -1,7 +1,7 @@
---database must already exist
---replace <databse_name> with the apporpriate database name
 CREATE SCHEMA IF NOT EXISTS <schema_name>;
 SET search_path TO <schema_name>;
+
+-- no placeholder fill-ins required after this line
 
 -- create the status enum type
 DO $$
@@ -12,6 +12,7 @@ BEGIN
     -- Create the type
     CREATE TYPE media_status AS ENUM (
         'ingested',
+        'paused',
         'parsed',
         'metadata_collected',
         'rejected',
@@ -26,6 +27,25 @@ EXCEPTION
         NULL;
 END $$;
 
+-- create the rejection status enum type
+DO $$
+BEGIN
+    -- Drop type if it exists (this will error if the type is in use)
+    DROP TYPE IF EXISTS rejection_status;
+
+    -- Create the type
+    CREATE TYPE rejection_status AS ENUM (
+        'unfiltered',
+        'passed',
+        'failed',
+        'override'
+    );
+EXCEPTION
+    WHEN others THEN
+        -- If there's an error (like the type being in use), we'll ignore it
+        NULL;
+END $$;
+
 -- Create the movies table
 CREATE TABLE IF NOT EXISTS movies (
     hash VARCHAR(255) PRIMARY KEY,
@@ -33,8 +53,8 @@ CREATE TABLE IF NOT EXISTS movies (
     movie_title VARCHAR(255),
     release_year INTEGER,
     status media_status,
-    torrent_link TEXT,
-    magnet_link TEXT,
+    torrent_source TEXT,
+    rejection_status rejection_status NOT NULL DEFAULT 'unfiltered',
     rejection_reason VARCHAR(255),
     published_timestamp TIMESTAMP WITH TIME ZONE,
     summary TEXT,
@@ -83,7 +103,7 @@ COMMENT ON TABLE movies IS 'Stores movie metadata and torrent information';
 -- Add column comments
 COMMENT ON COLUMN movies.hash IS 'primary key - unique identifier for the movie entry';
 COMMENT ON COLUMN movies.movie_title IS 'official title of the movie';
-COMMENT ON COLUMN movies.torrent_link IS 'may contain either the direct download link or the magnet link';
+COMMENT ON COLUMN movies.torrent_source IS 'may contain either the direct download link or the magnet link';
 COMMENT ON COLUMN movies.release_year IS 'year the movie was released';
 COMMENT ON COLUMN movies.genre IS 'array of genres associated with the movie';
 COMMENT ON COLUMN movies.language IS 'array of languages available';
@@ -98,8 +118,9 @@ CREATE TABLE IF NOT EXISTS tv_shows (
     season INTEGER,
     episode INTEGER,
     status media_status,
-    magnet_link TEXT,
+    torrent_source TEXT,
     published_timestamp TIMESTAMP WITH TIME ZONE,
+    rejection_status rejection_status NOT NULL DEFAULT 'unfiltered',
     rejection_reason TEXT,
     summary TEXT,
     release_year INTEGER,
@@ -139,6 +160,7 @@ COMMENT ON COLUMN tv_shows.hash IS 'primary key - unique identifier for the TV s
 COMMENT ON COLUMN tv_shows.tv_show_name IS 'name of the TV show';
 COMMENT ON COLUMN tv_shows.season IS 'season number';
 COMMENT ON COLUMN tv_shows.episode IS 'episode number';
+COMMENT ON COLUMN tv_shows.torrent_source IS 'may contain either the direct download link or the magnet link';
 COMMENT ON COLUMN tv_shows.imdb_rating IS 'IMDB rating out of 10';
 COMMENT ON COLUMN tv_shows.genre IS 'array of genres associated with the show';
 COMMENT ON COLUMN tv_shows.language IS 'array of languages available';
