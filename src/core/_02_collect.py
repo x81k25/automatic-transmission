@@ -84,6 +84,7 @@ def collect_media(media_type):
 	:param media_type: type of media to collect, either 'movie' or 'tv_show'
 	"""
 	#media_type = "tv_show"
+	#media_type = "movie"
 	# get torrents currently in transmission
 	# if no torrents in transmission end function
 	current_media_items = utils.return_current_torrents()
@@ -94,7 +95,7 @@ def collect_media(media_type):
 	# determine if movie or tv_show
 	current_media_items['media_type'] = current_media_items['name'].apply(classify_media)
 
-	# split into tv_show and movie_dataframes
+	# split into tv_show and movie_dataframes and keep only relevant elements
 	collected_media_items = current_media_items[current_media_items['media_type'] == media_type]
 
 	# instantiate db engine
@@ -111,37 +112,71 @@ def collect_media(media_type):
 		engine=pg_engine
 	)
 
-	# if no new items terminate function
-	if len(new_hashes) == 0:
-		return
-
-	# filter out new items
-	new_items = collected_media_items[collected_media_items['hash'].isin(new_hashes)]
-
-	# format for db ingestion
-	formatted_items = collected_torrents_to_dataframe(
-		media_items=new_items,
-		media_type=media_type
-	)
-
-	# insert to db
-	utils.insert_items_to_db(
+	# determines the hashes of items that have previously been rejected
+	rejected_hashes = utils.return_rejected_hashes(
 		media_type=media_type,
-		media=formatted_items,
+		hashes=list(collected_media_items['hash']),
 		engine=pg_engine
 	)
 
-	# update status
-	utils.update_db_status_by_hash(
-		engine=pg_engine,
-		media_type=media_type,
-		hashes=list(formatted_items.index),
-		new_status='ingested'
-	)
+	# add new items to db and set statusues
+	if len(new_hashes) > 0:
+		new_items = collected_media_items[collected_media_items['hash'].isin(new_hashes)]
 
-	# print log
-	for index in formatted_items.index:
-		utils.log(f"collected: {formatted_items.loc[index, 'raw_title']}")
+		formatted_items = collected_torrents_to_dataframe(
+			media_items=new_items,
+			media_type=media_type
+		)
+
+		# insert new items to db
+		utils.insert_items_to_db(
+			media_type=media_type,
+			media=formatted_items,
+			engine=pg_engine
+		)
+
+		# update status
+		utils.update_db_status_by_hash(
+			engine=pg_engine,
+			media_type=media_type,
+			hashes=list(formatted_items.index),
+			new_status='ingested'
+		)
+
+		# update rejection status
+		utils.update_rejection_status_by_hash(
+			engine=pg_engine,
+			media_type=media_type,
+			hashes=list(formatted_items.index),
+			new_status='override'
+		)
+
+		# print log
+		for index in formatted_items.index:
+			utils.log(f"collected: {formatted_items.loc[index, 'raw_title']}")
+
+	# update statuses of items that have been previously rejected
+	if len(rejected_hashes) > 0:
+		# update status
+		utils.update_db_status_by_hash(
+			engine=pg_engine,
+			media_type=media_type,
+			hashes=rejected_hashes,
+			new_status='ingested'
+		)
+
+		# update rejection status
+		utils.update_rejection_status_by_hash(
+			engine=pg_engine,
+			media_type=media_type,
+			hashes=rejected_hashes,
+			new_status='override'
+		)
+
+		# print log
+		for hash in collected_media_items.hash:
+			raw_title = collected_media_items.loc[collected_media_items['hash'] == hash, 'name'].iloc[0]
+			utils.log(f"collected: {raw_title}")
 
 # ------------------------------------------------------------------------------
 # end of _02_collect.py

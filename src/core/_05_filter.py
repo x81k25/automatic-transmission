@@ -16,6 +16,10 @@ with open('./config/filter-parameters.json') as file:
 
 def filter_item(media_item, media_type):
     #filter_type = 'movie'
+    # pass if override status was set
+    if media_item['rejection_status'] == 'override':
+        return media_item
+
     # search separate criteria for move or tv_show
     if media_type == 'movie':
         sieve = filters['movie']
@@ -77,12 +81,17 @@ def filter_media(media_type):
                     media_item=row,
                     media_type=media_type
                 )
-                if filtered_item['rejection_reason'] is not None:
+                if filtered_item['rejection_status'] == 'override':
+                    media_filtered = pd.concat([media_filtered, filtered_item.to_frame().T])
+                    utils.log(f"overridden: {media_filtered.loc[index, 'raw_title']}")
+                elif filtered_item['rejection_reason'] is not None:
+                    filtered_item['rejection_status'] = 'rejected'
                     media_rejected = pd.concat([media_rejected, filtered_item.to_frame().T])
                     utils.log(f"rejected: {media_rejected.loc[index, 'raw_title']}: {media_rejected.loc[index, 'rejection_reason']}")
                 else:
+                    filtered_item['rejection_status'] = 'accepted'
                     media_filtered = pd.concat([media_filtered, filtered_item.to_frame().T])
-                    utils.log(f"filtered: {media_filtered.loc[index, 'raw_title']}")
+                    utils.log(f"accepted: {media_filtered.loc[index, 'raw_title']}")
             except Exception as e:
                 utils.log(f"failed to filter: {media.loc[index, 'raw_title']}")
                 utils.log(f"filter_item error: {e}")
