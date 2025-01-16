@@ -188,6 +188,49 @@ def compare_hashes_to_db(
         raise Exception(f"compare_hashes error: {str(e)}")
 
 
+def return_rejected_hashes(
+    engine,
+    media_type: str,
+    hashes: List[str]
+):
+    """
+    Returns hashes from the input list that exist in the database and have rejection_status = 'rejected'.
+
+    Parameters:
+    engine: SQLAlchemy engine connection
+    media_type (str): Type of media to determine the correct table
+    hashes (list): List of hash strings to check
+
+    Returns:
+    list: List of hashes that exist in the database and have rejection_status = 'rejected'
+    """
+    # assign table and schema
+    table = assign_table(media_type)['schema_and_table']
+
+    try:
+        # Query rejected hashes from database
+        query = text(f"""
+            WITH input_hashes (hash) AS (
+                SELECT unnest(ARRAY{hashes}::text[]) as hash
+            )
+            SELECT input_hashes.hash
+            FROM input_hashes
+            JOIN {table} ON {table}.hash = input_hashes.hash
+            WHERE {table}.rejection_status = 'rejected';
+        """)
+
+        # Execute query and fetch results
+        with engine.connect() as conn:
+            rejected_hashes = conn.execute(query).fetchall()
+            rejected_hashes = [hash_tuple[0] for hash_tuple in rejected_hashes]
+
+        return rejected_hashes
+
+    except Exception as e:
+        utils.log(f"return_rejected_hashes error: {str(e)}")
+        raise Exception(f"return_rejected_hashes error: {str(e)}")
+
+
 def get_media_from_db(
     engine,
     media_type: str,
@@ -317,6 +360,48 @@ def update_db_status_by_hash(
 
         params = {
             'status': new_status,
+            'hashes': tuple(hashes)
+        }
+
+        # Execute update
+        with engine.connect() as conn:
+            conn.execute(query, params)
+            conn.commit()
+
+    except Exception as e:
+        raise Exception(f"Error updating status: {str(e)}")
+
+
+def update_rejection_status_by_hash(
+    engine,
+    media_type: str,
+    hashes: List[str],
+    new_status: str
+):
+    """
+    Updates the status for all rows matching the provided hash values.
+
+    Parameters:
+    engine: SQLAlchemy engine connection
+    hash_list (list): List of hash strings to update
+    new_status (str): New status value to set
+
+    Returns:
+    int: Number of rows updated
+    """
+    # assign table and schema
+    table = assign_table(media_type)['schema_and_table']
+
+    try:
+        # Construct query with parameterized values for safety
+        query = text(f"""
+            UPDATE {table} 
+            SET rejection_status = :rejection_status
+            WHERE hash IN :hashes
+        """)
+
+        params = {
+            'rejection_status': new_status,
             'hashes': tuple(hashes)
         }
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.3]
+- altered collect and filter scripts to properly populate rejection_status
+- collect now includes items that have previously been rejected
+- filter will now accept all items that have rejection_status = override
+  - rejection status will remain "override" after filter is complete
+  - print output will reflect this
+- all torrent added ad hoc should now be added to automated pipeline
+
 ## [1.1.2]
 - utils.log now print to console rather than directly to log file; logs will be captured from console and migrated to log file
 - added src.core._02_collect
