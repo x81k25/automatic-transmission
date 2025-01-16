@@ -8,6 +8,8 @@
   - once collected they will become part of the standard download flow
   - currently only individual episodes and movies will be collected
   - later version will include functionality to collect entire seasons
+- made database changes to reflect the multiple sources of torrents
+  - all torrent links, regardless of type, will be stored in the torrent_source field
 
 ## [1.1.1]
 - added special condition to convert tv_show_title "60 Minutes (US)" to "60 Minutes"

@@ -1,5 +1,4 @@
 -- replace '<schema-name>' with the source schema name
--- current set to 'prod'
 DO $$
 BEGIN
     -- Create a temporary table to store our configuration
@@ -9,29 +8,31 @@ BEGIN
 
     -- Insert or update the source schema name
     INSERT INTO config(source_schema) VALUES('<schema-name>')
-    ON CONFLICT (source_schema) DO UPDATE SET source_schema = <'schema_name'>;
+    ON CONFLICT (source_schema) DO UPDATE SET source_schema = '<schema-name>';
 END $$;
-
--- no placeholders beyond this line
 
 -- Step 0: Complete removal of bak schema and contents
 DO $$
 BEGIN
     -- Terminate all connections to the bak schema
     EXECUTE (
-        SELECT string_agg(
-            'SELECT pg_terminate_backend(' || pid || ');',
-            ' '
+        SELECT COALESCE(
+            string_agg(
+                'SELECT pg_terminate_backend(' || pid || ');',
+                ' '
+            ),
+            'SELECT 1;' -- Dummy query when no connections exist
         )
         FROM pg_stat_activity
         WHERE datname = current_database()
-        AND schemaname = 'bak'
+        AND current_schema = 'bak'
     );
 END $$;
 
 -- Drop schema with CASCADE to ensure complete removal
 DROP SCHEMA IF EXISTS bak CASCADE;
 
+-- Rest of the script remains the same as it was working correctly
 -- Step 1: Create the new schema
 CREATE SCHEMA IF NOT EXISTS bak;
 

@@ -87,7 +87,7 @@ class TestRSSIngest(unittest.TestCase):
             all(result_df.index.str.islower()))  # Verify all hashes are lowercase
 
         # Check required columns exist
-        required_columns = {'raw_title', 'torrent_link', 'published_timestamp'}
+        required_columns = {'raw_title', 'torrent_source', 'published_timestamp'}
         self.assertTrue(
             all(col in result_df.columns for col in required_columns))
 
@@ -117,7 +117,7 @@ class TestRSSIngest(unittest.TestCase):
         # Check required columns exist
         required_columns = {
             'tv_show_name',
-            'magnet_link',
+            'torrent_source',
             "raw_title",
             'published_timestamp'}
         self.assertTrue(

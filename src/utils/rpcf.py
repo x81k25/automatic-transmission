@@ -60,7 +60,7 @@ def return_current_torrents():
             'id': torrent.id,
             'name': torrent.name,
             'status': torrent.status,
-            'magnet_link': torrent.magnet_link,
+            'torrent_source': torrent.magnet_link,
             'progress': round(torrent.progress, 2),
             'size': torrent.total_size,
             'upload_speed': torrent.rate_upload,

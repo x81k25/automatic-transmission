@@ -54,7 +54,7 @@ def collected_torrents_to_dataframe(media_items, media_type):
 		   data={
 			   'hash': media_items['hash'],
 			   'raw_title': media_items['name'],
-			   'torrent_link': media_items['torrent_link']
+			   'torrent_source': media_items['torrent_source']
 		   }
 		)
 	elif media_type == 'tv_show':
@@ -63,7 +63,7 @@ def collected_torrents_to_dataframe(media_items, media_type):
 				'hash': media_items['hash'],
 				'raw_title': media_items['name'],
 				'tv_show_name': media_items['name'].apply(extract_tv_show_name),
-				'magnet_link': media_items['magnet_link']
+				'torrent_source': media_items['torrent_source']
 			}
 		)
 

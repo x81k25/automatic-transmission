@@ -228,119 +228,57 @@ def copy_dir(
     source_dir: str,
     destination_dir: str,
     dir_name: str
-):
+) -> bool:
     """
-    Copies a directory and all its contents to a new location using Paramiko SFTP.
+    Copies a directory and all its contents recursively using cp command.
     If the destination directory or any of its contents already exist, they will be overwritten.
-    The original directory and contents remain unchanged.
+    The original directory and contents remain unchanged. Sets 775 permissions and specified
+    ownership for all copied files and directories.
 
     :param source_dir: Base dir where the source directory is located
     :param destination_dir: Base dir where the directory should be copied to
     :param dir_name: Name of the directory to copy
     :return: bool - True if successful, False if failed
     """
-    ssh = None
-    sftp = None
-
     try:
-        # Get SSH client
-        ssh = get_client()
-
-        # Open SFTP session
-        sftp = ssh.open_sftp()
-
-        def remove_if_exists(dir):
-            """Helper function to remove existing file or directory"""
-            try:
-                attr = sftp.stat(dir)
-                if stat.S_ISDIR(attr.st_mode):
-                    # Remove directory contents recursively
-                    for item in sftp.listdir_attr(dir):
-                        item_dir = f"{dir}/{item.filename}"
-                        remove_if_exists(item_dir)
-                    sftp.rmdir(dir)  # Remove empty directory
-                else:
-                    sftp.remove(dir)  # Remove file
-            except FileNotFoundError:
-                pass  # dir doesn't exist, nothing to remove
-
-        def ensure_dir_exists(dir):
-            """Helper function to create directory if it doesn't exist"""
-            try:
-                sftp.stat(dir)
-            except FileNotFoundError:
-                sftp.mkdir(dir)
-
-        def copy_recursive(src, dst):
-            """
-            Recursively copy directory contents, overwriting existing files
-            :param src: Source dir
-            :param dst: Destination dir
-            """
-            # Remove destination if it exists
-            remove_if_exists(dst)
-
-            # Create destination directory
-            ensure_dir_exists(dst)
-
-            # List all items in source directory
-            for item in sftp.listdir_attr(src):
-                src_dir = f"{src}/{item.filename}"
-                dst_dir = f"{dst}/{item.filename}"
-
-                if stat.S_ISDIR(item.st_mode):  # If item is a directory
-                    # Recursively copy subdirectory
-                    copy_recursive(src_dir, dst_dir)
-                else:  # If item is a file
-                    try:
-                        # Remove destination file if it exists
-                        remove_if_exists(dst_dir)
-
-                        # Copy file
-                        sftp.get(src_dir, 'temp_file')
-                        sftp.put('temp_file', dst_dir)
-                        # Preserve permissions
-                        sftp.chmod(dst_dir, item.st_mode)
-                    except Exception as e:
-                        raise Exception(
-                            f"Failed to copy file {src_dir}: {str(e)}")
-                    finally:
-                        # Clean up temp file if it exists
-                        if os.path.exists('temp_file'):
-                            os.remove('temp_file')
-
-        # Construct full dirs
+        # Construct full paths, ensuring no trailing slashes
         full_source = f"{source_dir.rstrip('/')}/{dir_name}"
         full_destination = f"{destination_dir.rstrip('/')}/{dir_name}"
 
-        # Check if source directory exists
-        try:
-            sftp.stat(full_source)
-        except FileNotFoundError:
-            error_message = f"Source directory does not exist: {full_source}"
+        # Check if source directory exists and is a directory
+        check_cmd = f"[ -d '{full_source}' ] && echo 'exists' || echo 'not exists'"
+        result = ssh_command(check_cmd)
+        if 'not exists' in result:
+            error_message = f"Source directory does not exist or is not a directory: {full_source}"
             logger.log(error_message)
             print(error_message)
-            raise Exception(error_message)
+            return False
 
-        # Perform the copy
-        copy_recursive(full_source, full_destination)
+        # Create parent destination directory if it doesn't exist with proper permissions and ownership
+        ssh_command(f"mkdir -p -m 775 '{destination_dir.rstrip('/')}' && "
+                   f"chown {ssh_user}:{ssh_group} '{destination_dir.rstrip('/')}'")
+
+        # Remove destination directory if it exists
+        ssh_command(f"rm -rf '{full_destination}'")
+
+        # Copy directory recursively (-r), preserve attributes (-p),
+        # then set permissions and ownership recursively
+        cp_cmd = (f"cp -rp '{full_source}' '{full_destination}' && "
+                 # Set ownership recursively for all files and directories
+                 f"chown -R {ssh_user}:{ssh_group} '{full_destination}' && "
+                 # Set 775 permissions for all directories
+                 f"find '{full_destination}' -type d -exec chmod 775 {{}} + && "
+                 # Set 775 permissions for all files
+                 f"find '{full_destination}' -type f -exec chmod 775 {{}} +")
+        ssh_command(cp_cmd)
 
         return True
 
     except Exception as e:
-        error_message = f"copy_dir error: \n" + \
-                        f"source: {source_dir.rstrip('/')}/{dir_name} \n" + \
-                        f"destination: {destination_dir.rstrip('/')}/{dir_name} \n" + \
-                        f"error: {str(e)}"
+        error_message = f"copy_dir error:\nsource: {full_source}\ndestination: {full_destination}\nerror: {str(e)}"
         logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
-
-    finally:
-        if sftp:
-            sftp.close()
-        if ssh:
-            ssh.close()
 
 
 def copy_file(
@@ -349,83 +287,44 @@ def copy_file(
     file_name: str
 ) -> bool:
     """
-    Copies a single file to a new location using Paramiko SFTP.
-    If the destination file already exists, it will be overwritten.
-    The original file remains unchanged.
+    Copies a single file on the remote machine using cp command and sets permissions/ownership.
     :param source_dir: Base dir where the source file is located
     :param destination_dir: Base dir where the file should be copied to
     :param file_name: Name of the file to copy
     :return: bool - True if successful, False if failed
     """
-    ssh = None
-    sftp = None
-
     try:
-        # Get SSH client
-        ssh = get_client()
-
-        # Open SFTP session
-        sftp = ssh.open_sftp()
-
-        def ensure_dir_exists(dir):
-            """Helper function to create directory if it doesn't exist"""
-            try:
-                sftp.stat(dir)
-            except FileNotFoundError:
-                sftp.mkdir(dir)
-
-        # Construct full paths
+        # Construct full paths, ensuring no trailing slashes
         full_source = f"{source_dir.rstrip('/')}/{file_name}"
         full_destination = f"{destination_dir.rstrip('/')}/{file_name}"
 
-        # Check if source file exists
-        try:
-            source_attr = sftp.stat(full_source)
-            if not stat.S_ISREG(source_attr.st_mode):
-                error_message = f"Source path is not a regular file: {full_source}"
-                logger.log(error_message)
-                print(error_message)
-                return False
-        except FileNotFoundError:
-            error_message = f"Source file does not exist: {full_source}"
+        # Create destination directory if it doesn't exist (775 permissions)
+        # Also set ownership of the directory
+        ssh_command(f"mkdir -p -m 775 {destination_dir.rstrip('/')} && " 
+                   f"chown {ssh_user}:{ssh_group} {destination_dir.rstrip('/')}")
+
+        # Check if source file exists and is a regular file
+        check_cmd = f"test -f {full_source}"
+        exit_code = ssh_command(check_cmd)
+        if exit_code != 0:
+            error_message = f"Source file does not exist or is not a regular file: {full_source}"
             logger.log(error_message)
             print(error_message)
-            raise Exception(error_message)
+            return False
 
-        # Ensure destination directory exists
-        ensure_dir_exists(destination_dir.rstrip('/'))
+        # Copy file, set permissions (775) and ownership
+        cp_cmd = (f"cp {full_source} {full_destination} && "
+                 f"chmod 775 {full_destination} && "
+                 f"chown {ssh_user}:{ssh_group} {full_destination}")
+        ssh_command(cp_cmd)
 
-        try:
-            # Copy file
-            sftp.get(full_source, 'temp_file')
-            sftp.put('temp_file', full_destination)
-
-            # Preserve original file permissions
-            sftp.chmod(full_destination, source_attr.st_mode)
-
-            return True
-
-        except Exception as e:
-            raise Exception(f"Failed to copy file {full_source}: {str(e)}")
-        finally:
-            # Clean up temp file if it exists
-            if os.path.exists('temp_file'):
-                os.remove('temp_file')
+        return True
 
     except Exception as e:
-        error_message = f"copy_file error: \n" + \
-                        f"source: {source_dir.rstrip('/')}/{file_name} \n" + \
-                        f"destination: {destination_dir.rstrip('/')}/{file_name} \n" + \
-                        f"error: {str(e)}"
+        error_message = f"copy_file error:\nsource: {full_source}\ndestination: {full_destination}\nerror: {str(e)}"
         logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
-
-    finally:
-        if sftp:
-            sftp.close()
-        if ssh:
-            ssh.close()
 
 
 def delete_dir_or_file(

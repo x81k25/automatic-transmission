@@ -18,9 +18,9 @@ def initiate_item(media_item, media_type):
 
     # send link or magnet link to transmission
     if media_type == 'movie':
-        transmission_client.add_torrent(media_item['torrent_link'])
+        transmission_client.add_torrent(media_item['torrent_source'])
     elif media_type == 'tv_show':
-        transmission_client.add_torrent(media_item['magnet_link'])
+        transmission_client.add_torrent(media_item['torrent_source'])
     else:
         raise ValueError('initiation_type must be either "movie" or "tv_show')
 

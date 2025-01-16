@@ -47,7 +47,7 @@ def rss_entries_to_dataframe(feed, media_type):
             extracted_data.append({
                 'hash': entry.links[1].href.split('/')[-1],
                 'raw_title': entry.title,
-                'torrent_link': entry.links[1].href,
+                'torrent_source': entry.links[1].href,
                 'published_timestamp': entry.published,
             })
     elif media_type == 'tv_show':
@@ -55,7 +55,7 @@ def rss_entries_to_dataframe(feed, media_type):
             extracted_data.append({
                 'hash': entry.get('tv_info_hash'),
                 'tv_show_name': entry.get('tv_show_name'),
-                'magnet_link': entry.get('link'),
+                'torrent_source': entry.get('link'),
                 'published_timestamp': entry.get('published'),
                 'summary': entry.get('summary'),
                 'raw_title': entry.get('title')
