@@ -245,8 +245,13 @@ def copy_dir(
         full_source = f"{source_dir.rstrip('/')}/{dir_name}"
         full_destination = f"{destination_dir.rstrip('/')}/{dir_name}"
 
+        # Escape single quotes in paths for shell commands
+        escaped_source = full_source.replace("'", "'\\''")
+        escaped_destination = full_destination.replace("'", "'\\''")
+        escaped_dest_parent = destination_dir.rstrip('/').replace("'", "'\\''")
+
         # Check if source directory exists and is a directory
-        check_cmd = f"[ -d '{full_source}' ] && echo 'exists' || echo 'not exists'"
+        check_cmd = f"[ -d '{escaped_source}' ] && echo 'exists' || echo 'not exists'"
         result = ssh_command(check_cmd)
         if 'not exists' in result:
             error_message = f"Source directory does not exist or is not a directory: {full_source}"
@@ -255,21 +260,21 @@ def copy_dir(
             return False
 
         # Create parent destination directory if it doesn't exist with proper permissions and ownership
-        ssh_command(f"mkdir -p -m 775 '{destination_dir.rstrip('/')}' && "
-                   f"chown {ssh_user}:{ssh_group} '{destination_dir.rstrip('/')}'")
+        ssh_command(f"mkdir -p -m 775 '{escaped_dest_parent}' && "
+                   f"chown {ssh_user}:{ssh_group} '{escaped_dest_parent}'")
 
         # Remove destination directory if it exists
-        ssh_command(f"rm -rf '{full_destination}'")
+        ssh_command(f"rm -rf '{escaped_destination}'")
 
         # Copy directory recursively (-r), preserve attributes (-p),
         # then set permissions and ownership recursively
-        cp_cmd = (f"cp -rp '{full_source}' '{full_destination}' && "
+        cp_cmd = (f"cp -rp '{escaped_source}' '{escaped_destination}' && "
                  # Set ownership recursively for all files and directories
-                 f"chown -R {ssh_user}:{ssh_group} '{full_destination}' && "
+                 f"chown -R {ssh_user}:{ssh_group} '{escaped_destination}' && "
                  # Set 775 permissions for all directories
-                 f"find '{full_destination}' -type d -exec chmod 775 {{}} + && "
+                 f"find '{escaped_destination}' -type d -exec chmod 775 {{}} + && "
                  # Set 775 permissions for all files
-                 f"find '{full_destination}' -type f -exec chmod 775 {{}} +")
+                 f"find '{escaped_destination}' -type f -exec chmod 775 {{}} +")
         ssh_command(cp_cmd)
 
         return True
@@ -298,13 +303,18 @@ def copy_file(
         full_source = f"{source_dir.rstrip('/')}/{file_name}"
         full_destination = f"{destination_dir.rstrip('/')}/{file_name}"
 
+        # Escape single quotes in paths for shell commands
+        escaped_source = full_source.replace("'", "'\\''")
+        escaped_destination = full_destination.replace("'", "'\\''")
+        escaped_dest_parent = destination_dir.rstrip('/').replace("'", "'\\''")
+
         # Create destination directory if it doesn't exist (775 permissions)
         # Also set ownership of the directory
-        ssh_command(f"mkdir -p -m 775 {destination_dir.rstrip('/')} && " 
-                   f"chown {ssh_user}:{ssh_group} {destination_dir.rstrip('/')}")
+        ssh_command(f"mkdir -p -m 775 '{escaped_dest_parent}' && " 
+                   f"chown {ssh_user}:{ssh_group} '{escaped_dest_parent}'")
 
         # Check if source file exists and is a regular file
-        check_cmd = f"test -f {full_source}"
+        check_cmd = f"test -f '{escaped_source}'"
         exit_code = ssh_command(check_cmd)
         if exit_code != 0:
             error_message = f"Source file does not exist or is not a regular file: {full_source}"
@@ -313,9 +323,9 @@ def copy_file(
             return False
 
         # Copy file, set permissions (775) and ownership
-        cp_cmd = (f"cp {full_source} {full_destination} && "
-                 f"chmod 775 {full_destination} && "
-                 f"chown {ssh_user}:{ssh_group} {full_destination}")
+        cp_cmd = (f"cp '{escaped_source}' '{escaped_destination}' && "
+                 f"chmod 775 '{escaped_destination}' && "
+                 f"chown {ssh_user}:{ssh_group} '{escaped_destination}'")
         ssh_command(cp_cmd)
 
         return True
