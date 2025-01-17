@@ -29,9 +29,9 @@ def classify_media(raw_title):
 
 def extract_tv_show_name(raw_title):
 	"""
-	Extract the tv show name from the raw_title
+	Extract and format the tv show name for OMDb API queries
 	:param raw_title: raw_title string of media item
-	:return: string of tv show name
+	:return: string of tv show name formatted for OMDb API
 	"""
 
 	# Remove quality info and encoding info
@@ -40,8 +40,17 @@ def extract_tv_show_name(raw_title):
 	# Get everything before the SxxExx pattern
 	show_name = re.split(r'[Ss]\d{2}[Ee]\d{2}', cleaned)[0]
 
-	# Clean up trailing/leading spaces and quotes
-	show_name = show_name.strip(' "')
+	# Replace periods with spaces
+	show_name = show_name.replace('.', ' ')
+
+	# Special case: Add apostrophe for "Its" -> "It's"
+	show_name = show_name.replace('Its ', "It's ")
+
+	# Remove any special characters except spaces, apostrophes, and alphanumerics
+	show_name = re.sub(r'[^a-zA-Z0-9\' ]', '', show_name)
+
+	# Clean up any extra whitespace
+	show_name = ' '.join(show_name.split())
 
 	return show_name
 

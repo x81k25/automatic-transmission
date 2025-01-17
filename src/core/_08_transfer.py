@@ -27,7 +27,7 @@ def transfer_item(media_item, media_type):
 	"""
 	if media_type == 'movie':
 		utils.move_movie(
-			dir_or_file_name=media_item.file_name,
+			dir_or_file_name=media_item.raw_title,
 			download_dir=download_dir,
 			movie_dir=movie_dir
 		)

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4]
+- changed the input for transfer from file_name to raw_title
+  - appears to work around issue where file_name was not being properly extracted
+- made several small changes to the regex in collect to account for edge cases
+  - file names that use periods to separate words will now be appropriately parsed
+  - move or tv show names that include "Its" will now be automatically changed to "It's"
+
 ## [1.1.3]
 - altered collect and filter scripts to properly populate rejection_status
 - collect now includes items that have previously been rejected
