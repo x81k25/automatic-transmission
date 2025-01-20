@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.1.5]
+- fixed more issues with parsing
+
 ## [1.1.4]
 - changed the input for transfer from file_name to raw_title
   - appears to work around issue where file_name was not being properly extracted
