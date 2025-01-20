@@ -23,18 +23,18 @@ def parse_item(media_item, media_type):
     """
     # define regex patterns for both item types
     resolution_pattern = re.compile(r'(\d{3,4}p)')
-    video_codec_pattern = re.compile(r'\b(h264|x264|x265|H 264|H 265)\b', re.IGNORECASE)
-    upload_type_pattern = re.compile(r'\b(WEB DL|WEB|MAX|AMZN)\b', re.IGNORECASE)
-    audio_codec_pattern = re.compile(r'\b(DDP5\.1|AAC5\.1|DDP|AAC)\b', re.IGNORECASE)
-    uploader_pattern = re.compile(r'\[YTS\.MX\]$')
+    video_codec_pattern = re.compile(r'\b(h[. ]?264|x264|x265|h[. ]?265|hevc|xvid|divx|vp8|vp9|av1|mpeg[- ]?[24]|wmv|avc)\b', re.IGNORECASE)
+    upload_type_pattern = re.compile(r'\b(WEB[-. ]?DL|WEB(?:Rip)?|MAX|AMZN|ATVP|HULU|HMAX|BluRay|WEBRip|PROPER|iNTERNAL|MULTI|REPACK|FINAL)\b', re.IGNORECASE)
+    audio_codec_pattern = re.compile(r'\b(DDP?[. ]?[257]\.1|AAC[. ]?[257]\.1|DDP|AAC|AC-?3|E-?AC-?3|TrueHD|DTS(?:-?HD)?(?:[. ]?[257]\.1)?|FLAC|MP3|WMA|PCM|LPCM|Atmos|OGG|Vorbis|ALAC|EAC-?3)\b', re.IGNORECASE)
+    uploader_pattern = re.compile(r'(?:[-.](?:DiRT|SuccessfulCrab|EDITH|FLUX|CtrlHD|BAE|NTb|LAZYCUNTS|HiggsBoson|RUBiK|PSA|\[YTS\.MX\]|GGEZ|playWEB))(?:\[rarbg\])?$', re.IGNORECASE)
 
     # define regex for movie items only
     title_pattern = re.compile(r'^(.*?) \(')
     year_pattern = re.compile(r'\((\d{4})\)')
 
     # define regex for tv show items only
-    season_pattern = re.compile(r'S(\d{2})E')
-    episode_pattern = re.compile(r'E(\d{2})')
+    season_pattern = re.compile(r'[. ]s(\d{1,3})e', re.IGNORECASE)
+    episode_pattern = re.compile(r'e(\d{1,3})[. ]', re.IGNORECASE)
 
     # search for patterns in both item types
     title = media_item['raw_title']
