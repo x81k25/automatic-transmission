@@ -58,11 +58,9 @@ def filter_item(media_item, media_type):
 
 def filter_media(media_type):
     #media_type = 'movie'
-    # read in existing data based on ingest_type
-    engine = utils.create_db_engine()
 
+    # read in existing data based on ingest_type
     media = utils.get_media_from_db(
-        engine=engine,
         media_type=media_type,
         status='metadata_collected'
     )
@@ -99,7 +97,6 @@ def filter_media(media_type):
     if len(media_rejected) > 0:
         # update database with for items that passed filtration
         utils.update_db_media_table(
-            engine=engine,
             media_type=media_type,
             media_old=media,
             media_new=media_rejected
@@ -107,7 +104,6 @@ def filter_media(media_type):
 
         # update status
         utils.update_db_status_by_hash(
-            engine=engine,
             media_type=media_type,
             hashes=media_rejected.index.tolist(),
             new_status='rejected'
@@ -116,7 +112,6 @@ def filter_media(media_type):
     if len(media_filtered) > 0:
         # update database for rejected items
         utils.update_db_media_table(
-            engine=engine,
             media_type=media_type,
             media_old=media,
             media_new=media_filtered
@@ -124,7 +119,6 @@ def filter_media(media_type):
 
         # update status
         utils.update_db_status_by_hash(
-            engine=engine,
             media_type=media_type,
             hashes=media_filtered.index.tolist(),
             new_status='queued'

@@ -30,11 +30,9 @@ def initiate_item(media_item, media_type):
 
 def initiate_media_download(media_type):
     #media_type = 'tv_show'
-    # read in existing data based on ingest_type
-    engine = utils.create_db_engine()
 
+    # read in existing data based on ingest_type
     media = utils.get_media_from_db(
-        engine=engine,
         media_type=media_type,
         status='queued'
     )
@@ -58,7 +56,6 @@ def initiate_media_download(media_type):
 
         if len(hashes_initiated) > 0:
             utils.update_db_status_by_hash(
-                engine=engine,
                 media_type=media_type,
                 hashes=hashes_initiated,
                 new_status='downloading'

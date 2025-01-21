@@ -123,6 +123,8 @@ def assign_table(media_type: str):
         table_name = 'movies'
     elif media_type == 'tv_show':
         table_name = 'tv_shows'
+    elif media_type == 'tv_season':
+        table_name = 'tv_seasons'
     else:
         utils.log("media_type must be either 'movie' or 'tv_show'")
         raise ValueError('media_type must be either "movie" or "tv_show"')
@@ -140,7 +142,6 @@ def assign_table(media_type: str):
 # ------------------------------------------------------------------------------
 
 def compare_hashes_to_db(
-    engine,
     media_type: str,
     hashes: List[str],
     status: str = None
@@ -157,6 +158,9 @@ def compare_hashes_to_db(
         - new_hashes: List of hashes not in the database
         - existing_hashes: List of hashes that exist in the database
     """
+    # assign engine if none provided
+    engine = create_db_engine()
+
     # assign table and schema
     table = assign_table(media_type)['schema_and_table']
 
@@ -189,7 +193,6 @@ def compare_hashes_to_db(
 
 
 def return_rejected_hashes(
-    engine,
     media_type: str,
     hashes: List[str]
 ):
@@ -204,6 +207,9 @@ def return_rejected_hashes(
     Returns:
     list: List of hashes that exist in the database and have rejection_status = 'rejected'
     """
+    # assign engine
+    engine = create_db_engine()
+
     # assign table and schema
     table = assign_table(media_type)['schema_and_table']
 
@@ -232,7 +238,6 @@ def return_rejected_hashes(
 
 
 def get_media_from_db(
-    engine,
     media_type: str,
     status: str
 ):
@@ -248,6 +253,9 @@ def get_media_from_db(
         pandas.DataFrame containing matching rows
         :param media_type:
     """
+    # assign engine
+    engine = create_db_engine()
+
     # assign table and schema
     table = assign_table(media_type)['schema_and_table']
 
@@ -275,7 +283,6 @@ def get_media_from_db(
 # ------------------------------------------------------------------------------
 
 def insert_items_to_db(
-    engine,
     media_type: str,
     media: DataFrame
 ):
@@ -291,6 +298,10 @@ def insert_items_to_db(
     """
     #media_type = 'movie'
     #media = new_items
+
+    # assign engine
+    engine = create_db_engine()
+
     # assign table and schema
     table, schema = [assign_table(media_type)[key] for key in ['table_only', 'schema_only']]
 
@@ -331,7 +342,6 @@ def insert_items_to_db(
 # ------------------------------------------------------------------------------
 
 def update_db_status_by_hash(
-    engine,
     media_type: str,
     hashes: List[str],
     new_status: str
@@ -347,6 +357,9 @@ def update_db_status_by_hash(
     Returns:
     int: Number of rows updated
     """
+    # assign engine
+    engine = create_db_engine()
+
     # assign table and schema
     table = assign_table(media_type)['schema_and_table']
 
@@ -373,7 +386,6 @@ def update_db_status_by_hash(
 
 
 def update_rejection_status_by_hash(
-    engine,
     media_type: str,
     hashes: List[str],
     new_status: str
@@ -389,6 +401,9 @@ def update_rejection_status_by_hash(
     Returns:
     int: Number of rows updated
     """
+    # assign engine
+    engine = create_db_engine()
+
     # assign table and schema
     table = assign_table(media_type)['schema_and_table']
 
@@ -415,7 +430,6 @@ def update_rejection_status_by_hash(
 
 
 def update_db_media_table(
-    engine,
     media_type: str,
     media_old: DataFrame,
     media_new: DataFrame
@@ -423,6 +437,9 @@ def update_db_media_table(
     #media_old = media
     #media_new = media_parsed
     #media_type = 'movie'
+
+    # assign engine
+    engine = create_db_engine()
 
     # determine the columns from the media_old which are already populated
     populated_series = media_old.notna().any()

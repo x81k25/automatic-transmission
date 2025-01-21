@@ -91,11 +91,9 @@ def collect_metadata(media_type):
     :return:
     """
     #media_type = 'movie'
-    # read in existing data
-    engine = utils.create_db_engine()
 
+    # read in existing data
     media = utils.get_media_from_db(
-        engine=engine,
         media_type=media_type,
         status='parsed'
     )
@@ -121,7 +119,6 @@ def collect_metadata(media_type):
     if len(media_collected) > 0:
         # write new elements to database
         utils.update_db_media_table(
-            engine=engine,
             media_type=media_type,
             media_old=media,
             media_new=media_collected
@@ -129,7 +126,6 @@ def collect_metadata(media_type):
 
         # update status of relevant elements by hash
         utils.update_db_status_by_hash(
-            engine=engine,
             media_type=media_type,
             hashes=media_collected.index.tolist(),
             new_status='metadata_collected'

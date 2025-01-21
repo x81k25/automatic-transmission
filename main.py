@@ -14,6 +14,7 @@ import argparse
 #statements for testing
 #media_type = "movie"
 #media_type = "tv_show"
+#media_type = "tv_season"
 #
 # ------------------------------------------------------------------------------
 
@@ -24,8 +25,9 @@ def full_pipeline(media_type):
     core.collect_metadata(media_type=media_type)
     core.filter_media(media_type=media_type)
     core.initiate_media_download(media_type=media_type)
-    core.cleanup_media(media_type=media_type)
+    core.check_downloads(media_type=media_type)
     core.transfer_media(media_type=media_type)
+    core.cleanup_media(media_type=media_type)
 
 #-------------------------------------------------------------------------------
 # main functions

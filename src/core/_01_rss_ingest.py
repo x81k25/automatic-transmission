@@ -98,6 +98,9 @@ def rss_ingest(media_type):
         rss_url = os.getenv('MOVIE_RSS_URL')
     elif media_type == 'tv_show':
         rss_url = os.getenv('TV_SHOW_RSS_URL')
+    # exit if tv_season type
+    elif media_type == 'tv_season':
+        return
 
     feed = rss_feed_ingest(rss_url)
 
@@ -115,8 +118,7 @@ def rss_ingest(media_type):
 
     new_hashes = utils.compare_hashes_to_db(
         media_type=media_type,
-        hashes=feed_hashes,
-        engine=engine
+        hashes=feed_hashes
     )
 
     if len(new_hashes) > 0:
@@ -125,13 +127,11 @@ def rss_ingest(media_type):
         # write new items to the database
         utils.insert_items_to_db(
             media_type=media_type,
-            media=new_items,
-            engine=engine
+            media=new_items
         )
 
         # update status of ingested items
         utils.update_db_status_by_hash(
-            engine=engine,
             media_type=media_type,
             hashes=new_hashes,
             new_status='ingested'
