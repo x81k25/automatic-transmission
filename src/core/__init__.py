@@ -5,5 +5,6 @@ from ._03_parse import parse_media
 from ._04_metadata_collection import collect_metadata
 from ._05_filter import filter_media
 from ._06_initiate import initiate_media_download
-from ._07_cleanup import cleanup_media
+from ._07_download_check import check_downloads
 from ._08_transfer import transfer_media
+from ._09_cleanup import cleanup_media

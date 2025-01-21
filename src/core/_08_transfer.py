@@ -27,7 +27,7 @@ def transfer_item(media_item, media_type):
 	"""
 	if media_type == 'movie':
 		utils.move_movie(
-			dir_or_file_name=media_item.raw_title,
+			dir_or_file_name=media_item.file_name,
 			download_dir=download_dir,
 			movie_dir=movie_dir
 		)
@@ -54,11 +54,9 @@ def transfer_media(media_type):
 	:return:
 	"""
 	#media_type = 'tv_show'
-	# read in existing data based on ingest_type
-	engine = utils.create_db_engine()
 
+	# read in existing data based on ingest_type
 	media = utils.get_media_from_db(
-		engine=engine,
 		media_type=media_type,
 		status='downloaded'
 	)
@@ -85,10 +83,9 @@ def transfer_media(media_type):
 	if len(hashes_transferred) > 0:
 		# update status of relevant elements by hash
 		utils.update_db_status_by_hash(
-			engine=engine,
 			media_type=media_type,
 			hashes=hashes_transferred,
-			new_status='complete'
+			new_status='transferred'
 		)
 
 # ------------------------------------------------------------------------------

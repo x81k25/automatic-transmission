@@ -4,7 +4,7 @@ import pandas as pd
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# load environment variables and
+# load environment variables
 # ------------------------------------------------------------------------------
 
 # Load environment variables from .env file
@@ -45,11 +45,9 @@ def cleanup_media(media_type):
     :return:
     """
     #media_type = 'tv_show'
-    # read in existing data based on ingest_type
-    engine = utils.create_db_engine()
 
+    # read in existing data based on ingest_type
     media = utils.get_media_from_db(
-        engine=engine,
         media_type=media_type,
         status='downloading'
     )
@@ -76,7 +74,6 @@ def cleanup_media(media_type):
     if len(media_removed) > 0:
         # update database with filename
         utils.update_db_media_table(
-            engine=engine,
             media_type=media_type,
             media_old=media,
             media_new=media_removed
@@ -84,7 +81,6 @@ def cleanup_media(media_type):
 
         # update status of relevant elements by hash
         utils.update_db_status_by_hash(
-            engine=engine,
             media_type=media_type,
             hashes=media_removed.index.tolist(),
             new_status='downloaded'

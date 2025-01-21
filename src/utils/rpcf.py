@@ -38,8 +38,6 @@ def return_current_torrents():
 
     :return: DataFrame containing all relevant torrent information if torrents exist, None if no torrents
     """
-    import pandas as pd
-
     # Get transmission client
     client = get_transmission_client()
 
@@ -51,35 +49,35 @@ def return_current_torrents():
         return None
 
     # Create list to store torrent data
-    torrent_data = []
+    torrent_data = {}
 
     # Extract relevant information from each torrent
     for torrent in torrents:
-        torrent_info = {
-            'hash': torrent.hashString,
-            'id': torrent.id,
-            'name': torrent.name,
-            'status': torrent.status,
-            'torrent_source': torrent.magnet_link,
-            'progress': round(torrent.progress, 2),
-            'size': torrent.total_size,
-            'upload_speed': torrent.rate_upload,
-            'download_speed': torrent.rate_download,
-            'peers_connected': torrent.peers_connected,
-            'eta': torrent.eta,
-            'download_dir': torrent.download_dir
+        torrent_datum = {
+            torrent.hashString: {
+                'id': torrent.id,
+                'name': torrent.name,
+                'status': torrent.status,
+                'torrent_source': torrent.magnet_link,
+                'progress': round(torrent.progress, 2),
+                'size': torrent.total_size,
+                'upload_speed': torrent.rate_upload,
+                'download_speed': torrent.rate_download,
+                'peers_connected': torrent.peers_connected,
+                'eta': torrent.eta,
+                'download_dir': torrent.download_dir
+            }
         }
-        torrent_data.append(torrent_info)
+        torrent_data.update(torrent_datum)
 
-    # Convert to dataframe
-    torrent_df = pd.DataFrame(torrent_data)
-    return torrent_df
+    return torrent_data
 
 
 def purge_torrent_queue():
     """
     purge entire queue of torrents
-    :return:
+
+    :return: None
     """
     # Instantiate transmission client
     transmission_client = get_transmission_client()
@@ -94,6 +92,33 @@ def purge_torrent_queue():
             print(f"Removed torrent: {torrent.name} with hash {torrent.hashString}")
         except Exception as e:
             print(f"Failed to remove torrent: {torrent.name} with hash {torrent.hashString}. Error: {e}")
+
+
+def get_torrent_info(hash):
+    """
+    using hash, retrieve torrent metadata from transmission client
+
+    :param hash: individual hash of the torrent
+    :return: dict of all torrent parameters stored in transmission client
+    """
+    transmission_client = get_transmission_client()
+
+    torrent = transmission_client.get_torrent(hash)
+
+    return torrent
+
+
+def remove_media_item(hash):
+    """
+    remove media item from transmission client
+
+    :param hash: hash of the torrent to remove
+    :return: None
+    """
+    transmission_client = get_transmission_client()
+
+    transmission_client.remove_torrent(hash, delete_data=True)
+
 
 # ------------------------------------------------------------------------------
 # end of rpcf.py

@@ -416,7 +416,7 @@ def move_movie(
     :return:
     """
     # determine if item is a file or directory
-    full_download_path = download_dir + dir_or_file_name
+    full_download_path = os.path.join(download_dir, dir_or_file_name)
 
     dir_or_file_attr = check_dir_or_file_exists(
         remote_path=full_download_path
@@ -425,8 +425,9 @@ def move_movie(
     # copy file or directory
     if dir_or_file_attr[0] == False:
         error_message = 'move_movie error: dir or file does not exist\n' + \
-                        f"download_dir: {download_dir}\n" + \
-                        f"dir_or_file_name: {dir_or_file_name}"
+                        f"download_dir: \"{download_dir}\"\n" + \
+                        f"dir_or_file_name: \"{dir_or_file_name}\"\n" + \
+                        f"full_download_path: \"{full_download_path}\""
         logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
@@ -468,7 +469,7 @@ def move_tv_show(
     :param season: season number
     """
     # determine if item is a file or directory
-    full_download_path = download_dir + dir_or_file_name
+    full_download_path = os.path.join(download_dir, dir_or_file_name)
 
     dir_or_file_attr = check_dir_or_file_exists(
         remote_path=full_download_path
@@ -516,3 +517,7 @@ def move_tv_show(
         remote_dir=download_dir,
         dir_or_file_name=dir_or_file_name
     )
+
+# ------------------------------------------------------------------------------
+# end of sshf.py
+# ------------------------------------------------------------------------------

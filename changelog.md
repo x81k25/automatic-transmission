@@ -2,6 +2,14 @@
 
 ## [1.1.5]
 - fixed more issues with parsing
+- change the flow of the pipeline operations
+  - download_check will not be conducted after initiate
+    - download_check will check download status and mark_download complete
+  - clean_up will not be the final stage in the pipeline
+    - clean_up will remove the torrent and from transmission
+    - clean_up will remove the original file from the completed downloads folder
+  - altered sqlf.py to generate engine as needed per function
+  - altered rpcf.py to generate transmission client as needed per function
 
 ## [1.1.4]
 - changed the input for transfer from file_name to raw_title
