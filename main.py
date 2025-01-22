@@ -1,6 +1,7 @@
 import src.core as core
 import argparse
 
+
 # ------------------------------------------------------------------------------
 # end-to-end pipeline for downloading contents
 # accepts media_type = "movie" or media_type = "tv_show"
@@ -11,14 +12,25 @@ import argparse
 # to execute the tv show pipeline
 # cd <automatic-transmission-dir> & python main.py tv_show_pipeline
 #
-#statements for testing
-#media_type = "movie"
-#media_type = "tv_show"
-#media_type = "tv_season"
+# statements for testing
+# media_type = "movie"
+# media_type = "tv_show"
+# media_type = "tv_season"
 #
 # ------------------------------------------------------------------------------
 
-def full_pipeline(media_type):
+def full_pipeline(
+    media_type: str
+):
+    """
+    Full pipeline for downloading contents
+
+    :param media_type:
+    :return:
+    """
+    if media_type not in ["movie", "tv_show", "tv_season"]:
+        raise ValueError(f"Invalid media_type: {media_type}")
+
     core.rss_ingest(media_type=media_type)
     core.collect_media(media_type=media_type)
     core.parse_media(media_type=media_type)
@@ -29,50 +41,54 @@ def full_pipeline(media_type):
     core.transfer_media(media_type=media_type)
     core.cleanup_media(media_type=media_type)
 
-#-------------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------------
 # main functions
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 def main():
-    # Create an argument parser
+    """
+    Main function for command-line interface
+    :return:
+    """
     parser = argparse.ArgumentParser(
-       description="Command-line interface for running functions"
+        description="Command-line interface for running functions"
     )
 
-    # Create subparsers for different functions
     subparsers = parser.add_subparsers(
         dest="command",
-        help="Available functions"
+        help="Available functions",
+        required=True  # Make subcommand required
     )
 
-    # Subparser for movie pipeline
-    parser_one = subparsers.add_parser(
+    # Add subparsers with consistent naming
+    subparsers.add_parser(
         "movie_pipeline",
         help="Execute movie pipeline"
     )
 
-    # Subparser for tv show pipeline
-    parser_two = subparsers.add_parser(
+    subparsers.add_parser(
         "tv_show_pipeline",
         help="Execute tv show pipeline"
     )
 
-    # Subparser for tv season pipeline
-    parser_three = subparsers.add_parser(
+    subparsers.add_parser(
         "tv_season_pipeline",
         help="Execute tv season pipeline"
     )
 
-    # Parse the arguments from the command line
     args = parser.parse_args()
 
-    # Logic to call the unified function with appropriate media type
-    if args.command == "movie_pipeline":
-        full_pipeline(media_type="movie")
-    elif args.command == "tv_show_pipeline":
-        full_pipeline(media_type="tv_show")
-    elif args.command == "tv_season_pipeline":
-        full_pipeline(media_type="tv_season")
+    # Create a mapping of commands to media types
+    command_to_media = {
+        "movie_pipeline": "movie",
+        "tv_show_pipeline": "tv_show",
+        "tv_season_pipeline": "tv_season"
+    }
+
+    # Use the mapping to call full_pipeline
+    if args.command in command_to_media:
+        full_pipeline(media_type=command_to_media[args.command])
     else:
         parser.print_help()
 
