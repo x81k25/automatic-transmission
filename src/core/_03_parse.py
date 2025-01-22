@@ -33,8 +33,11 @@ def parse_item(media_item, media_type):
     year_pattern = re.compile(r'\((\d{4})\)')
 
     # define regex for tv show items only
-    season_pattern = re.compile(r'[. ]s(\d{1,3})e', re.IGNORECASE)
+    tv_show_season_pattern = re.compile(r'[. ]s(\d{1,3})e', re.IGNORECASE)
     episode_pattern = re.compile(r'e(\d{1,3})[. ]', re.IGNORECASE)
+
+    # define regex for tv season items only
+    tv_season_season_pattern = re.compile(r'(?:S|Season\s?)(\d{1,2})', re.IGNORECASE)
 
     # search for patterns in both item types
     title = media_item['raw_title']
@@ -58,12 +61,16 @@ def parse_item(media_item, media_type):
             media_item['release_year'] = year_pattern.search(title).group(1)
     # search for tv show only patterns
     elif media_type == 'tv_show':
-        if season_pattern.search(title) is not None:
-            media_item['season'] = season_pattern.search(title).group(0)
+        if tv_show_season_pattern.search(title) is not None:
+            media_item['season'] = tv_show_season_pattern.search(title).group(0)
             media_item['season'] = re.sub(r'\D', '', media_item['season'])
         if episode_pattern.search(title) is not None:
             media_item['episode'] = episode_pattern.search(title).group(0)
             media_item['episode'] = re.sub(r'\D', '', media_item['episode'])
+    elif media_type == 'tv_season':
+        if tv_season_season_pattern.search(title) is not None:
+            media_item['season'] = tv_season_season_pattern.search(title).group(0)
+            media_item['season'] = re.sub(r'\D', '', media_item['season'])
     else:
         raise ValueError("Invalid item type. Must be 'movie' or 'tv_show'")
 
@@ -115,6 +122,17 @@ def verify_parse(
             verification_fault.append('episode not populated')
         if tv_show_name_populated and season_populated and episode_populated:
             verified = True
+    elif media_type == 'tv_season':
+        if media_item['tv_show_name'] is not None and media_item['tv_show_name'] != '':
+            tv_show_name_populated = True
+        else:
+            verification_fault.append('tv_show_name not populated')
+        if media_item['season'] is not None and media_item['season'] != '':
+            season_populated = True
+        else:
+            verification_fault.append('season not populated')
+        if tv_show_name_populated and season_populated:
+            verified = True
     else:
         utils.log("invalid verification type. Must be 'movie' or 'tv_show'")
         raise ValueError("invalid verification type. Must be 'movie' or 'tv_show'")
@@ -138,6 +156,7 @@ def parse_media(media_type):
     :return:
     """
     #media_type='movie'
+    #media_type='tv_season'
 
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(

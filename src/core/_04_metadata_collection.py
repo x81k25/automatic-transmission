@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+import json
 import os
 import re
 import requests
@@ -27,33 +28,33 @@ def collect_omdb_metadata(media_item, media_type):
     :param media_type: type of collection, either "movie" or "tv_show"
     :return:
     """
+
     # Define the parameters for the OMDb API request
     if media_type == 'movie':
         params = {
             't': media_item["movie_title"],
             'y': media_item["release_year"],
-            'apikey': api_key  # Your OMDb API key
+            'apikey': api_key
         }
-    elif media_type == 'tv_show':
+    elif media_type == 'tv_show' or media_type == 'tv_season':
         params = {
             't': media_item["tv_show_name"],
-            'apikey': api_key  #
+            'apikey': api_key
         }
     else:
-        raise ValueError("Invalid collection type. Must be 'movie' or 'tv_show'")
+        raise ValueError("Invalid collection type. Must be 'movie', 'tv_show', or 'tv_season'")
 
     # Make a request to the OMDb API
     response = requests.get(omdb_base_url, params=params)
+    data = json.loads(response.content)
 
-    # Check if the response was successful
-    if response.status_code == 200:
-        data = response.json()
-    else:
-        data = None
-        utils.log(f"failed to retrieve metadata from OMDB: {media_item['raw_title']}")
+    # check if the response was successful, and if so move on
+    if data["Response"] != "True":
+        raise ValueError(
+            f"OMDB API error for query \"{media_item["tv_show_name"]}\": {response_content['Error']}")
 
     # Extract the metadata from the response
-    if data and data['Response'] == 'True':
+    if data:
         # items to collect for movies and tv shows
         if data.get('genre', None) != "N/A":
             media_item['genre'] = data.get('Genre', '').split(', ')
@@ -74,8 +75,8 @@ def collect_omdb_metadata(media_item, media_type):
                     if rating["Source"] == "Rotten Tomatoes":
                         media_item['rt_score'] = int(rating["Value"].rstrip('%'))
         # items to collect only for tv shows
-        elif media_type == 'tv_show':
-            media_item['release_year'] = int(re.sub(r'\D', '', data.get('Year', None)))
+        elif media_type == 'tv_show' or media_type == 'tv_season':
+            media_item['release_year'] = int(re.search(r'\d{4}', data.get('Year', '')).group())
 
     # Save the updated tv_shows DataFrame
     return media_item
@@ -91,6 +92,7 @@ def collect_metadata(media_type):
     :return:
     """
     #media_type = 'movie'
+    #media_type = 'tv_season'
 
     # read in existing data
     media = utils.get_media_from_db(

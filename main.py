@@ -57,6 +57,12 @@ def main():
         help="Execute tv show pipeline"
     )
 
+    # Subparser for tv season pipeline
+    parser_three = subparsers.add_parser(
+        "tv_season_pipeline",
+        help="Execute tv season pipeline"
+    )
+
     # Parse the arguments from the command line
     args = parser.parse_args()
 
@@ -65,6 +71,8 @@ def main():
         full_pipeline(media_type="movie")
     elif args.command == "tv_show_pipeline":
         full_pipeline(media_type="tv_show")
+    elif args.command == "tv_season_pipeline":
+        full_pipeline(media_type="tv_season")
     else:
         parser.print_help()
 

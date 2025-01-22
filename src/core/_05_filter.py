@@ -47,8 +47,10 @@ def filter_item(media_item, media_type):
                     break
     elif media_type == 'tv_show':
         pass
+    elif media_type == 'tv_season':
+        pass
     else:
-        raise ValueError('filter_type must be either "movie" or "tv_show"')
+        raise ValueError('filter_type must be either "movie", "tv_show", or "tv_season"')
 
     return media_item
 

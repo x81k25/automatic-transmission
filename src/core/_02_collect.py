@@ -84,11 +84,12 @@ def extract_name(raw_title, media_type):
         # Replace periods with spaces
         cleaned = cleaned.replace('.', ' ')
 
-        # Special case: Add apostrophe for "Its" -> "It's"
-        cleaned = cleaned.replace('Its ', "It's ")
-
         # Remove any special characters except spaces, apostrophes, and alphanumerics
         cleaned = re.sub(r'[^a-zA-Z0-9\' ]', '', cleaned)
+
+        # Special cases
+        cleaned = cleaned.replace('Its ', "It's ")
+        cleaned = cleaned.replace('OBrien', "O`Brien")
 
         # Clean up any extra whitespace
         cleaned = ' '.join(cleaned.split())
@@ -105,11 +106,12 @@ def extract_name(raw_title, media_type):
         # Replace periods and other special characters with spaces
         cleaned = cleaned.replace('.', ' ')
 
-        # Special case: Add apostrophe for "Its" -> "It's"
-        cleaned = cleaned.replace('Its ', "It's ")
-
         # Remove any special characters except spaces, apostrophes, and alphanumerics
         cleaned = re.sub(r'[^a-zA-Z0-9\' ]', '', cleaned)
+
+        # Special cases
+        cleaned = cleaned.replace('Its ', "It's ")
+        cleaned = cleaned.replace('OBrien', "O'Brien")
 
         # Clean up any extra whitespace
         cleaned = ' '.join(cleaned.split())
@@ -283,7 +285,7 @@ def collect_media(media_type):
 
         # print log
         for index in new_items.index:
-            utils.log(f"collected: {new_items.loc[index, 'raw_title']}")
+            utils.log(f"collected {media_type}: {new_items.loc[index, 'raw_title']}")
 
     # update statuses of items that have been previously rejected
     if len(rejected_hashes) > 0:

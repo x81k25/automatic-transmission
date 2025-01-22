@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS tv_shows (
     video_codec VARCHAR(50),
     upload_type VARCHAR(50),
     audio_codec VARCHAR(50),
+    uploader VARCHAR(100),
     file_name TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -187,6 +188,7 @@ CREATE TABLE IF NOT EXISTS tv_seasons (
     video_codec VARCHAR(50),
     upload_type VARCHAR(50),
     audio_codec VARCHAR(50),
+    uploader VARCHAR(100),
     file_name TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

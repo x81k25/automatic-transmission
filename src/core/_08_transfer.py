@@ -40,8 +40,17 @@ def transfer_item(media_item, media_type):
 			release_year=media_item.release_year,
 			season=media_item.season
 		)
+	elif media_type == 'tv_season':
+		utils.move_tv_season(
+			download_dir=download_dir,
+			tv_show_dir=tv_show_dir,
+			dir_name=media_item.file_name,
+			tv_show_name=media_item.tv_show_name,
+			release_year=media_item.release_year,
+			season=media_item.season
+		)
 	else:
-		raise ValueError('transfer_type must be either "movie" or "tv_show')
+		raise ValueError('transfer_type must be either "movie", "tv_show", or "tv_season"' )
 
 # ------------------------------------------------------------------------------
 # torrent clean-up full pipelines
@@ -54,6 +63,7 @@ def transfer_media(media_type):
 	:return:
 	"""
 	#media_type = 'tv_show'
+	#media_type = 'tv_season'
 
 	# read in existing data based on ingest_type
 	media = utils.get_media_from_db(
