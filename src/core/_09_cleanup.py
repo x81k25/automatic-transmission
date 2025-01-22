@@ -13,6 +13,7 @@ def cleanup_media(
     :param media_type: type of media to clean up
     """
     # media_type = 'tv_show'
+    # media_type = 'tv_season'
 
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(
@@ -20,9 +21,14 @@ def cleanup_media(
         status='transferred'
     )
 
+    # exit function if not media in transferred state
+    if media.empty:
+        return
+
     # remove torrents from transmission client
     for index, media_item in media.iterrows():
         utils.remove_media_item(index)
+        utils.log(f"cleaned: {media_item['raw_title']}")
 
     # update status of successfully parsed items
     utils.update_db_status_by_hash(
