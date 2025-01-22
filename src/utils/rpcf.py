@@ -16,7 +16,7 @@ transmission_password = os.getenv('TRANSMISSION_PASSWORD')
 transmission_port = os.getenv('TRANSMISSION_PORT')
 
 # ------------------------------------------------------------------------------
-# functions
+# create client function
 # ------------------------------------------------------------------------------
 
 def get_transmission_client():
@@ -30,6 +30,23 @@ def get_transmission_client():
         username=transmission_username,
         password=transmission_password
     )
+
+# ------------------------------------------------------------------------------
+# functions to retrieve data
+# ------------------------------------------------------------------------------
+
+def get_torrent_info(hash):
+    """
+    using hash, retrieve torrent metadata from transmission client
+
+    :param hash: individual hash of the torrent
+    :return: dict of all torrent parameters stored in transmission client
+    """
+    transmission_client = get_transmission_client()
+
+    torrent = transmission_client.get_torrent(hash)
+
+    return torrent
 
 
 def return_current_torrents():
@@ -72,11 +89,33 @@ def return_current_torrents():
 
     return torrent_data
 
+# ------------------------------------------------------------------------------
+# functions to add/remove torrents
+# ------------------------------------------------------------------------------
+
+def add_media_item(torrent_source):
+    """
+    add media item to transmission client
+    :param torrent_source: any acceptable for of torrent link
+    :return: None
+    """
+    transmission_client = get_transmission_client()
+    transmission_client.add_torrent(torrent_source)
+
+
+def remove_media_item(hash):
+    """
+    remove media item from transmission client
+    :param hash: hash of the torrent to remove
+    :return: None
+    """
+    transmission_client = get_transmission_client()
+    transmission_client.remove_torrent(hash, delete_data=True)
+
 
 def purge_torrent_queue():
     """
     purge entire queue of torrents
-
     :return: None
     """
     # Instantiate transmission client
@@ -92,33 +131,6 @@ def purge_torrent_queue():
             print(f"Removed torrent: {torrent.name} with hash {torrent.hashString}")
         except Exception as e:
             print(f"Failed to remove torrent: {torrent.name} with hash {torrent.hashString}. Error: {e}")
-
-
-def get_torrent_info(hash):
-    """
-    using hash, retrieve torrent metadata from transmission client
-
-    :param hash: individual hash of the torrent
-    :return: dict of all torrent parameters stored in transmission client
-    """
-    transmission_client = get_transmission_client()
-
-    torrent = transmission_client.get_torrent(hash)
-
-    return torrent
-
-
-def remove_media_item(hash):
-    """
-    remove media item from transmission client
-
-    :param hash: hash of the torrent to remove
-    :return: None
-    """
-    transmission_client = get_transmission_client()
-
-    transmission_client.remove_torrent(hash, delete_data=True)
-
 
 # ------------------------------------------------------------------------------
 # end of rpcf.py

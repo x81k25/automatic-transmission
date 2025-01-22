@@ -286,6 +286,54 @@ def copy_dir(
         raise Exception(error_message)
 
 
+def copy_dir_contents(
+    source_dir: str,
+    destination_dir: str,
+    dir_name: str
+) -> bool:
+    """
+    Copies contents of a directory recursively using cp command.
+    If destination files exist, they will be overwritten.
+    Sets 775 permissions and specified ownership for all copied files.
+
+    :param source_dir: Base dir where the source directory is located
+    :param destination_dir: Base dir where contents should be copied to
+    :param dir_name: Name of the directory whose contents to copy
+    :return: bool - True if successful, False if failed
+    """
+    try:
+        full_source = f"{source_dir.rstrip('/')}/{dir_name}"
+        escaped_source = full_source.replace("'", "'\\''")
+        escaped_destination = destination_dir.rstrip('/').replace("'", "'\\''")
+
+        # Check if source directory exists
+        check_cmd = f"[ -d '{escaped_source}' ] && echo 'exists' || echo 'not exists'"
+        if 'not exists' in ssh_command(check_cmd):
+            error_message = f"Source directory does not exist: {full_source}"
+            logger.log(error_message)
+            print(error_message)
+            return False
+
+        # Create destination with permissions
+        ssh_command(f"mkdir -p -m 775 '{escaped_destination}' && "
+                   f"chown {ssh_user}:{ssh_group} '{escaped_destination}'")
+
+        # Copy contents recursively preserving attributes
+        cp_cmd = (f"cp -rp '{escaped_source}'/* '{escaped_destination}/' && "
+                 f"chown -R {ssh_user}:{ssh_group} '{escaped_destination}' && "
+                 f"find '{escaped_destination}' -type d -exec chmod 775 {{}} + && "
+                 f"find '{escaped_destination}' -type f -exec chmod 775 {{}} +")
+        ssh_command(cp_cmd)
+
+        return True
+
+    except Exception as e:
+        error_message = f"copy_dir error:\nsource: {full_source}\ndestination: {destination_dir}\nerror: {str(e)}"
+        logger.log(error_message)
+        print(error_message)
+        raise Exception(error_message)
+
+
 def copy_file(
     source_dir: str,
     destination_dir: str,
@@ -424,10 +472,12 @@ def move_movie(
 
     # copy file or directory
     if dir_or_file_attr[0] == False:
-        error_message = 'move_movie error: dir or file does not exist\n' + \
-                        f"download_dir: \"{download_dir}\"\n" + \
-                        f"dir_or_file_name: \"{dir_or_file_name}\"\n" + \
-                        f"full_download_path: \"{full_download_path}\""
+        error_message = (
+f"""move_movie error: dir or file does not exist 
+download_dir: \"{download_dir}\" 
+dir_or_file_name: \"{dir_or_file_name}\"
+full_download_path: \"{full_download_path}\""""
+        )
         logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
@@ -443,12 +493,6 @@ def move_movie(
             destination_dir=movie_dir,
             dir_name=dir_or_file_name
         )
-
-    # delete original element
-    delete_dir_or_file(
-        remote_dir=download_dir,
-        dir_or_file_name=dir_or_file_name
-    )
 
 
 def move_tv_show(
@@ -477,8 +521,12 @@ def move_tv_show(
 
     # raise error if file or directory does not exist
     if dir_or_file_attr[0] == False:
-        error_message = 'move_tv_show error: dir or file does not exist\n' + \
-                        f"full_download_path: {full_download_path}\n"
+        error_message = (
+f"""move_movie error: dir or file does not exist 
+download_dir: \"{download_dir}\" 
+dir_or_file_name: \"{dir_or_file_name}\"
+full_download_path: \"{full_download_path}\""""
+        )
         logger.log(error_message)
         print(error_message)
         raise Exception(error_message)
@@ -512,10 +560,63 @@ def move_tv_show(
             dir_name=dir_or_file_name
         )
 
-    # delete original element
-    delete_dir_or_file(
-        remote_dir=download_dir,
-        dir_or_file_name=dir_or_file_name
+
+def move_tv_season(
+    download_dir: str,
+    tv_show_dir: str,
+    dir_name: str,
+    tv_show_name: str,
+    release_year: int,
+    season: int
+):
+    """
+    move tv show from media-dump to tv show directory
+    :param download_dir: directory where the file is downloaded
+    :param tv_show_dir: directory where the tv show will be moved
+    :param dir_or_file_name: name of the file
+    :param tv_show_name: name of the tv show
+    :param release_year: year the tv show was released
+    :param season: season number
+    """
+    # determine if item is a file or directory
+    full_download_path = os.path.join(download_dir, dir_name)
+
+    dir_or_file_attr = check_dir_or_file_exists(
+        remote_path=full_download_path
+    )
+
+    # raise error if file or directory does not exist
+    if dir_or_file_attr[0] == False:
+        error_message = (
+f"""move_movie error: dir or file does not exist 
+download_dir: \"{download_dir}\" 
+dir_or_file_name: \"{dir_name}\"
+full_download_path: \"{full_download_path}\""""
+        )
+        logger.log(error_message)
+        print(error_message)
+        raise Exception(error_message)
+
+    # generate the full destination path
+    tv_show_name_formatted = tv_show_name.replace(' ', '-').lower()
+    tv_show_year_formatted = str(int(release_year))
+    tv_show_season_formatted = str(int(season)).zfill(2)
+    full_destination_dir = tv_show_dir + tv_show_name_formatted + "-" + tv_show_year_formatted + "/s" + tv_show_season_formatted
+
+    # determine if destination path exists
+    full_destination_path_attr = check_dir_or_file_exists(
+        remote_path=full_destination_dir
+    )
+
+    # create the folder if it does not exist
+    if full_destination_path_attr[0] == False:
+        create_dir(remote_path=full_destination_dir)
+
+    # copy directory contents
+    copy_dir_contents(
+        source_dir=download_dir,
+        destination_dir=full_destination_dir,
+        dir_name=dir_name
     )
 
 # ------------------------------------------------------------------------------

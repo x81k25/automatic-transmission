@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.6]
+- added missing status update in cleanup
+- added supports for tv_seasons to the rest of the pipeline
+  - added move_tv_season to sshf.py
+- removed delete component within sshf.py, as deletion will now be handled by cleanup
+- made media initiation type agnostic utilizing new torrent_source field
+
 ## [1.1.5]
 - fixed more issues with parsing
 - change the flow of the pipeline operations
