@@ -90,6 +90,7 @@ def extract_name(raw_title, media_type):
         # Special cases
         cleaned = cleaned.replace('Its ', "It's ")
         cleaned = cleaned.replace('OBrien', "O`Brien")
+        cleaned = cleaned.replace('Star Wars Andor', 'Andor')
 
         # Clean up any extra whitespace
         cleaned = ' '.join(cleaned.split())
@@ -100,8 +101,11 @@ def extract_name(raw_title, media_type):
             re.split(r'(?:[Ss]eason\s+\d{1,2}|[Ss]\d{1,2})[^\w]*.*$',
                      raw_title)[0]
 
-        # Remove any year in parentheses that's adjacent to show name
+        # Remove any year pattern that follows the shows name
         cleaned = re.sub(r'\s*\([12][90]\d{2}\)\s*', ' ', cleaned)
+
+        # Remove any year pattern that's adjacent to show name
+        cleaned = re.sub(r'[.\s_-]*(?:19|20)\d{2}[.\s_-]*', '.', cleaned)
 
         # Replace periods and other special characters with spaces
         cleaned = cleaned.replace('.', ' ')
@@ -110,8 +114,9 @@ def extract_name(raw_title, media_type):
         cleaned = re.sub(r'[^a-zA-Z0-9\' ]', '', cleaned)
 
         # Special cases
-        cleaned = cleaned.replace('Its ', "It's ")
+        cleaned = cleaned.replace('Its ', "It's")
         cleaned = cleaned.replace('OBrien', "O'Brien")
+        cleaned = cleaned.replace('Star Wars Andor', 'Andor')
 
         # Clean up any extra whitespace
         cleaned = ' '.join(cleaned.split())

@@ -1,7 +1,6 @@
 import src.core as core
 import argparse
 
-
 # ------------------------------------------------------------------------------
 # end-to-end pipeline for downloading contents
 # accepts media_type = "movie" or media_type = "tv_show"
