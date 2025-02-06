@@ -58,17 +58,17 @@ def rss_entries_to_dataframe(feed, media_type):
                 'hash': entry.links[1].href.split('/')[-1],
                 'raw_title': entry.title,
                 'torrent_source': entry.links[1].href,
-                'published_timestamp': entry.published,
+                #'published_timestamp': entry.published,
             })
     elif media_type == 'tv_show':
         for entry in entries:
             extracted_data.append({
                 'hash': entry.get('tv_info_hash'),
-                'tv_show_name': entry.get('tv_show_name'),
-                'torrent_source': entry.get('link'),
-                'published_timestamp': entry.get('published'),
-                'summary': entry.get('summary'),
-                'raw_title': entry.get('title')
+                'raw_title': entry.get('title'),
+                'torrent_source': entry.get('link')
+                #'tv_show_name': entry.get('tv_show_name'),
+                #'published_timestamp': entry.get('published'),
+                #'summary': entry.get('summary'),
             })
     else:
         raise ValueError("Invalid feed type. Must be 'movie' or 'tv_show'")
@@ -76,12 +76,6 @@ def rss_entries_to_dataframe(feed, media_type):
     # convert all the hash values to lower case
     for entry in extracted_data:
         entry['hash'] = entry['hash'].lower()
-
-    # special exceptions for known issues
-    for entry in extracted_data:
-        if media_type == 'tv_show':
-            if entry['tv_show_name'] == '60 Minutes (US)':
-                entry['tv_show_name'] = '60 Minutes'
 
     # Convert extracted data to DataFrame
     feed_items = pd.DataFrame(extracted_data)
