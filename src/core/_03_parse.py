@@ -1,14 +1,23 @@
+# standard library imports
+import logging
+import re
+
+# third-party imports
 from dotenv import load_dotenv
 import pandas as pd
-import re
+
+# local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# load env vars
+# config
 # ------------------------------------------------------------------------------
 
 # load environment variables
 load_dotenv()
+
+# logger config
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 # title parse helper functions
@@ -134,7 +143,7 @@ def verify_parse(
         if tv_show_name_populated and season_populated:
             verified = True
     else:
-        utils.log("invalid verification type. Must be 'movie' or 'tv_show'")
+        logging.error("invalid verification type. Must be 'movie' or 'tv_show'")
         raise ValueError("invalid verification type. Must be 'movie' or 'tv_show'")
 
     output = {
@@ -183,13 +192,13 @@ def parse_media(media_type):
                 )
                 if parse_result['verified']:
                     media_parsed = pd.concat([media_parsed, parsed_item.to_frame().T])
-                    utils.log(f"parsed: {media.loc[index, 'raw_title']}")
+                    logging.info(f"parsed: {media.loc[index, 'raw_title']}")
                 else:
-                    utils.log(f"failed to parse: {media.loc[index, 'raw_title']}")
-                    utils.log(f"parse_media_items error: {parse_result['verification_fault']}")
+                    logging.error(f"failed to parse: {media.loc[index, 'raw_title']}")
+                    logging.error(f"parse_media_items error: {parse_result['verification_fault']}")
             except Exception as e:
-                utils.log(f"parse_media_items error: {e}")
-                utils.log(f"failed to parse: {media.loc[index, 'raw_title']}")
+                logging.error(f"parse_media_items error: {e}")
+                logging.error(f"failed to parse: {media.loc[index, 'raw_title']}")
 
     if len(media_parsed) > 0:
         # write parsed data back to the database

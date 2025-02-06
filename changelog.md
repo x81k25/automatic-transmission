@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.1.7]
+- removed internal logger function and replaced withe standard python logging package
+
 ## [1.1.6]
 - added missing status update in cleanup
 - added supports for tv_seasons to the rest of the pipeline

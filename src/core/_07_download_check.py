@@ -1,9 +1,18 @@
+# standard library imports
+import logging
+
+# third-party imports
 import pandas as pd
+
+# local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# load environment variables
+# config
 # ------------------------------------------------------------------------------
+
+# logger config
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 # functions to operate on individual media items
@@ -69,8 +78,8 @@ def check_downloads(media_type):
             if media_item_download_complete(hash):
                 media_hashes_download_complete.append(hash)
         except Exception as e:
-            utils.log(f"failed to check downloads status of: {media.loc[hash, 'raw_title']}")
-            utils.log(f"download_check error: {e}")
+            logging.error(f"failed to check downloads status of: {media.loc[hash, 'raw_title']}")
+            logging.error(f"download_check error: {e}")
 
     # if no downloads are complete, conclude function
     if len(media_hashes_download_complete) == 0:
@@ -85,10 +94,10 @@ def check_downloads(media_type):
         try:
             download_complete_item = extract_and_verify_filename(media_item=media.loc[hash].copy())
             media_download_complete = pd.concat([media_download_complete, download_complete_item.to_frame().T])
-            utils.log(f"download complete: {media.loc[hash, 'raw_title']}")
+            logging.info(f"download complete: {media.loc[hash, 'raw_title']}")
         except Exception as e:
-            utils.log(f"failed to extract filename from: {media.loc[hash, 'raw_title']}")
-            utils.log(f"download_check error: {e}")
+            logging.error(f"failed to extract filename from: {media.loc[hash, 'raw_title']}")
+            logging.error(f"download_check error: {e}")
 
    # update database with filename
     utils.update_db_media_table(

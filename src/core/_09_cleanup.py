@@ -1,4 +1,15 @@
+# standard library imports
+import logging
+
+# local/custom imports
 import src.utils as utils
+
+# ------------------------------------------------------------------------------
+# config
+# ------------------------------------------------------------------------------
+
+# logger config
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 # function to perform cleanup for all media items
@@ -28,7 +39,7 @@ def cleanup_media(
     # remove torrents from transmission client
     for index, media_item in media.iterrows():
         utils.remove_media_item(index)
-        utils.log(f"cleaned: {media_item['raw_title']}")
+        logging.info(f"cleaned: {media_item['raw_title']}")
 
     # update status of successfully parsed items
     utils.update_db_status_by_hash(

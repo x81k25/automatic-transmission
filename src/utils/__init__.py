@@ -1,5 +1,3 @@
-# import log from logger
-from .logger import log
 # import all functions from rcpf
 from .rpcf import *
 # import all functions from sqlf

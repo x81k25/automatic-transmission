@@ -1,4 +1,8 @@
+# standard library imports
 import json
+import logging
+
+# local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
@@ -7,6 +11,9 @@ import src.utils as utils
 
 with open('./config/filter-parameters.json') as file:
     filters = json.load(file)
+
+# logger config
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 # full initiation pipeline
@@ -30,10 +37,10 @@ def initiate_media_download(media_type):
             try:
                 utils.add_media_item(media.loc[index, 'torrent_source'])
                 hashes_initiated.append(index)
-                utils.log(f"downloading: {media.loc[index, 'raw_title']}")
+                logging.info(f"downloading: {media.loc[index, 'raw_title']}")
             except Exception as e:
-                utils.log(f"failed to download: {media.loc[index, 'raw_title']}")
-                utils.log(f"initiate_item error: {e}")
+                logging.error(f"failed to download: {media.loc[index, 'raw_title']}")
+                logging.error(f"initiate_item error: {e}")
 
         if len(hashes_initiated) > 0:
             utils.update_db_status_by_hash(

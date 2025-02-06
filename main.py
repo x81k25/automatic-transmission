@@ -1,5 +1,19 @@
-import src.core as core
+# standard library imports
 import argparse
+import logging
+
+# local/custom imports
+import src.core as core
+
+# ------------------------------------------------------------------------------
+# config
+# ------------------------------------------------------------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 # ------------------------------------------------------------------------------
 # end-to-end pipeline for downloading contents
@@ -39,7 +53,6 @@ def full_pipeline(
     core.check_downloads(media_type=media_type)
     core.transfer_media(media_type=media_type)
     core.cleanup_media(media_type=media_type)
-
 
 # -------------------------------------------------------------------------------
 # main functions

@@ -1,5 +1,11 @@
+# standard library imports
+import logging
 import os
+
+# third-party imports
 from dotenv import load_dotenv
+
+# local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
@@ -8,6 +14,10 @@ import src.utils as utils
 
 # Load environment variables from .env file
 load_dotenv()
+
+# logger config
+logger = logging.getLogger(__name__)
+
 
 # set directories from .env
 download_dir = os.getenv('DOWNLOAD_DIR')
@@ -83,12 +93,12 @@ def transfer_media(media_type):
 					media_type=media_type
 				)
 				hashes_transferred.append(index)
-				utils.log(
+				logging.info(
 					f"transfer complete: {media.loc[index, 'raw_title']}")
 			except Exception as e:
-				utils.log(
+				logging.error(
 					f"failed to transfer: {media.loc[index, 'raw_title']}")
-				utils.log(f"transfer_item error: {e}")
+				logging.error(f"transfer_item error: {e}")
 
 	if len(hashes_transferred) > 0:
 		# update status of relevant elements by hash

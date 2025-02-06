@@ -1,14 +1,24 @@
+# standard library imports
+import logging
+import os
+
+# third-party imports
 from dotenv import load_dotenv
 import feedparser
-import os
 import pandas as pd
+
+# local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
 # load environment variables
 # ------------------------------------------------------------------------------
 
+# load env vars
 load_dotenv()
+
+# logging config
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 # rss ingest helper functions
@@ -24,7 +34,7 @@ def rss_feed_ingest(rss_url):
     feed = feedparser.parse(rss_url)
 
     # print terminal message
-    utils.log("ingesting from: " + str(feed.channel.title))
+    logging.info("ingesting from: " + str(feed.channel.title))
 
     return feed
 
@@ -110,9 +120,6 @@ def rss_ingest(media_type):
         media_type=media_type
     )
 
-    # instantiate db engine
-    engine = utils.sqlf.create_db_engine()
-
     # determine which feed entries are new entries
     feed_hashes = feed_items.index.tolist()
 
@@ -138,7 +145,7 @@ def rss_ingest(media_type):
         )
 
         for index in new_items.index:
-            utils.log(f"ingested: {new_items.loc[index, 'raw_title']}")
+            logging.info(f"ingested: {new_items.loc[index, 'raw_title']}")
 
 # ------------------------------------------------------------------------------
 # end of _01_rss_ingest.py

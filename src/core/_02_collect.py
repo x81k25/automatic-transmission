@@ -1,9 +1,15 @@
-from dotenv import load_dotenv
+# standard library imports
 import json
+import logging
 import os
-import pandas as pd
 import re
+
+# third-party imports
+from dotenv import load_dotenv
+import pandas as pd
 import requests
+
+# local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
@@ -12,6 +18,9 @@ import src.utils as utils
 
 # Load environment variables from .env file
 load_dotenv()
+
+# logger config
+logger = logging.getLogger(__name__)
 
 # omdb environment variables
 omdb_base_url = os.getenv('OMDB_BASE_URL')
@@ -212,8 +221,8 @@ def collect_media(media_type):
                 to_remove.append(hash_id)
         except Exception as e:
             to_remove.append(hash_id)
-            utils.log(f"failed to classify media_type: {current_media[hash_id]['name']}")
-            utils.log(f"collect_media error: {e}")
+            logging.error(f"failed to classify media_type: {current_media[hash_id]['name']}")
+            logging.error(f"collect_media error: {e}")
 
     # if no items match calssifaction end function
     if len(current_media) == 0:
@@ -234,8 +243,8 @@ def collect_media(media_type):
             verify_omdb_retrievable(cleaned_title=item_data['cleaned_title'])
         except Exception as e:
             to_remove.append(hash_id)
-            utils.log(f"failed to retrieve OMDB metadata: {current_media[hash_id]['name']}")
-            utils.log(f"collect_media error: {e}")
+            logging.error(f"failed to retrieve OMDB metadata: {current_media[hash_id]['name']}")
+            logging.error(f"collect_media error: {e}")
 
     for hash_id in to_remove:
         del current_media[hash_id]
@@ -290,7 +299,7 @@ def collect_media(media_type):
 
         # print log
         for index in new_items.index:
-            utils.log(f"collected {media_type}: {new_items.loc[index, 'raw_title']}")
+            logging.info(f"collected {media_type}: {new_items.loc[index, 'raw_title']}")
 
     # update statuses of items that have been previously rejected
     if len(rejected_hashes) > 0:
@@ -311,7 +320,7 @@ def collect_media(media_type):
         # print log
         for hash in rejected_hashes:
             raw_title = collected_media_items.loc[collected_media_items['hash'] == hash, 'name'].iloc[0]
-            utils.log(f"collected: {raw_title}")
+            logging.info(f"collected: {raw_title}")
 
 # ------------------------------------------------------------------------------
 # end of _02_collect.py
