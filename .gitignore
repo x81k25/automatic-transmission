@@ -1,6 +1,7 @@
 # ide/runtime files
 .idea
-__pycache__
+__pycache__/
+*.pyc
 
 # folder containers contents specific to each instance
 .env
