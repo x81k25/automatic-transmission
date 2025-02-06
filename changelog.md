@@ -2,6 +2,7 @@
 
 ## [1.1.7]
 - removed internal logger function and replaced withe standard python logging package
+- changed from ShowRSS to episodefeed for tv shows
 
 ## [1.1.6]
 - added missing status update in cleanup

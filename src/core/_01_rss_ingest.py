@@ -1,4 +1,5 @@
 # standard library imports
+import json
 import logging
 import os
 
@@ -35,6 +36,7 @@ def rss_feed_ingest(rss_url):
 
     # print terminal message
     logging.info("ingesting from: " + str(feed.channel.title))
+    logging.debug(f"feed: {str(feed)[:60]}...")
 
     return feed
 
@@ -46,6 +48,9 @@ def rss_entries_to_dataframe(feed, media_type):
     :param media_type: type of feed, either "movie" or "tv_show"
     :return: DataFrame containing the RSS feed entries
     """
+    logging.debug(f"Feed type and keys: {type(feed)}, Keys: {feed.keys() if isinstance(feed, dict) else 'Not a dict'}")
+    logging.debug(f"Number of entries: {len(feed['entries'])}, First entry keys: {feed['entries'][0].keys() if feed['entries'] else 'No entries'}")
+
     # Extract the entries
     entries = feed['entries']
 
@@ -63,7 +68,7 @@ def rss_entries_to_dataframe(feed, media_type):
     elif media_type == 'tv_show':
         for entry in entries:
             extracted_data.append({
-                'hash': entry.get('tv_info_hash'),
+                'hash': entry.get('link', '').split('urn:btih:')[1].split('&')[0].lower(),
                 'raw_title': entry.get('title'),
                 'torrent_source': entry.get('link')
                 #'tv_show_name': entry.get('tv_show_name'),
@@ -83,6 +88,7 @@ def rss_entries_to_dataframe(feed, media_type):
     feed_items.set_index('hash', inplace=True)
 
     return feed_items
+
 
 # ------------------------------------------------------------------------------
 # full ingest for either element type
@@ -143,4 +149,4 @@ def rss_ingest(media_type):
 
 # ------------------------------------------------------------------------------
 # end of _01_rss_ingest.py
-# ------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
