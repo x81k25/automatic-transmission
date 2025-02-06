@@ -1,15 +1,17 @@
-# external imports
-from dotenv	import load_dotenv
+# standard library imports
 import os
+import logging
+import sys
+from typing import List, Optional
+
+# third-party imports
+from dotenv import load_dotenv
 import pandas as pd
 from pandas import DataFrame
 from sqlalchemy import create_engine, text, Engine
 from sqlalchemy.engine import URL
-from sqlalchemy.sql import quoted_name
 from sqlalchemy.exc import SQLAlchemyError
-import sys
-from typing import List, Optional
-import src.utils as utils
+from sqlalchemy.sql import quoted_name
 
 # ------------------------------------------------------------------------------
 # load in environment variables
@@ -65,7 +67,7 @@ def create_db_engine(
     missing_params = [k for k, v in required_params.items() if not v]
     if missing_params:
         error_msg = f"Missing required database parameters: {', '.join(missing_params)}"
-        utils.log(error_msg)
+        logging.error(error_msg)
         raise ValueError(error_msg)
 
     url = URL.create(
@@ -89,7 +91,7 @@ def create_db_engine(
 
     try:
         with engine.connect():
-            #utils.log(f"Successfully connected to PostgreSQL database at {host}:{port}/{database}")
+            #logging.error(f"Successfully connected to PostgreSQL database at {host}:{port}/{database}")
             return engine
     except:  # This will catch and suppress the connection error
         error_msg = (
@@ -99,7 +101,7 @@ def create_db_engine(
             f"- The host and port are correct\n"
             f"- Any firewalls or network settings are blocking the connection"
         )
-        utils.log(error_msg)
+        logging.error(error_msg)
         sys.exit(1)  # This will exit the program silently
 
 # ------------------------------------------------------------------------------
@@ -126,7 +128,7 @@ def assign_table(media_type: str):
     elif media_type == 'tv_season':
         table_name = 'tv_seasons'
     else:
-        utils.log("media_type must be either 'movie' or 'tv_show'")
+        logging.error("media_type must be either 'movie' or 'tv_show'")
         raise ValueError('media_type must be either "movie" or "tv_show"')
 
     output = {
@@ -188,7 +190,7 @@ def compare_hashes_to_db(
         return new_hashes
 
     except Exception as e:
-        utils.log(f"compare_hashes error: {str(e)}")
+        logging.error(f"compare_hashes error: {str(e)}")
         raise Exception(f"compare_hashes error: {str(e)}")
 
 
@@ -233,7 +235,7 @@ def return_rejected_hashes(
         return rejected_hashes
 
     except Exception as e:
-        utils.log(f"return_rejected_hashes error: {str(e)}")
+        logging.error(f"return_rejected_hashes error: {str(e)}")
         raise Exception(f"return_rejected_hashes error: {str(e)}")
 
 

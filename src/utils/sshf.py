@@ -1,8 +1,11 @@
+# standard library imports
+import logging
 import os
+import stat
+
+# third-party imports
 from dotenv import load_dotenv
 import paramiko
-from src.utils import logger
-import stat
 
 # ------------------------------------------------------------------------------
 # load environment variables and
@@ -51,8 +54,7 @@ def get_client(
         return client
     except Exception as e:
         error_message = f"get_client error: {str(e)}"
-        logger.log(error_message)
-        print(error_message)
+        logging.error(error_message)
         raise Exception(error_message)
 
 
@@ -81,7 +83,7 @@ def ssh_command(command: str = 'uname -a'):
         error_message = f"ssh_command error: \n" + \
             "command: " + command + "\n" + \
             "error: " + error
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         client.close()
         raise Exception(error_message)
@@ -160,7 +162,7 @@ def check_dir_or_file_exists(remote_path: str = None):
         error_message = f"check_file_exists error: \n" + \
             f"remote_path: {remote_path} \n" + \
             f"error: {str(e)}"
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -213,7 +215,7 @@ def create_dir(remote_path: str) -> bool:
         error_message = f"create_remote_directory error: \n" + \
             f"remote_path: {remote_path} \n" + \
             f"error: {str(e)}"
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -255,7 +257,7 @@ def copy_dir(
         result = ssh_command(check_cmd)
         if 'not exists' in result:
             error_message = f"Source directory does not exist or is not a directory: {full_source}"
-            logger.log(error_message)
+            logging.error(error_message)
             print(error_message)
             return False
 
@@ -281,7 +283,7 @@ def copy_dir(
 
     except Exception as e:
         error_message = f"copy_dir error:\nsource: {full_source}\ndestination: {full_destination}\nerror: {str(e)}"
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -310,7 +312,7 @@ def copy_dir_contents(
         check_cmd = f"[ -d '{escaped_source}' ] && echo 'exists' || echo 'not exists'"
         if 'not exists' in ssh_command(check_cmd):
             error_message = f"Source directory does not exist: {full_source}"
-            logger.log(error_message)
+            logging.error(error_message)
             print(error_message)
             return False
 
@@ -329,7 +331,7 @@ def copy_dir_contents(
 
     except Exception as e:
         error_message = f"copy_dir error:\nsource: {full_source}\ndestination: {destination_dir}\nerror: {str(e)}"
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -366,7 +368,7 @@ def copy_file(
         exit_code = ssh_command(check_cmd)
         if exit_code != 0:
             error_message = f"Source file does not exist or is not a regular file: {full_source}"
-            logger.log(error_message)
+            logging.error(error_message)
             print(error_message)
             return False
 
@@ -380,7 +382,7 @@ def copy_file(
 
     except Exception as e:
         error_message = f"copy_file error:\nsource: {full_source}\ndestination: {full_destination}\nerror: {str(e)}"
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -436,7 +438,7 @@ def delete_dir_or_file(
         error_message = f"delete_dir_or_file error: \n" + \
                         f"remote_dir: {remote_dir.rstrip('/')}/{dir_or_file_name} \n" + \
                         f"error: {str(e)}"
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -478,7 +480,7 @@ download_dir: \"{download_dir}\"
 dir_or_file_name: \"{dir_or_file_name}\"
 full_download_path: \"{full_download_path}\""""
         )
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
     elif dir_or_file_attr[1] == 'file':
@@ -527,7 +529,7 @@ download_dir: \"{download_dir}\"
 dir_or_file_name: \"{dir_or_file_name}\"
 full_download_path: \"{full_download_path}\""""
         )
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
 
@@ -593,7 +595,7 @@ download_dir: \"{download_dir}\"
 dir_or_file_name: \"{dir_name}\"
 full_download_path: \"{full_download_path}\""""
         )
-        logger.log(error_message)
+        logging.error(error_message)
         print(error_message)
         raise Exception(error_message)
 

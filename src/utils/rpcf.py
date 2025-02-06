@@ -1,4 +1,7 @@
+# standard library imports
 import os
+
+# third-party imports
 from dotenv import load_dotenv
 from transmission_rpc import Client as Transmission_client
 

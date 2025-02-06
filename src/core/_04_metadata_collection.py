@@ -1,9 +1,15 @@
-from dotenv import load_dotenv
+# standard library imports
 import json
+import logging
 import os
 import re
+
+# third-party imports
+from dotenv import load_dotenv
 import requests
 import pandas as pd
+
+# local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
@@ -12,6 +18,9 @@ import src.utils as utils
 
 # Load environment variables from .env file
 load_dotenv()
+
+# logger config
+logger = logging.getLogger(__name__)
 
 # omdb environment variables
 omdb_base_url = os.getenv('OMDB_BASE_URL')
@@ -113,10 +122,10 @@ def collect_metadata(media_type):
                     media_type=media_type
                 )
                 media_collected = pd.concat([media_collected, collected_item.to_frame().T])
-                utils.log(f"metadata collected: {media_collected.loc[index, 'raw_title']}")
+                logging.info(f"metadata collected: {media_collected.loc[index, 'raw_title']}")
             except Exception as e:
-                utils.log(f"failed to collect metadata: {media.loc[index, 'raw_title']}")
-                utils.log(f"collect_all_metadata error: {e}")
+                logging.error(f"failed to collect metadata: {media.loc[index, 'raw_title']}")
+                logging.error(f"collect_all_metadata error: {e}")
 
     if len(media_collected) > 0:
         # write new elements to database
