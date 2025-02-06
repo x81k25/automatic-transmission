@@ -42,6 +42,7 @@ def parse_item(media_item, media_type):
     year_pattern = re.compile(r'\((\d{4})\)')
 
     # define regex for tv show items only
+    tv_show_title_pattern = re.compile(r'^(.*?)(?:[. ]S\d{1,3}|[. ]Season)', re.IGNORECASE)
     tv_show_season_pattern = re.compile(r'[. ]s(\d{1,3})e', re.IGNORECASE)
     episode_pattern = re.compile(r'e(\d{1,3})[. ]', re.IGNORECASE)
 
@@ -70,6 +71,9 @@ def parse_item(media_item, media_type):
             media_item['release_year'] = year_pattern.search(title).group(1)
     # search for tv show only patterns
     elif media_type == 'tv_show':
+        if tv_show_title_pattern.search(title) is not None:
+            media_item['tv_show_name'] = tv_show_title_pattern.search(title).group(1)
+            media_item['tv_show_name'] = media_item['tv_show_name'].replace('.', ' ').strip()
         if tv_show_season_pattern.search(title) is not None:
             media_item['season'] = tv_show_season_pattern.search(title).group(0)
             media_item['season'] = re.sub(r'\D', '', media_item['season'])
@@ -77,6 +81,9 @@ def parse_item(media_item, media_type):
             media_item['episode'] = episode_pattern.search(title).group(0)
             media_item['episode'] = re.sub(r'\D', '', media_item['episode'])
     elif media_type == 'tv_season':
+        if tv_show_title_pattern.search(title) is not None:
+            media_item['tv_show_name'] = tv_show_title_pattern.search(title).group(1)
+            media_item['tv_show_name'] = media_item['tv_show_name'].replace('.', ' ').strip()
         if tv_season_season_pattern.search(title) is not None:
             media_item['season'] = tv_season_season_pattern.search(title).group(0)
             media_item['season'] = re.sub(r'\D', '', media_item['season'])
