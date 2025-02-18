@@ -6,16 +6,6 @@ import logging
 import src.core as core
 
 # ------------------------------------------------------------------------------
-# config
-# ------------------------------------------------------------------------------
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-# ------------------------------------------------------------------------------
 # end-to-end pipeline for downloading contents
 # accepts media_type = "movie" or media_type = "tv_show"
 #
@@ -33,7 +23,8 @@ logging.basicConfig(
 # ------------------------------------------------------------------------------
 
 def full_pipeline(
-    media_type: str
+    media_type: str,
+    debug: bool
 ):
     """
     Full pipeline for downloading contents
@@ -43,6 +34,21 @@ def full_pipeline(
     """
     if media_type not in ["movie", "tv_show", "tv_season"]:
         raise ValueError(f"Invalid media_type: {media_type}")
+
+    if not debug:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+    else:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format= '%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+            datefmt = '%Y-%m-%d %H:%M:%S'
+        )
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+        logging.getLogger("paramiko").setLevel(logging.INFO)
 
     core.rss_ingest(media_type=media_type)
     core.collect_media(media_type=media_type)
@@ -65,6 +71,13 @@ def main():
     """
     parser = argparse.ArgumentParser(
         description="Command-line interface for running functions"
+    )
+
+    # Add global debug flag
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode"
     )
 
     subparsers = parser.add_subparsers(
@@ -100,7 +113,11 @@ def main():
 
     # Use the mapping to call full_pipeline
     if args.command in command_to_media:
-        full_pipeline(media_type=command_to_media[args.command])
+        full_pipeline(
+            media_type=command_to_media[args.command],
+            debug=args.debug
+
+        )
     else:
         parser.print_help()
 

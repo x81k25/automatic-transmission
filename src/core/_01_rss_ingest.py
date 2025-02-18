@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # rss ingest helper functions
 # ------------------------------------------------------------------------------
 
-def rss_feed_ingest(rss_url):
+def rss_feed_ingest(rss_url: str) -> feedparser.FeedParserDict:
     """
     ping rss feed and store the input
     :param rss_url: url of rss feed
@@ -41,10 +41,13 @@ def rss_feed_ingest(rss_url):
     return feed
 
 
-def rss_entries_to_dataframe(feed, media_type):
+def rss_entries_to_dataframe(
+    feed: feedparser.FeedParserDict,
+    media_type: str
+) -> pd.DataFrame:
     """
     Convert RSS feed entries into a pandas DataFrame
-    :param feed: extract rss feed
+    :param feed: extracted rss feed
     :param media_type: type of feed, either "movie" or "tv_show"
     :return: DataFrame containing the RSS feed entries
     """
@@ -59,28 +62,24 @@ def rss_entries_to_dataframe(feed, media_type):
 
     if media_type == 'movie':
         for entry in entries:
-            extracted_data.append({
-                'hash': entry.links[1].href.split('/')[-1],
-                'raw_title': entry.title,
-                'torrent_source': entry.links[1].href,
-                #'published_timestamp': entry.published,
-            })
+            extracted_dict= {
+                'hash': utils.extract_hash_from_direct_download_url(entry['links'][1]['href']),
+                'raw_title': entry['title'],
+                'torrent_source': entry['links'][1]['href'],
+            }
+            utils.validate_dict(extracted_dict)
+            extracted_data.append(extracted_dict)
     elif media_type == 'tv_show':
         for entry in entries:
-            extracted_data.append({
-                'hash': entry.get('link', '').split('urn:btih:')[1].split('&')[0].lower(),
-                'raw_title': entry.get('title'),
-                'torrent_source': entry.get('link')
-                #'tv_show_name': entry.get('tv_show_name'),
-                #'published_timestamp': entry.get('published'),
-                #'summary': entry.get('summary'),
-            })
+            extracted_dict = {
+                'hash': utils.extract_hash_from_magnet_link(entry['link']),
+                'raw_title': entry['title'],
+                'torrent_source': entry['link']
+            }
+            utils.validate_dict(extracted_dict)
+            extracted_data.append(extracted_dict)
     else:
         raise ValueError("Invalid feed type. Must be 'movie' or 'tv_show'")
-
-    # convert all the hash values to lower case
-    for entry in extracted_data:
-        entry['hash'] = entry['hash'].lower()
 
     # Convert extracted data to DataFrame
     feed_items = pd.DataFrame(extracted_data)
@@ -94,7 +93,7 @@ def rss_entries_to_dataframe(feed, media_type):
 # full ingest for either element type
 # ------------------------------------------------------------------------------
 
-def rss_ingest(media_type):
+def rss_ingest(media_type: str):
     """
     Full ingest pipeline for either movies or tv shows
 

@@ -2,7 +2,6 @@
 import json
 import logging
 import os
-import re
 
 # third-party imports
 from dotenv import load_dotenv
@@ -30,112 +29,7 @@ api_key = os.getenv('OMDB_API_KEY')
 # collector helper functions
 # ------------------------------------------------------------------------------
 
-def classify_media(raw_title):
-    """
-    Classify media as either movie, tv_show, or tv_season based on the title
-
-    :param raw_title: raw title string of media item
-    :return: string indicating media type
-    """
-
-    # Core patterns
-    # TV show must have SxxExx pattern (case insensitive)
-    tv_pattern = r'[Ss]\d{2}[Ee]\d{2}'
-
-    # TV season can have either "season X" or "sXX" pattern (case insensitive)
-    # Looks for season/s followed by 1-2 digits, not followed by episode pattern
-    season_pattern = r'(?:[Ss]eason\s+\d{1,2}|[Ss]\d{1,2}(?![Ee]\d{2}))'
-
-    # Movie pattern now accounts for years with or without parentheses
-    # Matches 19xx or 20xx with similar delimiters on both sides
-    movie_pattern = r'(?:^|\W)((?:19|20)\d{2})(?:$|\W)'
-
-    if re.search(tv_pattern, raw_title):
-        return "tv_show"
-    elif re.search(season_pattern, raw_title):
-        return "tv_season"
-    elif re.search(movie_pattern, raw_title):
-        return "movie"
-
-    raise ValueError(f"Unable to classify media title: '{raw_title}'")
-
-
-def extract_name(raw_title, media_type):
-    """
-    Extract and format the movie name for OMDb API queries
-    :param raw_title: raw_title string of media item
-    :param media_type: type of collection, either "movie" or "tv_show"
-    :return: string of movie name formatted for OMDb API
-    """
-    if media_type == 'movie':
-        # Remove quality info and encoding info that comes after the year
-        # Match year pattern (with or without parentheses) and everything after
-        cleaned = re.split(r'(?:^|\s)\(?(?:19|20)\d{2}\)?[^\w]*.*$', raw_title)[0]
-
-        # Replace periods with spaces
-        cleaned = cleaned.replace('.', ' ')
-
-        # Special case: Add apostrophe for "Its" -> "It's"
-        cleaned = cleaned.replace('Its ', "It's ")
-
-        # Remove any special characters except spaces, apostrophes, and alphanumerics
-        cleaned = re.sub(r'[^a-zA-Z0-9\' ]', '', cleaned)
-
-        # Clean up any extra whitespace
-        cleaned = ' '.join(cleaned.split())
-    elif media_type == 'tv_show':
-        # Remove quality info and encoding info
-        cleaned = re.sub(r'\d{3,4}p.*$', '', raw_title)
-
-        # Get everything before the SxxExx pattern
-        cleaned = re.split(r'[Ss]\d{2}[Ee]\d{2}', cleaned)[0]
-
-        # Replace periods with spaces
-        cleaned = cleaned.replace('.', ' ')
-
-        # Remove any special characters except spaces, apostrophes, and alphanumerics
-        cleaned = re.sub(r'[^a-zA-Z0-9\' ]', '', cleaned)
-
-        # Special cases
-        cleaned = cleaned.replace('Its ', "It's ")
-        cleaned = cleaned.replace('OBrien', "O`Brien")
-        cleaned = cleaned.replace('Star Wars Andor', 'Andor')
-
-        # Clean up any extra whitespace
-        cleaned = ' '.join(cleaned.split())
-    elif media_type == 'tv_season':
-        # Remove quality info and encoding info that comes after season pattern
-        # Matches either "Season XX" or "SXX" pattern (case insensitive)
-        cleaned = \
-            re.split(r'(?:[Ss]eason\s+\d{1,2}|[Ss]\d{1,2})[^\w]*.*$',
-                     raw_title)[0]
-
-        # Remove any year pattern that follows the shows name
-        cleaned = re.sub(r'\s*\([12][90]\d{2}\)\s*', ' ', cleaned)
-
-        # Remove any year pattern that's adjacent to show name
-        cleaned = re.sub(r'[.\s_-]*(?:19|20)\d{2}[.\s_-]*', '.', cleaned)
-
-        # Replace periods and other special characters with spaces
-        cleaned = cleaned.replace('.', ' ')
-
-        # Remove any special characters except spaces, apostrophes, and alphanumerics
-        cleaned = re.sub(r'[^a-zA-Z0-9\' ]', '', cleaned)
-
-        # Special cases
-        cleaned = cleaned.replace('Its ', "It's")
-        cleaned = cleaned.replace('OBrien', "O'Brien")
-        cleaned = cleaned.replace('Star Wars Andor', 'Andor')
-
-        # Clean up any extra whitespace
-        cleaned = ' '.join(cleaned.split())
-    else:
-        cleaned =None
-
-    return cleaned
-
-
-def verify_omdb_retrievable(cleaned_title):
+def verify_omdb_retrievable(cleaned_title: str):
     """
     determine if item is OMDB retrievable to confirm if the title parsing
     was conducted successfully; no metadata will actually be retrieved at this
@@ -163,7 +57,10 @@ def verify_omdb_retrievable(cleaned_title):
         raise ValueError(f"OMDB API error for query \"{cleaned_title}\": {response_content['Error']}")
 
 
-def collected_torrents_to_dataframe(media_items, media_type):
+def collected_torrents_to_dataframe(
+    media_items: dict,
+    media_type: str
+) -> pd.DataFrame:
     """
     format collected media items into a pandas dataframe for database ingestion
     :param media_items: dictionary of media items
@@ -182,10 +79,9 @@ def collected_torrents_to_dataframe(media_items, media_type):
     elif media_type == 'tv_show' or media_type == 'tv_season':
         df = df.rename(columns={
             'name': 'raw_title',
-            'cleaned_title': 'tv_show_name',
             'torrent_source': 'torrent_source'
         })
-        df = df[['raw_title', 'tv_show_name', 'torrent_source']]
+        df = df[['raw_title', 'torrent_source']]
 
     return df
 
@@ -193,7 +89,7 @@ def collected_torrents_to_dataframe(media_items, media_type):
 # collect main function
 # ------------------------------------------------------------------------------
 
-def collect_media(media_type):
+def collect_media(media_type: str):
     """
     collect ad hoc items added to transmission not from rss feeds and insert
     into automatic-transmission pipeline
@@ -214,9 +110,12 @@ def collect_media(media_type):
     # determine media type and keep only the desired type
     to_remove = []
 
+    logging.debug("determining media type")
+
+    # classify media type for each element, keep only those relevant to current run
     for hash_id, item_data in current_media.items():
         try:
-            item_media_type = classify_media(item_data['name'])
+            item_media_type = utils.classify_media_type(item_data['name'])
             if item_media_type != media_type:
                 to_remove.append(hash_id)
         except Exception as e:
@@ -233,7 +132,7 @@ def collect_media(media_type):
 
     # extract clean item name from raw_title
     for hash_id, item_data in current_media.items():
-        current_media[hash_id]['cleaned_title'] = extract_name(item_data['name'], media_type)
+        current_media[hash_id]['cleaned_title'] = utils.extract_title(item_data['name'], media_type)
 
     # determine if item is omdb retrievable, if not raise error and remove from items
     to_remove = []

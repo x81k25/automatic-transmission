@@ -10,7 +10,6 @@ import pandas as pd
 from pandas import DataFrame
 from sqlalchemy import create_engine, text, Engine
 from sqlalchemy.engine import URL
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import quoted_name
 
 # ------------------------------------------------------------------------------
@@ -436,87 +435,47 @@ def update_db_media_table(
     media_old: DataFrame,
     media_new: DataFrame
 ):
-    #media_old = media
-    #media_new = media_parsed
-    #media_type = 'movie'
-
     # assign engine
     engine = create_db_engine()
 
-    # determine the columns from the media_old which are already populated
-    populated_series = media_old.notna().any()
-    populated_columns = populated_series[populated_series].index.tolist()
+    # determine which columns have new data (not NA) in media_new
+    populated_mask = ~media_new.isna().all()
+    columns_to_update = media_new.columns[populated_mask].tolist()
 
-    # determine the columns from the media_new which are all na
-    na_series = media_new.isna().all()
-    na_columns = na_series[na_series].index.tolist()
-
-    # crate a 3rd data frame that takes only the values that are populated in media_new and not in media_old
-    media_update = media_new.drop(columns=na_columns + populated_columns)
+    # create update dataframe with only the new, non-NA columns
+    media_update = media_new[columns_to_update]
 
     # assign fully qualified table name
     table = assign_table(media_type)['schema_and_table']
 
-    #print(f"Starting update operation for {len(media_update)} rows in {table}")
-
-    # Get the columns we want to update (excluding the index)
-    update_columns = media_update.columns.tolist()
-
-    # Initialize statistics
-    stats = {
-        "total_rows": len(media_update),
-        "successful_updates": 0,
-        "failed_updates": 0,
-        "error_messages": []
-    }
-
     try:
-        # Build the dynamic UPDATE statement
-        set_clause = ", ".join(
-            [f"{col} = :new_{col}" for col in update_columns])
-        update_stmt = text(f"""
-            UPDATE {table}
-            SET {set_clause}
-            WHERE hash = :row_hash
-        """)
+        # Write directly to database, updating existing rows based on index (hash)
+        media_update.to_sql(
+            name=table,
+            con=engine,
+            if_exists='update',  # This will update existing records
+            index=True,
+            index_label='hash'
+        )
 
-        # Process rows in smaller batches to allow for partial success
-        batch_size = 10
-        for i in range(0, len(media_update), batch_size):
-            batch = media_update.iloc[i:i + batch_size]
-
-            with engine.begin() as conn:  # New transaction for each batch
-                for idx, row in batch.iterrows():
-                    try:
-                        # Prepare parameters
-                        params = {f"new_{col}": row[col] for col in
-                                  update_columns}
-                        params["row_hash"] = idx
-
-                        # Execute the update
-                        result = conn.execute(update_stmt, params)
-
-                        if result.rowcount == 1:
-                            stats["successful_updates"] += 1
-                        else:
-                            stats["failed_updates"] += 1
-                            stats["error_messages"].append(
-                                f"No row updated for hash {idx}. Row might not exist."
-                            )
-
-                    except SQLAlchemyError as e:
-                        stats["failed_updates"] += 1
-                        stats["error_messages"].append(
-                            f"Error updating row with hash {idx}: {str(e)}"
-                        )
+        stats = {
+            "total_rows": len(media_update),
+            "successful_updates": len(media_update),
+            "failed_updates": 0,
+            "error_messages": []
+        }
 
     except Exception as e:
-        #print(f"Fatal error during update operation: {str(e)}")
-        stats["error_messages"].append(f"Fatal error: {str(e)}")
+        stats = {
+            "total_rows": len(media_update),
+            "successful_updates": 0,
+            "failed_updates": len(media_update),
+            "error_messages": [f"Error during update: {str(e)}"]
+        }
 
-    #print(f"Update operation completed. "
-    #      f"Successful updates: {stats['successful_updates']}, "
-    #      f"Failed updates: {stats['failed_updates']}")
+    logging.debug(f"Update operation completed. "
+                  f"Successful updates: {stats['successful_updates']}, "
+                  f"Failed updates: {stats['failed_updates']}")
 
     return stats
 

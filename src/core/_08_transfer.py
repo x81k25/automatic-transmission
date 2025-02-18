@@ -18,7 +18,6 @@ load_dotenv()
 # logger config
 logger = logging.getLogger(__name__)
 
-
 # set directories from .env
 download_dir = os.getenv('DOWNLOAD_DIR')
 tv_show_dir = os.getenv('TV_SHOW_DIR')

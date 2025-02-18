@@ -84,7 +84,6 @@ def ssh_command(command: str = 'uname -a'):
             "command: " + command + "\n" + \
             "error: " + error
         logging.error(error_message)
-        print(error_message)
         client.close()
         raise Exception(error_message)
     else:
@@ -163,7 +162,6 @@ def check_dir_or_file_exists(remote_path: str = None):
             f"remote_path: {remote_path} \n" + \
             f"error: {str(e)}"
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
 
     finally:
@@ -216,7 +214,6 @@ def create_dir(remote_path: str) -> bool:
             f"remote_path: {remote_path} \n" + \
             f"error: {str(e)}"
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
 
     finally:
@@ -258,7 +255,6 @@ def copy_dir(
         if 'not exists' in result:
             error_message = f"Source directory does not exist or is not a directory: {full_source}"
             logging.error(error_message)
-            print(error_message)
             return False
 
         # Create parent destination directory if it doesn't exist with proper permissions and ownership
@@ -284,7 +280,6 @@ def copy_dir(
     except Exception as e:
         error_message = f"copy_dir error:\nsource: {full_source}\ndestination: {full_destination}\nerror: {str(e)}"
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
 
 
@@ -313,7 +308,6 @@ def copy_dir_contents(
         if 'not exists' in ssh_command(check_cmd):
             error_message = f"Source directory does not exist: {full_source}"
             logging.error(error_message)
-            print(error_message)
             return False
 
         # Create destination with permissions
@@ -332,7 +326,6 @@ def copy_dir_contents(
     except Exception as e:
         error_message = f"copy_dir error:\nsource: {full_source}\ndestination: {destination_dir}\nerror: {str(e)}"
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
 
 
@@ -369,7 +362,6 @@ def copy_file(
         if exit_code != 0:
             error_message = f"Source file does not exist or is not a regular file: {full_source}"
             logging.error(error_message)
-            print(error_message)
             return False
 
         # Copy file, set permissions (775) and ownership
@@ -383,7 +375,6 @@ def copy_file(
     except Exception as e:
         error_message = f"copy_file error:\nsource: {full_source}\ndestination: {full_destination}\nerror: {str(e)}"
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
 
 
@@ -439,7 +430,6 @@ def delete_dir_or_file(
                         f"remote_dir: {remote_dir.rstrip('/')}/{dir_or_file_name} \n" + \
                         f"error: {str(e)}"
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
 
     finally:
@@ -481,7 +471,6 @@ dir_or_file_name: \"{dir_or_file_name}\"
 full_download_path: \"{full_download_path}\""""
         )
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
     elif dir_or_file_attr[1] == 'file':
         copy_file(
@@ -524,13 +513,12 @@ def move_tv_show(
     # raise error if file or directory does not exist
     if dir_or_file_attr[0] == False:
         error_message = (
-f"""move_movie error: dir or file does not exist 
+f"""move_tv_show error: dir or file does not exist 
 download_dir: \"{download_dir}\" 
 dir_or_file_name: \"{dir_or_file_name}\"
 full_download_path: \"{full_download_path}\""""
         )
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
 
     # generate the full destination path
@@ -596,7 +584,6 @@ dir_or_file_name: \"{dir_name}\"
 full_download_path: \"{full_download_path}\""""
         )
         logging.error(error_message)
-        print(error_message)
         raise Exception(error_message)
 
     # generate the full destination path

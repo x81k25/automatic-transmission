@@ -9,5 +9,5 @@ requests
 sqlalchemy~=2.0.36
 transmission-rpc
 tmdbv3api
-
+pyyaml
 
