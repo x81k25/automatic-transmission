@@ -49,18 +49,15 @@ def parse_item(media_item: pd.Series, media_type: str) -> pd.Series:
     # search for movie only patterns
     if media_type == 'movie':
        media_item['movie_title']  = utils.extract_title(raw_title, media_type)
-       logging.debug(f"raw_title: {raw_title} has tv_show_name {media_item['movie_title']}")
        media_item['release_year'] = utils.extract_year(raw_title)
     # search for tv show only patterns
     elif media_type == 'tv_show':
         media_item['tv_show_name'] = utils.extract_title(raw_title, media_type)
-        logging.debug(f"raw_title: {raw_title} has tv_show_name {media_item['tv_show_name']}")
         media_item['season'] = utils.extract_season_from_episode(raw_title)
         media_item['episode'] = utils.extract_episode_from_episode(raw_title)
     # search for tv season only pattens
     elif media_type == 'tv_season':
         media_item['tv_show_name'] = utils.extract_title(raw_title, media_type)
-        logging.debug(f"raw_title: {raw_title} has tv_show_name {media_item['tv_show_name']}")
         media_item['season'] = utils.extract_season_from_season(raw_title)
     else:
         raise ValueError("Invalid item type. Must be 'movie' or 'tv_show'")
@@ -97,6 +94,9 @@ def parse_media(media_type: str):
         status='ingested'
     )
 
+    # convert the index of the media to a column called hash
+    media['hash'] = media.index
+
     media_parsed = pd.DataFrame()
 
     # iterate through all new movies, parse data from the title and add to new dataframe
@@ -118,10 +118,9 @@ def parse_media(media_type: str):
 
     if len(media_parsed) > 0:
         # write parsed data back to the database
-        utils.update_db_media_table(
+        utils.media_db_update(
             media_type=media_type,
-            media_old=media,
-            media_new=media_parsed
+            media_df=media
         )
 
         # update status of successfully parsed items

@@ -1,6 +1,6 @@
 # standard library imports
-import os
 import logging
+import os
 import sys
 from typing import List, Optional
 
@@ -8,7 +8,8 @@ from typing import List, Optional
 from dotenv import load_dotenv
 import pandas as pd
 from pandas import DataFrame
-from sqlalchemy import create_engine, text, Engine
+from sqlalchemy import create_engine, text, Engine, Table, MetaData, func
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import URL
 from sqlalchemy.sql import quoted_name
 
@@ -429,55 +430,54 @@ def update_rejection_status_by_hash(
     except Exception as e:
         raise Exception(f"Error updating status: {str(e)}")
 
+def media_db_update(media_df: pd.DataFrame, media_type: str) -> None:
+    """
+    Updates database records for media entries using SQLAlchemy's ORM approach.
 
-def update_db_media_table(
-    media_type: str,
-    media_old: DataFrame,
-    media_new: DataFrame
-):
-    # assign engine
+    Parameters:
+    media_df (pd.DataFrame): DataFrame containing media records to update
+    media_type (str): Type of media ('movie', 'tv_show', 'tv_season')
+    """
+    #media_type = 'tv_show'
+    #media_df = pd.read_pickle('./dev/data_examples/media_parsed_df.pkl')
+
+    logging.debug(f"Starting database update for {len(media_df)} {media_type} records")
+
+    table_info = assign_table(media_type)
     engine = create_db_engine()
 
-    # determine which columns have new data (not NA) in media_new
-    populated_mask = ~media_new.isna().all()
-    columns_to_update = media_new.columns[populated_mask].tolist()
+    # convert all pandas/numpy NaNs to None
+    media_df = media_df.astype(object).where(media_df.notna(), None)
 
-    # create update dataframe with only the new, non-NA columns
-    media_update = media_new[columns_to_update]
+    # Get table metadata
+    metadata = MetaData()
+    metadata.reflect(bind=engine, schema=table_info['schema_only'])
+    table = metadata.tables[f"{table_info['schema_only']}.{table_info['table_only']}"]
 
-    # assign fully qualified table name
-    table = assign_table(media_type)['schema_and_table']
+    # Create the upsert statement using SQLAlchemy
+    stmt = insert(table).values(media_df.to_dict('records'))
+    update_cols = {col.name: col for col in stmt.excluded if col.name != 'hash'}
+    update_cols['updated_at'] = func.current_timestamp()
+
+    # Create the upsert statement
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['hash'],
+        set_=update_cols
+    )
 
     try:
-        # Write directly to database, updating existing rows based on index (hash)
-        media_update.to_sql(
-            name=table,
-            con=engine,
-            if_exists='update',  # This will update existing records
-            index=True,
-            index_label='hash'
-        )
-
-        stats = {
-            "total_rows": len(media_update),
-            "successful_updates": len(media_update),
-            "failed_updates": 0,
-            "error_messages": []
-        }
+        with engine.begin() as conn:
+            result = conn.execute(upsert_stmt)
+            logging.debug(
+                f"Successfully updated {result.rowcount} records in {media_type} table")
 
     except Exception as e:
-        stats = {
-            "total_rows": len(media_update),
-            "successful_updates": 0,
-            "failed_updates": len(media_update),
-            "error_messages": [f"Error during update: {str(e)}"]
-        }
+        logging.error(f"Error updating {media_type} records: {str(e)}")
+        raise
 
-    logging.debug(f"Update operation completed. "
-                  f"Successful updates: {stats['successful_updates']}, "
-                  f"Failed updates: {stats['failed_updates']}")
+    finally:
+        engine.dispose()
 
-    return stats
 
 # ------------------------------------------------------------------------------
 # end of sqlf.py

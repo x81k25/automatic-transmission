@@ -123,7 +123,7 @@ def collect_media(media_type: str):
             logging.error(f"failed to classify media_type: {current_media[hash_id]['name']}")
             logging.error(f"collect_media error: {e}")
 
-    # if no items match calssifaction end function
+    # if no items match classification end function
     if len(current_media) == 0:
         return
 
@@ -137,13 +137,14 @@ def collect_media(media_type: str):
     # determine if item is omdb retrievable, if not raise error and remove from items
     to_remove = []
 
-    for hash_id, item_data in current_media.items():
-        try:
-            verify_omdb_retrievable(cleaned_title=item_data['cleaned_title'])
-        except Exception as e:
-            to_remove.append(hash_id)
-            logging.error(f"failed to retrieve OMDB metadata: {current_media[hash_id]['name']}")
-            logging.error(f"collect_media error: {e}")
+    #commenting out, current backlog is eating up OMDB queue
+    # for hash_id, item_data in current_media.items():
+    #     try:
+    #         verify_omdb_retrievable(cleaned_title=item_data['cleaned_title'])
+    #     except Exception as e:
+    #         to_remove.append(hash_id)
+    #         logging.error(f"failed to retrieve OMDB metadata: {current_media[hash_id]['name']}")
+    #         logging.error(f"collect_media error: {e}")
 
     for hash_id in to_remove:
         del current_media[hash_id]

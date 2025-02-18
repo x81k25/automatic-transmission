@@ -109,6 +109,9 @@ def collect_metadata(media_type):
         status='parsed'
     )
 
+    # convert the index of the media to a column called hash
+    media['hash'] = media.index
+
     # select the release year of the 2nd row of the data frame
     media_collected = pd.DataFrame()
 
@@ -129,10 +132,9 @@ def collect_metadata(media_type):
 
     if len(media_collected) > 0:
         # write new elements to database
-        utils.update_db_media_table(
+        utils.media_db_update(
             media_type=media_type,
-            media_old=media,
-            media_new=media_collected
+            media_df=media_collected
         )
 
         # update status of relevant elements by hash

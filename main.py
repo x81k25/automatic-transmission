@@ -41,6 +41,8 @@ def full_pipeline(
             format='%(asctime)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+        logging.getLogger("paramiko").setLevel(logging.WARNING)
     else:
         logging.basicConfig(
             level=logging.DEBUG,
