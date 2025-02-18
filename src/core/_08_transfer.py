@@ -18,7 +18,6 @@ load_dotenv()
 # logger config
 logger = logging.getLogger(__name__)
 
-
 # set directories from .env
 download_dir = os.getenv('DOWNLOAD_DIR')
 tv_show_dir = os.getenv('TV_SHOW_DIR')
@@ -83,6 +82,9 @@ def transfer_media(media_type):
 
 	# collects the hashes of torrents that have completed downloading
 	hashes_transferred = []
+
+	media_all = media.copy()
+	media = media.iloc[0:10].copy()
 
 	# transfer downloaded torrents
 	if len(media) > 0:

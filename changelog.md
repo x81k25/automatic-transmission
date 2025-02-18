@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.0]
+- alter db update statement to be more robust to deal with torrents being manually demoted to previous status
+- created utils.parse_element and moved all parsing functions to this module; in order to standardize parsing across different src scripts that parsed the same element
+
 ## [1.1.7]
 - removed internal logger function and replaced withe standard python logging package
 - changed from ShowRSS to episodefeed for tv shows

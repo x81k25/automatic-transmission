@@ -1,6 +1,6 @@
 # standard library imports
-import os
 import logging
+import os
 import sys
 from typing import List, Optional
 
@@ -8,9 +8,9 @@ from typing import List, Optional
 from dotenv import load_dotenv
 import pandas as pd
 from pandas import DataFrame
-from sqlalchemy import create_engine, text, Engine
+from sqlalchemy import create_engine, text, Engine, Table, MetaData, func
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import URL
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import quoted_name
 
 # ------------------------------------------------------------------------------
@@ -430,95 +430,54 @@ def update_rejection_status_by_hash(
     except Exception as e:
         raise Exception(f"Error updating status: {str(e)}")
 
+def media_db_update(media_df: pd.DataFrame, media_type: str) -> None:
+    """
+    Updates database records for media entries using SQLAlchemy's ORM approach.
 
-def update_db_media_table(
-    media_type: str,
-    media_old: DataFrame,
-    media_new: DataFrame
-):
-    #media_old = media
-    #media_new = media_parsed
-    #media_type = 'movie'
+    Parameters:
+    media_df (pd.DataFrame): DataFrame containing media records to update
+    media_type (str): Type of media ('movie', 'tv_show', 'tv_season')
+    """
+    #media_type = 'tv_show'
+    #media_df = pd.read_pickle('./dev/data_examples/media_parsed_df.pkl')
 
-    # assign engine
+    logging.debug(f"Starting database update for {len(media_df)} {media_type} records")
+
+    table_info = assign_table(media_type)
     engine = create_db_engine()
 
-    # determine the columns from the media_old which are already populated
-    populated_series = media_old.notna().any()
-    populated_columns = populated_series[populated_series].index.tolist()
+    # convert all pandas/numpy NaNs to None
+    media_df = media_df.astype(object).where(media_df.notna(), None)
 
-    # determine the columns from the media_new which are all na
-    na_series = media_new.isna().all()
-    na_columns = na_series[na_series].index.tolist()
+    # Get table metadata
+    metadata = MetaData()
+    metadata.reflect(bind=engine, schema=table_info['schema_only'])
+    table = metadata.tables[f"{table_info['schema_only']}.{table_info['table_only']}"]
 
-    # crate a 3rd data frame that takes only the values that are populated in media_new and not in media_old
-    media_update = media_new.drop(columns=na_columns + populated_columns)
+    # Create the upsert statement using SQLAlchemy
+    stmt = insert(table).values(media_df.to_dict('records'))
+    update_cols = {col.name: col for col in stmt.excluded if col.name != 'hash'}
+    update_cols['updated_at'] = func.current_timestamp()
 
-    # assign fully qualified table name
-    table = assign_table(media_type)['schema_and_table']
-
-    #print(f"Starting update operation for {len(media_update)} rows in {table}")
-
-    # Get the columns we want to update (excluding the index)
-    update_columns = media_update.columns.tolist()
-
-    # Initialize statistics
-    stats = {
-        "total_rows": len(media_update),
-        "successful_updates": 0,
-        "failed_updates": 0,
-        "error_messages": []
-    }
+    # Create the upsert statement
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['hash'],
+        set_=update_cols
+    )
 
     try:
-        # Build the dynamic UPDATE statement
-        set_clause = ", ".join(
-            [f"{col} = :new_{col}" for col in update_columns])
-        update_stmt = text(f"""
-            UPDATE {table}
-            SET {set_clause}
-            WHERE hash = :row_hash
-        """)
-
-        # Process rows in smaller batches to allow for partial success
-        batch_size = 10
-        for i in range(0, len(media_update), batch_size):
-            batch = media_update.iloc[i:i + batch_size]
-
-            with engine.begin() as conn:  # New transaction for each batch
-                for idx, row in batch.iterrows():
-                    try:
-                        # Prepare parameters
-                        params = {f"new_{col}": row[col] for col in
-                                  update_columns}
-                        params["row_hash"] = idx
-
-                        # Execute the update
-                        result = conn.execute(update_stmt, params)
-
-                        if result.rowcount == 1:
-                            stats["successful_updates"] += 1
-                        else:
-                            stats["failed_updates"] += 1
-                            stats["error_messages"].append(
-                                f"No row updated for hash {idx}. Row might not exist."
-                            )
-
-                    except SQLAlchemyError as e:
-                        stats["failed_updates"] += 1
-                        stats["error_messages"].append(
-                            f"Error updating row with hash {idx}: {str(e)}"
-                        )
+        with engine.begin() as conn:
+            result = conn.execute(upsert_stmt)
+            logging.debug(
+                f"Successfully updated {result.rowcount} records in {media_type} table")
 
     except Exception as e:
-        #print(f"Fatal error during update operation: {str(e)}")
-        stats["error_messages"].append(f"Fatal error: {str(e)}")
+        logging.error(f"Error updating {media_type} records: {str(e)}")
+        raise
 
-    #print(f"Update operation completed. "
-    #      f"Successful updates: {stats['successful_updates']}, "
-    #      f"Failed updates: {stats['failed_updates']}")
+    finally:
+        engine.dispose()
 
-    return stats
 
 # ------------------------------------------------------------------------------
 # end of sqlf.py

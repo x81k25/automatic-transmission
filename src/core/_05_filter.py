@@ -76,6 +76,9 @@ def filter_media(media_type):
         status='metadata_collected'
     )
 
+    # convert the index of the media to a column called hash
+    media['hash'] = media.index
+
     # filter through each row and update the status
     media_filtered = pd.DataFrame()
     media_rejected = pd.DataFrame()
@@ -122,10 +125,9 @@ def filter_media(media_type):
 
     if len(media_filtered) > 0:
         # update database for rejected items
-        utils.update_db_media_table(
+        utils.media_db_update(
             media_type=media_type,
-            media_old=media,
-            media_new=media_filtered
+            media_df=media_filtered
         )
 
         # update status

@@ -64,6 +64,9 @@ def check_downloads(media_type):
         status='downloading'
     )
 
+    # convert the index of the media to a column called hash
+    media['hash'] = media.index
+
     # if no media are downloading conclude function
     if len(media) == 0:
         return
@@ -100,10 +103,9 @@ def check_downloads(media_type):
             logging.error(f"download_check error: {e}")
 
    # update database with filename
-    utils.update_db_media_table(
+    utils.media_db_update(
         media_type=media_type,
-        media_old=media,
-        media_new=media_download_complete
+        media_df=media_download_complete
     )
 
     # update status of relevant elements by hash
