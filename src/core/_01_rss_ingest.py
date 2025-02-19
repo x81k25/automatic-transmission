@@ -77,7 +77,18 @@ def rss_entries_to_dataframe(
                 'torrent_source': entry['link']
             }
             utils.validate_dict(extracted_dict)
-            extracted_data.append(extracted_dict)
+            if utils.classify_media_type(extracted_dict['raw_title']) == 'tv_show':
+                extracted_data.append(extracted_dict)
+    elif media_type == 'tv_season':
+        for entry in entries:
+            extracted_dict = {
+                'hash': utils.extract_hash_from_magnet_link(entry['link']),
+                'raw_title': entry['title'],
+                'torrent_source': entry['link']
+            }
+            utils.validate_dict(extracted_dict)
+            if utils.classify_media_type(extracted_dict['raw_title']) == 'tv_season':
+                extracted_data.append(extracted_dict)
     else:
         raise ValueError("Invalid feed type. Must be 'movie' or 'tv_show'")
 
@@ -105,11 +116,9 @@ def rss_ingest(media_type: str):
     rss_url = None
     if media_type == 'movie':
         rss_url = os.getenv('MOVIE_RSS_URL')
-    elif media_type == 'tv_show':
+    # the tv show feed may occasionally contain tv seasons
+    elif media_type == 'tv_show' or media_type == 'tv_season':
         rss_url = os.getenv('TV_SHOW_RSS_URL')
-    # exit if tv_season type
-    elif media_type == 'tv_season':
-        return
 
     feed = rss_feed_ingest(rss_url)
 

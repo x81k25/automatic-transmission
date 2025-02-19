@@ -2,7 +2,14 @@
 raw_title_prefixes:
   - "www.Torrenting.com -"
 
+pre_processing_replacements:
+  - ["Frontline S2025", "Frontline S44"]
 
+move_post_processing_replacements:
+
+tv_post_processing_replacements:
+  - ["Its Always Sunny", "It's Always Sunny"]
+  - ["60 Minutes (US)", "60 Minutes"]
 
 #for entry in extracted_data:
 #    if media_type == 'tv_show':

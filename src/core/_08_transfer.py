@@ -83,9 +83,6 @@ def transfer_media(media_type):
 	# collects the hashes of torrents that have completed downloading
 	hashes_transferred = []
 
-	media_all = media.copy()
-	media = media.iloc[0:10].copy()
-
 	# transfer downloaded torrents
 	if len(media) > 0:
 		for index, row in media.iterrows():

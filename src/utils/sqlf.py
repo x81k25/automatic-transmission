@@ -465,11 +465,14 @@ def media_db_update(media_df: pd.DataFrame, media_type: str) -> None:
         set_=update_cols
     )
 
+    logging.debug(f"Attempting upsert of {len(media_df)} records to {media_type} table")
+    logging.debug(f"Sample record for upsert: {media_df.iloc[0].to_dict()}")
+    logging.debug(upsert_stmt)
+
     try:
         with engine.begin() as conn:
             result = conn.execute(upsert_stmt)
-            logging.debug(
-                f"Successfully updated {result.rowcount} records in {media_type} table")
+            logging.debug(f"Successfully updated {result.rowcount} records in {media_type} table")
 
     except Exception as e:
         logging.error(f"Error updating {media_type} records: {str(e)}")
