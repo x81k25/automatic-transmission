@@ -4,6 +4,7 @@ import logging
 # third-party imports
 from dotenv import load_dotenv
 import pandas as pd
+import yaml
 
 # local/custom imports
 import src.utils as utils
@@ -18,6 +19,10 @@ load_dotenv()
 # logger config
 logger = logging.getLogger(__name__)
 
+# read in string special conditions
+with open('./config/string-special-conditions.yaml', 'r') as file:
+    special_conditions = yaml.safe_load(file)
+
 # ------------------------------------------------------------------------------
 # title parse helper functions
 # ------------------------------------------------------------------------------
@@ -31,6 +36,12 @@ def parse_item(media_item: pd.Series, media_type: str) -> pd.Series:
     :return: new item series to be inserted into master data frame
     """
     raw_title = media_item['raw_title']
+
+    # apply preprocessing replacements
+    for pre_processing_replacement in special_conditions['pre_processing_replacements']:
+        if pre_processing_replacement[0] in raw_title:
+            raw_title = raw_title.replace(pre_processing_replacement[0], pre_processing_replacement[1])
+            logging.debug(f"special condition preprocessing: {pre_processing_replacement[0]} -> {pre_processing_replacement[1]}")
 
     # Define mandatory fields for each media type
     mandatory_fields = {
@@ -49,15 +60,46 @@ def parse_item(media_item: pd.Series, media_type: str) -> pd.Series:
     # search for movie only patterns
     if media_type == 'movie':
        media_item['movie_title']  = utils.extract_title(raw_title, media_type)
+
+       for post_processing_replacement in special_conditions['movie_post_processing_replacements']:
+           if post_processing_replacement[0] in media_item['movie_title']:
+               media_item['movie_title'] = media_item['movie_title'].replace(
+                   post_processing_replacement[0],
+                   post_processing_replacement[1]
+               )
+               logging.debug(
+                   f"special condition postprocessing: {post_processing_replacement[0]} -> {post_processing_replacement[1]}")
+
        media_item['release_year'] = utils.extract_year(raw_title)
     # search for tv show only patterns
     elif media_type == 'tv_show':
         media_item['tv_show_name'] = utils.extract_title(raw_title, media_type)
+
+        for post_processing_replacement in special_conditions['tv_post_processing_replacements']:
+            if post_processing_replacement[0] in media_item['tv_show_name']:
+                media_item['tv_show_name'] = media_item['tv_show_name'].replace(
+                    post_processing_replacement[0],
+                    post_processing_replacement[1]
+                )
+                logging.debug(
+                    f"special condition postprocessing: {post_processing_replacement[0]} -> {post_processing_replacement[1]}")
+
         media_item['season'] = utils.extract_season_from_episode(raw_title)
         media_item['episode'] = utils.extract_episode_from_episode(raw_title)
     # search for tv season only pattens
     elif media_type == 'tv_season':
         media_item['tv_show_name'] = utils.extract_title(raw_title, media_type)
+
+        for post_processing_replacement in special_conditions['tv_post_processing_replacements']:
+            if post_processing_replacement[0] in media_item['tv_show_name']:
+                media_item['tv_show_name'] = media_item['tv_show_name'].replace(
+                    post_processing_replacement[0],
+                    post_processing_replacement[1]
+                )
+                logging.debug(
+                    f"special condition postprocessing: {post_processing_replacement[0]} -> {post_processing_replacement[1]}"
+                )
+
         media_item['season'] = utils.extract_season_from_season(raw_title)
     else:
         raise ValueError("Invalid item type. Must be 'movie' or 'tv_show'")
@@ -67,6 +109,7 @@ def parse_item(media_item: pd.Series, media_type: str) -> pd.Series:
         entry_series=media_item,
         mandatory_fields=mandatory_fields[media_type]
     )
+
     if not is_valid:
         raise ValueError(
             f"Missing or empty mandatory fields {missing} for item: {raw_title}")
@@ -120,7 +163,7 @@ def parse_media(media_type: str):
         # write parsed data back to the database
         utils.media_db_update(
             media_type=media_type,
-            media_df=media
+            media_df=media_parsed
         )
 
         # update status of successfully parsed items
