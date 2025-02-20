@@ -54,13 +54,15 @@ def collect_omdb_metadata(media_item, media_type):
         raise ValueError("Invalid collection type. Must be 'movie', 'tv_show', or 'tv_season'")
 
     # Make a request to the OMDb API
+    logging.debug(f"collecting metadata for: {media_item['raw_title']} as {params['t']}")
+
     response = requests.get(omdb_base_url, params=params)
     data = json.loads(response.content)
 
     # check if the response was successful, and if so move on
     if data["Response"] != "True":
         raise ValueError(
-            f"OMDB API error for query \"{media_item["tv_show_name"]}\": {response_content['Error']}")
+            f"OMDB API error for query \"{media_item["raw_title"]}\": {response_content['Error']}")
 
     # Extract the metadata from the response
     if data:

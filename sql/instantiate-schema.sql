@@ -37,7 +37,7 @@ BEGIN
     -- Create the type
     CREATE TYPE rejection_status AS ENUM (
         'unfiltered',
-        'passed',
+        'accepted',
         'failed',
         'override'
     );

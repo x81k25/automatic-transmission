@@ -5,7 +5,7 @@ raw_title_prefixes:
 pre_processing_replacements:
   - ["Frontline S2025", "Frontline S44"]
 
-move_post_processing_replacements:
+movie_post_processing_replacements:
 
 tv_post_processing_replacements:
   - ["Its Always Sunny", "It's Always Sunny"]
