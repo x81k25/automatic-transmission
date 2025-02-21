@@ -35,13 +35,13 @@ def transfer_item(media_item, media_type):
 	:return:
 	"""
 	if media_type == 'movie':
-		utils.move_movie(
+		utils.move_movie_local(
 			dir_or_file_name=media_item.file_name,
 			download_dir=download_dir,
 			movie_dir=movie_dir
 		)
 	elif media_type == 'tv_show':
-		utils.move_tv_show(
+		utils.move_tv_show_local(
 			download_dir=download_dir,
 			tv_show_dir=tv_show_dir,
 			dir_or_file_name=media_item.file_name,
@@ -50,7 +50,7 @@ def transfer_item(media_item, media_type):
 			season=media_item.season
 		)
 	elif media_type == 'tv_season':
-		utils.move_tv_season(
+		utils.move_tv_season_local(
 			download_dir=download_dir,
 			tv_show_dir=tv_show_dir,
 			dir_name=media_item.file_name,

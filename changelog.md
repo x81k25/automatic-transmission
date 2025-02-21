@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.2.2]
+- change all file operations to run local via os, pathlib and shutil; replacing the older ssh options; depracating ssh options
+
 ## [1.2.1]
 - change media collection now; if API response is successful but item not in database, item is rejected 
 
