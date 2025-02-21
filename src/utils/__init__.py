@@ -7,6 +7,6 @@ from .sshf import *
 # import all function from parse_element
 from .parse_element import *
 # import all function from local file operations
-from local_file_operations import *
+from .local_file_operations import *
 
 
