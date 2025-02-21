@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.2.1]
+- change media collection now; if API response is successful but item not in database, item is rejected 
+
 ## [1.2.0]
 - alter db update statement to be more robust to deal with torrents being manually demoted to previous status
 - created utils.parse_element and moved all parsing functions to this module; in order to standardize parsing across different src scripts that parsed the same element
