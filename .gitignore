@@ -17,7 +17,7 @@ automatic-transmission.log
 
 # files used for development purposes and that will not be used by the application
 .bak
-doc.txt
+dev/doc.txt
 dev
 test/__pycache__
 test/temp_file

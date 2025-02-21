@@ -61,14 +61,15 @@ def parse_item(media_item: pd.Series, media_type: str) -> pd.Series:
     if media_type == 'movie':
        media_item['movie_title']  = utils.extract_title(raw_title, media_type)
 
-       for post_processing_replacement in special_conditions['movie_post_processing_replacements']:
-           if post_processing_replacement[0] in media_item['movie_title']:
-               media_item['movie_title'] = media_item['movie_title'].replace(
-                   post_processing_replacement[0],
-                   post_processing_replacement[1]
-               )
-               logging.debug(
-                   f"special condition postprocessing: {post_processing_replacement[0]} -> {post_processing_replacement[1]}")
+       # no current post-processing replacements for movies
+       # for post_processing_replacement in special_conditions['movie_post_processing_replacements']:
+       #     if post_processing_replacement[0] in media_item['movie_title']:
+       #         media_item['movie_title'] = media_item['movie_title'].replace(
+       #             post_processing_replacement[0],
+       #             post_processing_replacement[1]
+       #         )
+       #         logging.debug(
+       #             f"special condition postprocessing: {post_processing_replacement[0]} -> {post_processing_replacement[1]}")
 
        media_item['release_year'] = utils.extract_year(raw_title)
     # search for tv show only patterns
