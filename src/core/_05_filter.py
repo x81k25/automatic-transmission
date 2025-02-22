@@ -110,10 +110,9 @@ def filter_media(media_type):
 
     if len(media_rejected) > 0:
         # update database with for items that passed filtration
-        utils.update_db_media_table(
+        utils.media_db_update(
             media_type=media_type,
-            media_old=media,
-            media_new=media_rejected
+            media_df=media_rejected
         )
 
         # update status
