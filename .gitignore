@@ -1,13 +1,65 @@
-# ide/runtime files
-.idea
-__pycache__/
-*.pyc
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# folder containers contents specific to each instance
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# PyCharm (you already have .idea)
+*.iml
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Virtual environments (you have /venv/ but these are other common patterns)
 .env
-/venv/
-!templates/.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
 
 # folders used for devlopment only
 .dev/
-automatic-transmission.log

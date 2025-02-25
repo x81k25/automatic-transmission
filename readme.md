@@ -25,7 +25,6 @@ The system supports three media types:
 - Python 3.12
 - PostgreSQL database
 - Transmission daemon running on the local network
-- SSH access to the server hosting the media library
 
 Repository Structure
 
@@ -52,13 +51,12 @@ automatic-transmission/
 │       ├── local_file_operations.py
 │       ├── parse_element.py
 │       ├── rpcf.py
-│       ├── sql.py
-│       └── ssh.py
+│       └── sqlf.py
 ├── test/                     # test scripts and resources
 ├── venv/                     # virtual environment (gitignored)
 ├── .env                      # environment variables
 ├── .gitignore
-├── changelog.md              # contains   
+├── changelog.md              # contains not all major/minor version changes
 ├── main.py                   # main execution script
 ├── pytest.ini
 ├── readme.md                 # this file
@@ -96,13 +94,8 @@ automatic-transmission/
 A `.env` will need to create with all of the following parameters for your specific configuration. My configuration is currently set-up to with with YTS for movies and episodefeed for TV.
 
 ```
-# SSH credentials
-SERVER_IP='your_server_ip'
-SSH_USER='your_ssh_username'
-SSH_PASSWORD='your_ssh_password'
-MEDIA_GROUP='your_media_group'
-
 # Transmission credentials
+SERVER_IP='your_server_ip'
 TRANSMISSION_USERNAME='your_transmission_username'
 TRANSMISSION_PASSWORD='your_transmission_password'
 
@@ -117,7 +110,6 @@ PG_PASSWORD='your_postgres_password'
 # Media metadata API credentials
 OMDB_BASE_URL='https://www.omdbapi.com/'
 OMDB_API_KEY='your_omdb_api_key'
-TMDB_API_KEY='your_tmdb_api_key'
 
 # RSS feed URLs
 # Generate movie RSS feed from: https://yts.torrentbay.st/rss-guide
@@ -129,7 +121,6 @@ TV_SHOW_RSS_URL='your_tv_show_rss_url'
 DOWNLOAD_DIR='path_to_download_directory'
 MOVIE_DIR='path_to_movie_library'
 TV_SHOW_DIR='path_to_tv_show_library'
-LOG_DIR='path_to_log_directory'
 ```
 
 Additional configuration files:
@@ -182,8 +173,7 @@ Various utility modules in the `utils` directory provide supporting functions:
 - `parse_element.py`: Parses XML/RSS elements
 - `rpcf.py`: Remote procedure calls
 - `sql.py`: Database operations
-- `ssh.py`: SSH connection and operations
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License
