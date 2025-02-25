@@ -8,19 +8,6 @@ __pycache__/
 /venv/
 !templates/.env
 
-# filter parameters will be personalized per use
-config/filter-parameters.json
-!config/.keep
-
-# data should be generated upon ingestion, and not saved to repo
+# folders used for devlopment only
+.dev/
 automatic-transmission.log
-
-# files used for development purposes and that will not be used by the application
-.bak
-dev/doc.txt
-dev
-test/__pycache__
-test/temp_file
-src/core/__pycache__/
-src/utils/__pycache__/
-env
