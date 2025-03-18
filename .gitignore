@@ -57,6 +57,7 @@ venv.bak/
 # folders used for development only
 .dev/
 .bak/
+automatic-transmission.log
 
 # Coverage reports
 htmlcov/
