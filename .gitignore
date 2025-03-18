@@ -1,4 +1,7 @@
 # Python
+__pycache__/
+*/__pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -19,13 +22,15 @@ wheels/
 .installed.cfg
 *.egg
 
+# IDE specific files
+# PyCharm
+.idea/
+*.iml
+
 # VS Code
 .vscode/
 *.code-workspace
 .history/
-
-# PyCharm (you already have .idea)
-*.iml
 
 # Windows
 Thumbs.db
@@ -40,14 +45,17 @@ $RECYCLE.BIN/
 .Trash-*
 .nfs*
 
-# Virtual environments (you have /venv/ but these are other common patterns)
+# Virtual environments
 .env
+/venv/
 .venv
-.bak/env/
-venv/
-.bak/env/
+env/
+ENV/
 env.bak/
 venv.bak/
+
+# folders used for development only
+.dev/
 
 # Coverage reports
 htmlcov/
@@ -61,7 +69,3 @@ coverage.xml
 *.cover
 .hypothesis/
 
-# folders used for devlopment only
-.dev/
-.bak/
-automatic-transmission.log
