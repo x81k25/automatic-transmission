@@ -43,9 +43,9 @@ $RECYCLE.BIN/
 # Virtual environments (you have /venv/ but these are other common patterns)
 .env
 .venv
-env/
+.bak/env/
 venv/
-ENV/
+.bak/env/
 env.bak/
 venv.bak/
 
@@ -63,3 +63,5 @@ coverage.xml
 
 # folders used for devlopment only
 .dev/
+.bak/
+automatic-transmission.log
