@@ -265,6 +265,7 @@ def get_media_from_db(
         SELECT *
         FROM {table}
         WHERE status = :status
+        AND error_status = FALSE
     """)
 
     params = {

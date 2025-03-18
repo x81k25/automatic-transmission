@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.3]
+- transitioned code base from pandas to polars
+- added error_status and error_condition fields
+  - error_status is boolean field, if true position in pipeline will be halted
+  - error_condition will contain information if the error_status is true
+
 ## [1.2.2]
 - change all file operations to run local via os, pathlib and shutil; replacing the older ssh options; depracating ssh options
 
