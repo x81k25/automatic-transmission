@@ -107,7 +107,7 @@ def check_downloads(media_type: str):
 
     # update db
     utils.media_db_update(
-        media_df=media,
+        media=media,
         media_type=media_type
     )
 

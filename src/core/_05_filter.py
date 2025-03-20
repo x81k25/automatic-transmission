@@ -126,7 +126,7 @@ def filter_media(media_type: str):
     ))
 
     utils.media_db_update(
-        media_df=media,
+        media=media,
         media_type=media_type
     )
 

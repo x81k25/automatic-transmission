@@ -431,12 +431,15 @@ def update_rejection_status_by_hash(
         raise Exception(f"Error updating status: {str(e)}")
 
 
-def media_db_update(media_df: MediaDataFrame, media_type: str) -> None:
+def media_db_update(
+    media: MediaDataFrame,
+    media_type: str
+) -> None:
     """
     Updates database records for media entries using SQLAlchemy's ORM approach.
 
     Parameters:
-    media_df (MediaDataFrame): MediaDataFrame containing media records to update
+    media (MediaDataFrame): MediaDataFrame containing media records to update
     media_type (str): Type of media ('movie', 'tv_show', 'tv_season')
     """
     logging.debug(f"Starting database update for {len(media_df.df)} {media_type} records")
@@ -447,7 +450,7 @@ def media_db_update(media_df: MediaDataFrame, media_type: str) -> None:
     # Convert all polars nulls to None for SQLAlchemy compatibility
     # First convert to Python objects row by row
     records = []
-    for row in media_df.df.iter_rows(named=True):
+    for row in media.df.iter_rows(named=True):
         # Replace polars.Null with None in each row
         clean_row = {k: (None if v is None or str(v) == "None" else v) for k, v in row.items()}
         records.append(clean_row)
@@ -469,7 +472,7 @@ def media_db_update(media_df: MediaDataFrame, media_type: str) -> None:
     )
 
     logging.debug(f"Attempting upsert of {len(media_df.df)} records to {media_type} table")
-    logging.debug(upsert_stmt)
+    logging.debug(f"Sample record for upsert: {records[0] if records else {}}")
 
     try:
         with engine.begin() as conn:

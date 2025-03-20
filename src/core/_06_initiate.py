@@ -72,7 +72,7 @@ def initiate_media_download(media_type):
 
     # update database with results
     utils.media_db_update(
-        media_df=media,
+        media=media,
         media_type=media_type
     )
 

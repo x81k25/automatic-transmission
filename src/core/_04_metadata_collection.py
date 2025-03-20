@@ -40,8 +40,6 @@ def collect_omdb_metadata(
     :param media_type: type of collection, either "movie", "tv_show", or "tv_seasons"
     :return: dict of items with metadata added
     """
-    #media_series = media_df.df[5]
-
     # Define the parameters for the OMDb API request
     if media_type == 'movie':
         params = {
@@ -150,7 +148,7 @@ def collect_metadata(media_type: str):
 
     # write metadata back to the database
     utils.media_db_update(
-        media_df=media,
+        media=media,
         media_type=media_type
     )
 
