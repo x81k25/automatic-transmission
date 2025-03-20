@@ -65,7 +65,6 @@ def initiate_media_download(media_type):
     # initiate all queued downloads
     updated_rows = []
     for idx, row in enumerate(media.df.iter_rows(named=True)):
-        # Modify your function to accept a dict instead of a Series
         updated_row = initiate_media_item(row)
         updated_rows.append(updated_row)
 
@@ -73,7 +72,7 @@ def initiate_media_download(media_type):
 
     # update database with results
     utils.media_db_update(
-        media_df=media,
+        media=media,
         media_type=media_type
     )
 

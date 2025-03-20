@@ -60,7 +60,8 @@ def extract_and_verify_filename(media_item: dict) -> dict:
 # ------------------------------------------------------------------------------
 # main check download function for all media items
 # ------------------------------------------------------------------------------
-def check_downloads(media_type):
+
+def check_downloads(media_type: str):
     """
     check downloads for all downloading media elements, and extracts file_name
         if download is complete
@@ -85,25 +86,30 @@ def check_downloads(media_type):
             .otherwise(pl.col('status'))
     ))
 
-    # if downloaded extract file_name
+    # if no items complete, return
+    if 'downloaded' not in media.df['status']:
+        return
+
+    # extract file names of completed downloads
     updated_rows = []
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
-        # Modify your function to accept a dict instead of a Series
+    for row in media.df.iter_rows(named=True):
         updated_row = extract_and_verify_filename(row)
         updated_rows.append(updated_row)
 
     media.update(pl.DataFrame(updated_rows))
 
     # report errors if present
-    for row in media.df.filter(pl.col('error_status')).iter_rows(named=True):
-        logging.error(f"{row['raw_title']}: {row['error_condition']}")
+    for row in media.df.iter_rows(named=True):
+        if row['error_status']:
+            logging.error(f"{row['raw_title']}: {row['error_condition']}")
+        elif row['status'] == "downloaded":
+            logging.info(f"downloaded: {row['raw_title']}")
 
-    # check if any downloads complete, and if so update
-    if any(media.df['error_status']):
-        utils.media_db_update(
-            media_df=media,
-            media_type=media_type
-        )
+    # update db
+    utils.media_db_update(
+        media=media,
+        media_type=media_type
+    )
 
 
 # ------------------------------------------------------------------------------

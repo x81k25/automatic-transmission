@@ -39,7 +39,7 @@ def create_db_engine(
     schema: Optional[str] = pg_schema
 ) -> Engine:
     """
-    Creates and returns a SQLAlchemy engine for PostgreSQL connection with specified schema.
+    Creates and returns a SQLAlchemy engine for PostgresQL connection with specified schema.
     Uses environment variables if parameters are not provided.
 
     Parameters:
@@ -92,9 +92,8 @@ def create_db_engine(
 
     try:
         with engine.connect():
-            #logging.error(f"Successfully connected to PostgreSQL database at {host}:{port}/{database}")
             return engine
-    except:  # This will catch and suppress the connection error
+    except:
         error_msg = (
             f"Unable to connect to database at {host}:{port}\n"
             f"Connection timed out. Please check:\n"
@@ -103,7 +102,7 @@ def create_db_engine(
             f"- Any firewalls or network settings are blocking the connection"
         )
         logging.error(error_msg)
-        sys.exit(1)  # This will exit the program silently
+        sys.exit(1)
 
 # ------------------------------------------------------------------------------
 # non SQL helper functions
@@ -431,15 +430,18 @@ def update_rejection_status_by_hash(
         raise Exception(f"Error updating status: {str(e)}")
 
 
-def media_db_update(media_df: MediaDataFrame, media_type: str) -> None:
+def media_db_update(
+    media: MediaDataFrame,
+    media_type: str
+) -> None:
     """
     Updates database records for media entries using SQLAlchemy's ORM approach.
 
     Parameters:
-    media_df (MediaDataFrame): MediaDataFrame containing media records to update
+    media (MediaDataFrame): MediaDataFrame containing media records to update
     media_type (str): Type of media ('movie', 'tv_show', 'tv_season')
     """
-    logging.debug(f"Starting database update for {len(media_df.df)} {media_type} records")
+    logging.debug(f"Starting database update for {len(media.df)} {media_type} records")
 
     table_info = assign_table(media_type)
     engine = create_db_engine()
@@ -447,7 +449,7 @@ def media_db_update(media_df: MediaDataFrame, media_type: str) -> None:
     # Convert all polars nulls to None for SQLAlchemy compatibility
     # First convert to Python objects row by row
     records = []
-    for row in media_df.df.iter_rows(named=True):
+    for row in media.df.iter_rows(named=True):
         # Replace polars.Null with None in each row
         clean_row = {k: (None if v is None or str(v) == "None" else v) for k, v in row.items()}
         records.append(clean_row)
@@ -468,9 +470,7 @@ def media_db_update(media_df: MediaDataFrame, media_type: str) -> None:
         set_=update_cols
     )
 
-    logging.debug(f"Attempting upsert of {len(media_df.df)} records to {media_type} table")
-    logging.debug(f"Sample record for upsert: {records[0] if records else {}}")
-    logging.debug(upsert_stmt)
+    logging.debug(f"Attempting upsert of {len(media.df)} records to {media_type} table")
 
     try:
         with engine.begin() as conn:

@@ -127,7 +127,7 @@ def rss_ingest(media_type: str):
     feed = rss_feed_ingest(rss_url)
 
     # convert feed to MediaDataFrame
-    feed_items = rss_entries_to_dataframe(
+    feed_media = rss_entries_to_dataframe(
         feed=feed,
         media_type=media_type
     )
@@ -136,16 +136,16 @@ def rss_ingest(media_type: str):
     #new_hashes = feed_items['hash'].to_list()
     new_hashes = utils.compare_hashes_to_db(
         media_type=media_type,
-        hashes=feed_items.df['hash'].to_list()
+        hashes=feed_media.df['hash'].to_list()
     )
 
     if len(new_hashes) > 0:
-        feed_items._df = feed_items.df.filter(pl.col('hash').is_in(new_hashes))
+        feed_media._df = feed_media.df.filter(pl.col('hash').is_in(new_hashes))
 
         # write new items to the database
         utils.insert_items_to_db(
             media_type=media_type,
-            media=feed_items
+            media=feed_media
         )
 
         # update status of ingested items
@@ -155,7 +155,7 @@ def rss_ingest(media_type: str):
             new_status='ingested'
         )
 
-        for row in feed_items.df.iter_rows(named=True):
+        for row in feed_media.df.iter_rows(named=True):
             logging.info(f"ingested: {row['raw_title']}")
 
 # ------------------------------------------------------------------------------

@@ -15,10 +15,10 @@ import src.core as core
 # to execute the tv show pipeline
 # cd <automatic-transmission-dir> & python main.py tv_show_pipeline
 #
-# statements for testing
-# media_type = "movie"
-# media_type = "tv_show"
-# media_type = "tv_season"
+#statements for testing
+#media_type = "movie"
+#media_type = "tv_show"
+#media_type = "tv_season"
 #
 # ------------------------------------------------------------------------------
 
@@ -117,7 +117,6 @@ def main():
         full_pipeline(
             media_type=command_to_media[args.command],
             debug=args.debug
-
         )
     else:
         parser.print_help()

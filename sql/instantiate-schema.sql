@@ -48,17 +48,19 @@ EXCEPTION
 END $$;
 
 -- Create the movies table
-CREATE TABLE IF NOT EXISTS movies (
+DROP TABLE IF EXISTS movies;
+
+CREATE TABLE movies (
     hash VARCHAR(255) PRIMARY KEY,
     raw_title TEXT NOT NULL,
     movie_title VARCHAR(255),
     release_year INTEGER,
     status media_status,
-    torrent_source TEXT,
     error_status BOOLEAN DEFAULT FALSE,
-    error_condition VARCHAR(255) DEFAULT NULL,
+    error_condition TEXT,
     rejection_status rejection_status NOT NULL DEFAULT 'unfiltered',
-    rejection_reason DEFAULT NULL,
+    rejection_reason TEXT,
+    torrent_source TEXT,
     summary TEXT,
     genre TEXT[], -- Using array for multiple genres
     language TEXT[], -- Using array for multiple languages
@@ -113,18 +115,20 @@ COMMENT ON COLUMN movies.imdb_rating IS 'IMDB rating out of 10';
 COMMENT ON COLUMN movies.imdb_votes IS 'Number of votes on IMDB';
 
 -- Create tv_shows table
-CREATE TABLE IF NOT EXISTS tv_shows (
+DROP TABLE IF EXISTS tv_shows;
+
+CREATE TABLE tv_shows (
     hash VARCHAR(255) PRIMARY KEY,
     raw_title TEXT NOT NULL,
     tv_show_name VARCHAR(255),
     season INTEGER,
     episode INTEGER,
     status media_status,
-    torrent_source TEXT,
     error_status BOOLEAN DEFAULT FALSE,
-    error_condition VARCHAR(255) DEFAULT NULL,
+    error_condition TEXT,
     rejection_status rejection_status NOT NULL DEFAULT 'unfiltered',
     rejection_reason TEXT,
+    torrent_source TEXT,
     summary TEXT,
     release_year INTEGER,
     genre TEXT[], -- Using array for multiple genres
@@ -170,18 +174,20 @@ COMMENT ON COLUMN tv_shows.genre IS 'array of genres associated with the show';
 COMMENT ON COLUMN tv_shows.language IS 'array of languages available';
 
 -- Create tv_seasons table
-CREATE TABLE IF NOT EXISTS tv_seasons (
+DROP TABLE IF EXISTS tv_seasons;
+
+CREATE TABLE tv_seasons (
     hash VARCHAR(255) PRIMARY KEY,
     raw_title TEXT NOT NULL,
     tv_show_name VARCHAR(255),
     season INTEGER,
+    release_year INTEGER,
     status media_status,
-    torrent_source TEXT,
     error_status BOOLEAN DEFAULT FALSE,
-    error_condition VARCHAR(255) DEFAULT NULL,
+    error_condition TEXT,
     rejection_status rejection_status NOT NULL DEFAULT 'unfiltered',
     rejection_reason TEXT,
-    release_year INTEGER,
+    torrent_source TEXT,
     genre TEXT[], -- Using array for multiple genres
     language TEXT[], -- Using array for multiple languages
     metascore INTEGER,
