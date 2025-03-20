@@ -107,11 +107,11 @@ def transfer_media(media_type):
 	media.update(pl.DataFrame(updated_rows))
 
 	# update status if no error occurred
-	media.df.with_columns(
+	media.update(media.df.with_columns(
 		status = pl.when(pl.col('error_status'))
 			.then(pl.col('status'))
 			.otherwise(pl.lit('transferred'))
-	)
+	))
 
 	# output error if present
 	for row in media.df.iter_rows(named=True):

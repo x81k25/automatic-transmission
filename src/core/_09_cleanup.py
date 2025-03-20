@@ -26,7 +26,7 @@ def cleanup_media(
         been verified completed successfully
     :param media_type: type of media to clean up
     """
-    #media_type = 'movie'
+    #media_type = 'tv_show'
 
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(

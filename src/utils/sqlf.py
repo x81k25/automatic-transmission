@@ -469,7 +469,6 @@ def media_db_update(media_df: MediaDataFrame, media_type: str) -> None:
     )
 
     logging.debug(f"Attempting upsert of {len(media_df.df)} records to {media_type} table")
-    logging.debug(f"Sample record for upsert: {records[0] if records else {}}")
     logging.debug(upsert_stmt)
 
     try:
