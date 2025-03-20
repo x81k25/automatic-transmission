@@ -23,8 +23,7 @@ def cleanup_media(
         been verified completed successfully
     :param media_type: type of media to clean up
     """
-    # media_type = 'tv_show'
-    # media_type = 'tv_season'
+    #media_type = 'movie'
 
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(
@@ -32,19 +31,19 @@ def cleanup_media(
         status='transferred'
     )
 
-    # exit function if not media in transferred state
-    if media.empty:
+    # if no transferred items, return None
+    if media is None:
         return
 
     # remove torrents from transmission client
-    for index, media_item in media.iterrows():
-        utils.remove_media_item(index)
-        logging.info(f"cleaned: {media_item['raw_title']}")
+    for row in media.df.iter_rows(named=True):
+        utils.remove_media_item(row['hash'])
+        logging.info(f"cleaned: {row['raw_title']}")
 
     # update status of successfully parsed items
     utils.update_db_status_by_hash(
         media_type=media_type,
-        hashes=media.index.tolist(),
+        hashes=media.df['hash'].to_list(),
         new_status='complete'
     )
 

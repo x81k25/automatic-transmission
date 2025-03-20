@@ -27,10 +27,9 @@ def full_pipeline(
     debug: bool
 ):
     """
-    Full pipeline for downloading contents
-
-    :param media_type:
-    :return:
+    full pipeline for downloading contents
+    :param media_type: either "movie", "tv_show", or "tv_season
+    :param debug: param indicating whether to run in debug mode
     """
     if media_type not in ["movie", "tv_show", "tv_season"]:
         raise ValueError(f"Invalid media_type: {media_type}")

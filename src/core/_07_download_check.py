@@ -2,7 +2,7 @@
 import logging
 
 # third-party imports
-import pandas as pd
+import polars as pl
 
 # local/custom imports
 import src.utils as utils
@@ -19,7 +19,12 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------------------
 
 # check download status of individual media item
-def media_item_download_complete(hash):
+def media_item_download_complete(hash: str):
+    """
+    checks to determine if media is complete for items in the downloading state
+    :param hash: media item hash string value
+    :return: True/False depending on download complete status
+    """
     # Instantiate transmission client
     torrent = utils.get_torrent_info(hash)
 
@@ -31,17 +36,24 @@ def media_item_download_complete(hash):
         return False
 
 # extract filename and ensure extraction was successful
-def extract_and_verify_filename(media_item):
-    # get filename
-    torrent = utils.get_torrent_info(media_item.name)
-    file_name = torrent.name
+def extract_and_verify_filename(media_item: dict) -> dict:
+    """
+    if download is complete, extract the file name for subsequent transfer
+    :param media_item: dict containing 1 row of media.df data
+    :return: dict with updated file_name or error information
+    """
 
-    # test filename and if it is not the desired state raise error
-    if not file_name or not isinstance(file_name, str) or not file_name.strip():
-        raise ValueError("file_name must be a non-empty string")
+    # get filename if download complete
+    if media_item['status'] == 'downloaded':
+        torrent = utils.get_torrent_info(media_item['hash'])
+        file_name = torrent.name
 
-    # assign filename if no error raised
-    media_item.file_name = file_name
+        # test filename and either assign or induce error state
+        if not file_name or not isinstance(file_name, str) or not file_name.strip():
+            media_item['error_status'] = True
+            media_item['error_condition'] = "file_name must be a non-empty string"
+        else:
+            media_item['file_name'] = file_name
 
     return media_item
 
@@ -50,12 +62,10 @@ def extract_and_verify_filename(media_item):
 # ------------------------------------------------------------------------------
 def check_downloads(media_type):
     """
-    Full pipeline for cleaning up torrents
-
-    :param media_type: type of cleanup, either 'movie' or 'tv_show'
+    check downloads for all downloading media elements, and extracts file_name
+        if download is complete
+    :param media_type: either "movie", "tv_show", or "tv_season"
     """
-    # debug statements
-    #media_type = 'tv_show'
     #media_type = 'movie'
 
     # read in existing data based on ingest_type
@@ -64,56 +74,37 @@ def check_downloads(media_type):
         status='downloading'
     )
 
-    # convert the index of the media to a column called hash
-    media['hash'] = media.index
-
-    # if no media are downloading conclude function
-    if len(media) == 0:
+    # return if no media downloading
+    if media is None:
         return
 
-    # convert individual df hashes to list
-    media_hashes = media.index.tolist()
-    media_hashes_download_complete = []
+    # determine if downloaded, and if so change status
+    media.update(media.df.with_columns(
+        status = pl.when(pl.col('hash').map_elements(media_item_download_complete, return_dtype=pl.Boolean))
+            .then(pl.lit('downloaded'))
+            .otherwise(pl.col('status'))
+    ))
 
-    # determine if download is complete for each media item
-    for hash in media_hashes:
-        try:
-            if media_item_download_complete(hash):
-                media_hashes_download_complete.append(hash)
-        except Exception as e:
-            logging.error(f"failed to check downloads status of: {media.loc[hash, 'raw_title']}")
-            logging.error(f"download_check error: {e}")
+    # if downloaded extract file_name
+    updated_rows = []
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        # Modify your function to accept a dict instead of a Series
+        updated_row = extract_and_verify_filename(row)
+        updated_rows.append(updated_row)
 
-    # if no downloads are complete, conclude function
-    if len(media_hashes_download_complete) == 0:
-        return
+    media.update(pl.DataFrame(updated_rows))
 
-    # instantiate download complete dataframe
-    #media_download_complete = pd.DataFrame()
-    media_download_complete = media.copy().iloc[0:0]
+    # report errors if present
+    for row in media.df.filter(pl.col('error_status')).iter_rows(named=True):
+        logging.error(f"{row['raw_title']}: {row['error_condition']}")
 
-    # attempt extact of the filenames for completed downloads
-    for hash in media_hashes_download_complete:
-        try:
-            download_complete_item = extract_and_verify_filename(media_item=media.loc[hash].copy())
-            media_download_complete = pd.concat([media_download_complete, download_complete_item.to_frame().T])
-            logging.info(f"download complete: {media.loc[hash, 'raw_title']}")
-        except Exception as e:
-            logging.error(f"failed to extract filename from: {media.loc[hash, 'raw_title']}")
-            logging.error(f"download_check error: {e}")
+    # check if any downloads complete, and if so update
+    if any(media.df['error_status']):
+        utils.media_db_update(
+            media_df=media,
+            media_type=media_type
+        )
 
-   # update database with filename
-    utils.media_db_update(
-        media_type=media_type,
-        media_df=media_download_complete
-    )
-
-    # update status of relevant elements by hash
-    utils.update_db_status_by_hash(
-        media_type=media_type,
-        hashes=media_download_complete.index.tolist(),
-        new_status='downloaded'
-    )
 
 # ------------------------------------------------------------------------------
 # end of _07_download_check.py

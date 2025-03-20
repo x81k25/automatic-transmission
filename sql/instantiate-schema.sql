@@ -59,7 +59,6 @@ CREATE TABLE IF NOT EXISTS movies (
     error_condition VARCHAR(255) DEFAULT NULL,
     rejection_status rejection_status NOT NULL DEFAULT 'unfiltered',
     rejection_reason DEFAULT NULL,
-    published_timestamp TIMESTAMP WITH TIME ZONE,
     summary TEXT,
     genre TEXT[], -- Using array for multiple genres
     language TEXT[], -- Using array for multiple languages

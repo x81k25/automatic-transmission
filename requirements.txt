@@ -1,6 +1,5 @@
 feedparser
 python-dotenv
-pandas
 paramiko
 polars
 psycopg2-binary~=2.9.10
