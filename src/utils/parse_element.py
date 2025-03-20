@@ -3,7 +3,6 @@ import re
 from typing import List, Optional, Any
 
 # third-party imports
-import pandas as pd
 import yaml
 
 ################################################################################
@@ -28,34 +27,6 @@ def validate_dict(entry_dict:dict):
 		entry_dict.values()):  # Checks for None, empty strings, empty lists, etc.
 		raise ValueError(f"Invalid entry data: {entry_dict}")
 
-
-def validate_series(
-	entry_series:pd.Series,
-	mandatory_fields: Optional[List[str]] = None
-) -> tuple[bool, list[str | Any]]:
-	"""
-	Validate that fields in an item are populated with valid values.
-    :param entry_series: series/dictionary containing media item fields
-	:param mandtory_fields: list of field names that must be populated. If None, checks all fields
-	:return: (bool, list) - (True, []) if valid, (False, [missing fields]) if invalid
-	"""
-	missing_fields = []
-
-	# If no mandatory fields specified, check all fields
-	fields_to_check = mandatory_fields if mandatory_fields is not None else entry_series.keys()
-
-	for field in fields_to_check:
-		# Skip if field doesn't exist
-		if field not in entry_series:
-			missing_fields.append(field)
-			continue
-
-		# Check for None or empty string values
-		value = entry_series[field]
-		if value is None or (isinstance(value, str) and not value.strip()):
-			missing_fields.append(field)
-
-	return len(missing_fields) == 0, missing_fields
 
 ################################################################################
 # hash value operations
@@ -165,8 +136,7 @@ def extract_year(raw_title: str) -> Optional[str]:
 	# - Closing delimiter: ), ], ., -, or _
 	pattern = re.compile(r'[\(\[\.\-_]((?:19|20)\d{2})[\)\]\.\-_]')
 	match = pattern.search(raw_title)
-	return match.group(1) if match else None
-
+	return int(match.group(1)) if match else None
 
 ################################################################################
 # parse season and episode
@@ -175,17 +145,17 @@ def extract_year(raw_title: str) -> Optional[str]:
 def extract_season_from_episode(raw_title: str) -> Optional[str]:
 	pattern = re.compile(r'[. ]s(\d{1,3})e', re.IGNORECASE)
 	match = pattern.search(raw_title)
-	return match.group(1) if match else None
+	return int(match.group(1)) if match else None
 
 def extract_episode_from_episode(raw_title: str) -> Optional[str]:
 	pattern = re.compile(r'e(\d{1,3})[. ]', re.IGNORECASE)
 	match = pattern.search(raw_title)
-	return match.group(1) if match else None
+	return int(match.group(1)) if match else None
 
 def extract_season_from_season(raw_title: str) -> Optional[str]:
 	pattern = re.compile(r'(?:S|Season\s?)(\d{1,2})', re.IGNORECASE)
 	match = pattern.search(raw_title)
-	return match.group(1) if match else None
+	return int(match.group(1)) if match else None
 
 
 ################################################################################
@@ -225,15 +195,3 @@ def extract_uploader(raw_title: str)-> Optional[str]:
 ################################################################################
 # end of parse_element.py
 ################################################################################
-
-# ERROR:root:parse_media_items error: Missing or empty mandatory fields ['season'] for item: Frontline S2025E02 Trumps Comeback PROPER 1080p AMZN WEB DL DDP2 0 H 264 Kitsune
-# ERROR:root:failed to parse: Frontline S2025E02 Trumps Comeback PROPER 1080p AMZN WEB DL DDP2 0 H 264 Kitsune
-# ERROR:root:parse_media_items error: Missing or empty mandatory fields ['season', 'episode'] for item: Silo S02 1080p x265-ELiTE EZTV
-# ERROR:root:failed to parse: Silo S02 1080p x265-ELiTE EZTV
-# ERROR:root:parse_media_items error: Missing or empty mandatory fields ['season', 'episode'] for item: NOVA S51 1080p x265-AMBER EZTV
-# ERROR:root:failed to parse: NOVA S51 1080p x265-AMBER EZTV
-
-# ERROR:root:failed to collect metadata: Severance S02E05 Trojans Horse 1080p ATVP WEB-DL DDP5 1 H 264-NTb EZTV
-# ERROR:root:collect_all_metadata error: name 'response_content' is not defined
-# ERROR:root:failed to collect metadata: Its.Always.Sunny.in.Philadelphia.S14E01.1080p.WEB.H264-METCON[TGx]+⭐
-# ERROR:root:collect_all_metadata error: name 'response_content' is not defined

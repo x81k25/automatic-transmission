@@ -6,14 +6,14 @@ import re
 
 # third-party imports
 from dotenv import load_dotenv
+import polars as pl
 import requests
-import pandas as pd
 
 # local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# load environment variables and
+# initialization and setup
 # ------------------------------------------------------------------------------
 
 # Load environment variables from .env file
@@ -30,13 +30,17 @@ api_key = os.getenv('OMDB_API_KEY')
 # metadata collection helper functions
 # ------------------------------------------------------------------------------
 
-def collect_omdb_metadata(media_item, media_type):
+def collect_omdb_metadata(
+    media_item: dict,
+    media_type: str
+) -> dict:
     """
     Get metadata for a movie or TV show from the OMDb API
-    :param media_item: panda series of the item to collect
-    :param media_type: type of collection, either "movie" or "tv_show"
-    :return:
+    :param media_item: dict containing one for of media.df
+    :param media_type: type of collection, either "movie", "tv_show", or "tv_seasons"
+    :return: dict of items with metadata added
     """
+    #media_series = media_df.df[5]
 
     # Define the parameters for the OMDb API request
     if media_type == 'movie':
@@ -90,10 +94,11 @@ def collect_omdb_metadata(media_item, media_type):
             # items to collect only for tv shows
             elif media_type == 'tv_show' or media_type == 'tv_season':
                 media_item['release_year'] = int(re.search(r'\d{4}', data.get('Year', '')).group())
+    # if response was not successful updates statuses appropriately
     elif status_code == 200 and data["Response"] == "False":
+        media_item['status'] = 'rejected'
         media_item['rejection_reason'] = "metadata could not be collected"
-        if media_item['rejection_status'] != 'override':
-            media_item['rejection_status'] = 'rejected'
+        media_item['rejection_status'] = 'rejected'
     else:
         raise ValueError(f"OMDB API error for query \"{media_item["raw_title"]}\": {response_content['Error']}")
 
@@ -104,14 +109,13 @@ def collect_omdb_metadata(media_item, media_type):
 # full metadata collection pipeline
 # ------------------------------------------------------------------------------
 
-def collect_metadata(media_type):
+def collect_metadata(media_type: str):
     """
     Collect metadata for all movies or tv shows that have been ingested
-    :param media_type: either "movie" or "tv_show"
+    :param media_type: either "movie", "tv_show", or "tv_season"
     :return:
     """
     #media_type = 'movie'
-    #media_type = 'tv_season'
 
     # read in existing data
     media = utils.get_media_from_db(
@@ -119,58 +123,36 @@ def collect_metadata(media_type):
         status='parsed'
     )
 
-    # convert the index of the media to a column called hash
-    media['hash'] = media.index
+    # if no media to parse, return
+    if media is None:
+        return
 
-    # select the release year of the 2nd row of the data frame
-    media_collected = pd.DataFrame()
+    # collect metadata for all elements
+    updated_rows = []
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        # Modify your function to accept a dict instead of a Series
+        updated_row = collect_omdb_metadata(row, media_type)
+        updated_rows.append(updated_row)
 
-    if len(media) > 0:
-        media_collected = media.copy().iloc[0:0]
+    media.update(pl.DataFrame(updated_rows))
 
-        for index in media.index:
-            try:
-                collected_item = collect_omdb_metadata(
-                    media_item=media.loc[index].copy(),
-                    media_type=media_type
-                )
-                media_collected = pd.concat([media_collected, collected_item.to_frame().T])
-                if collected_item['rejection_reason'] is None:
-                    logging.info(f"metadata collected: {media_collected.loc[index, 'raw_title']}")
-                else:
-                    logging.info(
-                        f"metadata could not be collected: {media_collected.loc[index, 'raw_title']}"
-                    )
-            except Exception as e:
-                logging.error(f"failed to collect metadata: {media.loc[index, 'raw_title']}")
-                logging.error(f"collect_all_metadata error: {e}")
+    # log rejected items
+    for row in media.df.filter(pl.col("rejection_status") == "rejected").iter_rows(named=True):
+        logging.error(f"failed to collect metadata: {row['raw_title']}")
 
-    if len(media_collected) > 0:
-        # write new elements to database
-        utils.media_db_update(
-            media_type=media_type,
-            media_df=media_collected
-        )
+    # update status for successfully collected items
+    media.update(media.df.with_columns(
+        pl.when(pl.col('status') != 'rejected')
+        .then(pl.lit('metadata_collected'))
+        .otherwise(pl.col('status'))
+        .alias('status')
+    ))
 
-        # separate the rejected and non rejected items
-        rejected_hashes = media_collected[media_collected['rejection_status'] == 'rejected']['hash'].tolist()
-        collected_hashes = [x for x in media_collected['hash'].tolist() if x not in rejected_hashes]
-
-        if len(collected_hashes) > 0:
-            # update status of relevant elements by hash
-            utils.update_db_status_by_hash(
-                media_type=media_type,
-                hashes=collected_hashes,
-                new_status='metadata_collected'
-            )
-
-        if len(rejected_hashes) > 0:
-            # update status of relevant elements by hash
-            utils.update_db_status_by_hash(
-                media_type=media_type,
-                hashes=rejected_hashes,
-                new_status='rejected'
-            )
+    # write metadata back to the database
+    utils.media_db_update(
+        media_df=media,
+        media_type=media_type
+    )
 
 # ------------------------------------------------------------------------------
 # end of _04_metadata_collection.py

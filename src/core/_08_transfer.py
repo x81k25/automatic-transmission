@@ -1,9 +1,11 @@
 # standard library imports
 import logging
 import os
+from logging import exception
 
 # third-party imports
 from dotenv import load_dotenv
+import polars as pl
 
 # local/custom imports
 import src.utils as utils
@@ -27,39 +29,47 @@ movie_dir = os.getenv('MOVIE_DIR')
 # torrent clean-up functions
 # ------------------------------------------------------------------------------
 
-def transfer_item(media_item, media_type):
+def transfer_item(
+	media_item: dict,
+	media_type: str
+) -> dict:
 	"""
 	Transfer downloaded torrents to the appropriate directory
-	:param media_item: pd series of move or tv show to transfer
-	:param media_type: type of transfer, either 'movie' or 'tv_show'
-	:return:
+	:param media_item: media dict containing one row of media.df
+	:param media_type: type of media, either 'movie', 'tv_show', or 'tv_season'
+	:return: updated media dict that contains error info if applicable
 	"""
-	if media_type == 'movie':
-		utils.move_movie_local(
-			dir_or_file_name=media_item.file_name,
-			download_dir=download_dir,
-			movie_dir=movie_dir
-		)
-	elif media_type == 'tv_show':
-		utils.move_tv_show_local(
-			download_dir=download_dir,
-			tv_show_dir=tv_show_dir,
-			dir_or_file_name=media_item.file_name,
-			tv_show_name=media_item.tv_show_name,
-			release_year=media_item.release_year,
-			season=media_item.season
-		)
-	elif media_type == 'tv_season':
-		utils.move_tv_season_local(
-			download_dir=download_dir,
-			tv_show_dir=tv_show_dir,
-			dir_name=media_item.file_name,
-			tv_show_name=media_item.tv_show_name,
-			release_year=media_item.release_year,
-			season=media_item.season
-		)
-	else:
-		raise ValueError('transfer_type must be either "movie", "tv_show", or "tv_season"' )
+
+	try:
+		if media_type == 'movie':
+			utils.move_movie_local(
+				dir_or_file_name=media_item['file_name'],
+				download_dir=download_dir,
+				movie_dir=movie_dir
+			)
+		elif media_type == 'tv_show':
+			utils.move_tv_show_local(
+				download_dir=download_dir,
+				tv_show_dir=tv_show_dir,
+				dir_or_file_name=media_item['file_name'],
+				tv_show_name=media_item['tv_show_name'],
+				release_year=media_item['release_year'],
+				season=media_item['season']
+			)
+		elif media_type == 'tv_season':
+			utils.move_tv_season_local(
+				download_dir=download_dir,
+				tv_show_dir=tv_show_dir,
+				dir_name=media_item['file_name'],
+				tv_show_name=media_item['tv_show_name'],
+				release_year=media_item['release_year'],
+				season=media_item['season']
+			)
+	except Exception as e:
+		media_item['error_status'] = True
+		media_item['error_condition'] = f'failed to transfer media: {e}'
+
+	return media_item
 
 # ------------------------------------------------------------------------------
 # torrent clean-up full pipelines
@@ -67,12 +77,11 @@ def transfer_item(media_item, media_type):
 
 def transfer_media(media_type):
 	"""
-	Full pipeline for cleaning up torrents
-	:param media_type: type of cleanup, either 'movie' or 'tv_show'
+	full pipeline for cleaning up torrents that have completed transfer
+	:param media_type: either "movies", "tv_show", or "tv_season"
 	:return:
 	"""
-	#media_type = 'tv_show'
-	#media_type = 'tv_season'
+	#media_type = 'movie'
 
 	# read in existing data based on ingest_type
 	media = utils.get_media_from_db(
@@ -80,32 +89,36 @@ def transfer_media(media_type):
 		status='downloaded'
 	)
 
-	# collects the hashes of torrents that have completed downloading
-	hashes_transferred = []
+	# if not valid media items return
+	if media is None:
+		return
 
-	# transfer downloaded torrents
-	if len(media) > 0:
-		for index, row in media.iterrows():
-			try:
-				transfer_item(
-					media_item=row,
-					media_type=media_type
-				)
-				hashes_transferred.append(index)
-				logging.info(
-					f"transfer complete: {media.loc[index, 'raw_title']}")
-			except Exception as e:
-				logging.error(
-					f"failed to transfer: {media.loc[index, 'raw_title']}")
-				logging.error(f"transfer_item error: {e}")
+	# transfer media
+	updated_rows = []
+	for idx, row in enumerate(media.df.iter_rows(named=True)):
+		# Modify your function to accept a dict instead of a Series
+		updated_row = transfer_item(row, media_type)
+		updated_rows.append(updated_row)
 
-	if len(hashes_transferred) > 0:
-		# update status of relevant elements by hash
-		utils.update_db_status_by_hash(
-			media_type=media_type,
-			hashes=hashes_transferred,
-			new_status='transferred'
-		)
+	media.update(pl.DataFrame(updated_rows))
+
+	# update status if no error occurred
+	media.df.with_columns(
+		status = pl.when(pl.col('error_status'))
+			.then(pl.col('status'))
+			.otherwise(pl.lit('transferred'))
+	)
+
+	# output error if present
+	for row in media.df.filter(pl.col('error_status')).iter_rows(named=True):
+		logging.error(f"{row['raw_title']}: {row['error_condition']}")
+
+	# update database
+	utils.media_db_update(
+		media_df=media,
+		media_type=media_type
+	)
+
 
 # ------------------------------------------------------------------------------
 # end of _08_transfer.py
