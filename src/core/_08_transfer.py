@@ -122,7 +122,7 @@ def transfer_media(media_type):
 
 	# update database
 	utils.media_db_update(
-		media_df=media,
+		media=media,
 		media_type=media_type
 	)
 
