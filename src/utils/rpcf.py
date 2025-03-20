@@ -38,7 +38,7 @@ def get_transmission_client():
 # functions to retrieve data
 # ------------------------------------------------------------------------------
 
-def get_torrent_info(hash):
+def get_torrent_info(hash: str):
     """
     using hash, retrieve torrent metadata from transmission client
 
@@ -96,21 +96,19 @@ def return_current_torrents():
 # functions to add/remove torrents
 # ------------------------------------------------------------------------------
 
-def add_media_item(torrent_source):
+def add_media_item(torrent_source: str):
     """
     add media item to transmission client
     :param torrent_source: any acceptable for of torrent link
-    :return: None
     """
     transmission_client = get_transmission_client()
     transmission_client.add_torrent(torrent_source)
 
 
-def remove_media_item(hash):
+def remove_media_item(hash: str):
     """
     remove media item from transmission client
     :param hash: hash of the torrent to remove
-    :return: None
     """
     transmission_client = get_transmission_client()
     transmission_client.remove_torrent(hash, delete_data=True)
@@ -119,7 +117,6 @@ def remove_media_item(hash):
 def purge_torrent_queue():
     """
     purge entire queue of torrents
-    :return: None
     """
     # Instantiate transmission client
     transmission_client = get_transmission_client()

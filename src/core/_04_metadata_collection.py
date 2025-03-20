@@ -54,8 +54,6 @@ def collect_omdb_metadata(
             't': media_item["tv_show_name"],
             'apikey': api_key
         }
-    else:
-        raise ValueError("Invalid collection type. Must be 'movie', 'tv_show', or 'tv_season'")
 
     # Make a request to the OMDb API
     logging.debug(f"collecting metadata for: {media_item['raw_title']} as {params['t']}")
@@ -130,15 +128,17 @@ def collect_metadata(media_type: str):
     # collect metadata for all elements
     updated_rows = []
     for idx, row in enumerate(media.df.iter_rows(named=True)):
-        # Modify your function to accept a dict instead of a Series
         updated_row = collect_omdb_metadata(row, media_type)
         updated_rows.append(updated_row)
 
     media.update(pl.DataFrame(updated_rows))
 
     # log rejected items
-    for row in media.df.filter(pl.col("rejection_status") == "rejected").iter_rows(named=True):
-        logging.error(f"failed to collect metadata: {row['raw_title']}")
+    for row in media.df.iter_rows(named=True):
+        if row['status'] == "rejected":
+            logging.error(f"failed to collect metadata: {row['raw_title']}")
+        else:
+            logging.info(f"metadata collected: {row['raw_title']}")
 
     # update status for successfully collected items
     media.update(media.df.with_columns(

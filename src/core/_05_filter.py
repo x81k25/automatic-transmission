@@ -3,7 +3,6 @@ import json
 import logging
 
 # third-party imports
-#import numpy as np
 import polars as pl
 
 # local/custom imports
@@ -32,7 +31,7 @@ def filter_item(
         and the parameters defined in filter-parameters.json
     :param media_item:
     :param media_type:
-    :return media_item: dict containg the updated filtered data
+    :return: dict containing the updated filtered data
     """
     #filter_type = 'movie'
 
@@ -71,8 +70,6 @@ def filter_item(
         pass
     elif media_type == 'tv_season':
         pass
-    else:
-        raise ValueError('filter_type must be either "movie", "tv_show", or "tv_season"')
 
     return media_item
 
@@ -99,7 +96,6 @@ def filter_media(media_type: str):
     # filter data
     updated_rows = []
     for idx, row in enumerate(media.df.iter_rows(named=True)):
-        # Modify your function to accept a dict instead of a Series
         updated_row = filter_item(row, media_type)
         updated_rows.append(updated_row)
 
@@ -107,15 +103,19 @@ def filter_media(media_type: str):
 
     # update rejection status
     media.update(media.df.with_columns(
-        pl.when(pl.col('rejection_reason') is not None)
-        .then(pl.lit('rejected'))
-        .otherwise(pl.col('rejection_status'))
-        .alias('rejection_status'),
+        rejection_status = pl.when(pl.col('rejection_reason').is_not_null())
+            .then(pl.lit('rejected'))
+            .otherwise(pl.col('rejection_status'))
     ))
 
     # log rejection entries
-    for row in media.df.filter(pl.col('rejection_status') == 'rejected').iter_rows(named=True):
-        logging.error(f"rejected: {row['raw_title']}: {row['rejection_reason']}")
+    for row in media.df.iter_rows(named=True):
+        if row['error_status']:
+            logging.error(f"{row['raw_title']}: {row['error_condition']}")
+        elif row['rejection_status'] == 'rejected':
+            logging.info(f"rejected: {row['raw_title']}: {row['rejection_reason']}")
+        else:
+            logging.info(f"queued: {row['raw_title']}")
 
     # update status
     media.update(media.df.with_columns(

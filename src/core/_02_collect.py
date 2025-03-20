@@ -87,13 +87,11 @@ def collect_media(media_type: str):
                 row[k] = v
             rows.append(row)
 
-    current_media = pl.DataFrame(rows)
-    current_media = current_media.rename({'name': 'raw_title'})
+    media_df = pl.DataFrame(rows)
+    media_df = media_df.rename({'name': 'raw_title'})
 
     # determine media type and keep only the desired type
-    logging.debug("determining media type")
-
-    current_media = current_media.with_columns(
+    media_df = media_df.with_columns(
         pl.col("raw_title")
             .map_elements(utils.classify_media_type, return_dtype=pl.Utf8)
             .alias("media_type")
@@ -104,15 +102,14 @@ def collect_media(media_type: str):
     )
 
     # if no items match classification end function
-    if len(current_media) == 0:
+    if len(media_df) == 0:
         return
 
     # extract clean item name from raw_title
-    current_media = current_media.with_columns(
-        pl.col('raw_title')
-            .map_elements(lambda x: utils.extract_title(x, media_type), return_dtype=pl.Utf8)
-            .alias('raw_title')
-    )
+    # media_df = media_df.with_columns(
+    #     cleaned_title = pl.col('raw_title')
+    #         .map_elements(lambda x: utils.extract_title(x, media_type), return_dtype=pl.Utf8)
+    # )
 
     # determine if item is omdb retrievable, if not raise error and remove from items
     # to_remove = []
@@ -136,18 +133,18 @@ def collect_media(media_type: str):
     # determine which items are new
     new_hashes = utils.compare_hashes_to_db(
         media_type=media_type,
-        hashes=current_media['hash'].to_list()
+        hashes=media_df['hash'].to_list()
     )
 
     # determine which items were previously reject
     rejected_hashes = utils.return_rejected_hashes(
         media_type=media_type,
-        hashes=current_media['hash'].to_list()
+        hashes=media_df['hash'].to_list()
     )
 
     # convert new items to MediaDataFrame for db ingestion
     new_media = MediaDataFrame(
-        current_media.select(['hash', 'raw_title', 'torrent_source'])
+        media_df.select(['hash', 'raw_title', 'torrent_source'])
             .filter(pl.col('hash').is_in(new_hashes))
     )
 
@@ -174,12 +171,12 @@ def collect_media(media_type: str):
             new_status='override'
         )
 
-        # print log
+        # log collected items
         for row in new_media.df.iter_rows(named=True):
             logging.info(f"collected {media_type}: {row['raw_title']}")
 
     # update statuses of items that have been previously rejected
-    rejected_media = current_media.filter(pl.col('hash').is_in(rejected_hashes))
+    rejected_media_df = media_df.filter(pl.col('hash').is_in(rejected_hashes))
 
     if len(rejected_hashes) > 0:
         # update status
@@ -196,8 +193,8 @@ def collect_media(media_type: str):
             new_status='override'
         )
 
-        # print log
-        for row in rejected_media.iter_rows(named=True):
+        # log items that have been previously rejected, with the rejection overridden
+        for row in rejected_media_df.iter_rows(named=True):
             logging.info(f"collected {media_type}: {row['raw_title']}")
 
 # ------------------------------------------------------------------------------

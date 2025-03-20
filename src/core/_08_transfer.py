@@ -67,7 +67,11 @@ def transfer_item(
 			)
 	except Exception as e:
 		media_item['error_status'] = True
-		media_item['error_condition'] = f'failed to transfer media: {e}'
+		if media_item['error_condition'] is None:
+			media_item['error_condition'] = f'failed to transfer media: {e}'
+		else:
+			media_item['error_condition'] = media_item['error_condition'] + \
+				f'; failed to transfer media: {e}'
 
 	return media_item
 
@@ -110,8 +114,11 @@ def transfer_media(media_type):
 	)
 
 	# output error if present
-	for row in media.df.filter(pl.col('error_status')).iter_rows(named=True):
-		logging.error(f"{row['raw_title']}: {row['error_condition']}")
+	for row in media.df.iter_rows(named=True):
+		if row['error_status']:
+			logging.error(f"{row['raw_title']}: {row['error_condition']}")
+		else:
+			logging.info(f"transferred: {row['raw_title']}")
 
 	# update database
 	utils.media_db_update(

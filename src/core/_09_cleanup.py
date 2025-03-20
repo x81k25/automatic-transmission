@@ -1,6 +1,9 @@
 # standard library imports
 import logging
 
+# third-party imports
+import polars as pl
+
 # local/custom imports
 import src.utils as utils
 
@@ -36,9 +39,20 @@ def cleanup_media(
         return
 
     # remove torrents from transmission client
+    updated_rows = []
     for row in media.df.iter_rows(named=True):
-        utils.remove_media_item(row['hash'])
-        logging.info(f"cleaned: {row['raw_title']}")
+        try:
+            utils.remove_media_item(row['hash'])
+            row['status'] = "transferred"
+            logging.info(f"cleaned: {row['raw_title']}")
+            updated_rows.append(row)
+        except Exception as e:
+            row['error_status'] = True
+            row['error_condition'] = f"{e}"
+            logging.error(f"{row['raw_title']}: {row['error_condition']}")
+            updated_rows.append(row)
+
+    media.update(pl.DataFrame(updated_rows))
 
     # update status of successfully parsed items
     utils.update_db_status_by_hash(

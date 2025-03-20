@@ -3,7 +3,6 @@ from enum import Enum
 from typing import List, Dict, Any, Optional, ClassVar, Type
 from datetime import datetime
 
-
 # ------------------------------------------------------------------------------
 # enum classes
 # ------------------------------------------------------------------------------
@@ -113,7 +112,7 @@ class MediaDataFrame:
 		# Set the underlying DataFrame
 		self._df = df
 
-	def update(self, df):
+	def update(self, df: pl.DataFrame):
 		"""Update internal DataFrame directly."""
 		self._validate_and_prepare(df)
 		self._df = df
