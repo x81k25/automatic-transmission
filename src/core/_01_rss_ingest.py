@@ -1,15 +1,15 @@
 # standard library imports
-import json
 import logging
 import os
 
 # third-party imports
 from dotenv import load_dotenv
 import feedparser
-import pandas as pd
+import polars as pl
 
 # local/custom imports
 import src.utils as utils
+from src.data_models import MediaDataFrame
 
 # ------------------------------------------------------------------------------
 # load environment variables
@@ -29,7 +29,7 @@ def rss_feed_ingest(rss_url: str) -> feedparser.FeedParserDict:
     """
     ping rss feed and store the input
     :param rss_url: url of rss feed
-    :return:
+    :return: FeedParser dict element
     """
     # ping rss feed
     feed = feedparser.parse(rss_url)
@@ -44,15 +44,17 @@ def rss_feed_ingest(rss_url: str) -> feedparser.FeedParserDict:
 def rss_entries_to_dataframe(
     feed: feedparser.FeedParserDict,
     media_type: str
-) -> pd.DataFrame:
+) -> MediaDataFrame:
     """
-    Convert RSS feed entries into a pandas DataFrame
+    convert RSS feed entries into a structured DataFrame
     :param feed: extracted rss feed
-    :param media_type: type of feed, either "movie" or "tv_show"
-    :return: DataFrame containing the RSS feed entries
+    :param media_type: type of feed, either "movie", "tv_show", or "tv_season"
+    :return: Appropriate DataFrame object based on media_type
     """
-    logging.debug(f"Feed type and keys: {type(feed)}, Keys: {feed.keys() if isinstance(feed, dict) else 'Not a dict'}")
-    logging.debug(f"Number of entries: {len(feed['entries'])}, First entry keys: {feed['entries'][0].keys() if feed['entries'] else 'No entries'}")
+    logging.debug(
+        f"Feed type and keys: {type(feed)}, Keys: {feed.keys() if isinstance(feed, dict) else 'Not a dict'}")
+    logging.debug(
+        f"Number of entries: {len(feed['entries'])}, First entry keys: {feed['entries'][0].keys() if feed['entries'] else 'No entries'}")
 
     # Extract the entries
     entries = feed['entries']
@@ -62,13 +64,15 @@ def rss_entries_to_dataframe(
 
     if media_type == 'movie':
         for entry in entries:
-            extracted_dict= {
-                'hash': utils.extract_hash_from_direct_download_url(entry['links'][1]['href']),
+            extracted_dict = {
+                'hash': utils.extract_hash_from_direct_download_url(
+                    entry['links'][1]['href']),
                 'raw_title': entry['title'],
                 'torrent_source': entry['links'][1]['href'],
             }
             utils.validate_dict(extracted_dict)
             extracted_data.append(extracted_dict)
+
     elif media_type == 'tv_show':
         for entry in entries:
             extracted_dict = {
@@ -77,8 +81,10 @@ def rss_entries_to_dataframe(
                 'torrent_source': entry['link']
             }
             utils.validate_dict(extracted_dict)
-            if utils.classify_media_type(extracted_dict['raw_title']) == 'tv_show':
+            if utils.classify_media_type(
+                extracted_dict['raw_title']) == 'tv_show':
                 extracted_data.append(extracted_dict)
+
     elif media_type == 'tv_season':
         for entry in entries:
             extracted_dict = {
@@ -87,17 +93,16 @@ def rss_entries_to_dataframe(
                 'torrent_source': entry['link']
             }
             utils.validate_dict(extracted_dict)
-            if utils.classify_media_type(extracted_dict['raw_title']) == 'tv_season':
+            if utils.classify_media_type(
+                extracted_dict['raw_title']) == 'tv_season':
                 extracted_data.append(extracted_dict)
+
     else:
-        raise ValueError("Invalid feed type. Must be 'movie' or 'tv_show'")
+        raise ValueError(
+            "Invalid feed type. Must be 'movie', 'tv_show', or 'tv_season'")
 
-    # Convert extracted data to DataFrame
-    feed_items = pd.DataFrame(extracted_data)
-    # set hash as index
-    feed_items.set_index('hash', inplace=True)
-
-    return feed_items
+    # return MediaDataFrame instance
+    return utils.MediaDataFrame(extracted_data)
 
 
 # ------------------------------------------------------------------------------
@@ -106,8 +111,7 @@ def rss_entries_to_dataframe(
 
 def rss_ingest(media_type: str):
     """
-    Full ingest pipeline for either movies or tv shows
-
+    full ingest pipeline for either movies or tv shows
     :param media_type: either "movie" or "tv_show"
     """
     #media_type='movie'
@@ -122,27 +126,26 @@ def rss_ingest(media_type: str):
 
     feed = rss_feed_ingest(rss_url)
 
-    # convert feed to data frame
-    feed_items = rss_entries_to_dataframe(
+    # convert feed to MediaDataFrame
+    feed_media = rss_entries_to_dataframe(
         feed=feed,
         media_type=media_type
     )
 
     # determine which feed entries are new entries
-    feed_hashes = feed_items.index.tolist()
-
+    #new_hashes = feed_items['hash'].to_list()
     new_hashes = utils.compare_hashes_to_db(
         media_type=media_type,
-        hashes=feed_hashes
+        hashes=feed_media.df['hash'].to_list()
     )
 
     if len(new_hashes) > 0:
-        new_items = feed_items.loc[new_hashes]
+        feed_media._df = feed_media.df.filter(pl.col('hash').is_in(new_hashes))
 
         # write new items to the database
         utils.insert_items_to_db(
             media_type=media_type,
-            media=new_items
+            media=feed_media
         )
 
         # update status of ingested items
@@ -152,8 +155,8 @@ def rss_ingest(media_type: str):
             new_status='ingested'
         )
 
-        for index in new_items.index:
-            logging.info(f"ingested: {new_items.loc[index, 'raw_title']}")
+        for row in feed_media.df.iter_rows(named=True):
+            logging.info(f"ingested: {row['raw_title']}")
 
 # ------------------------------------------------------------------------------
 # end of _01_rss_ingest.py

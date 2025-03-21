@@ -6,12 +6,13 @@ from typing import List, Optional
 
 # third-party imports
 from dotenv import load_dotenv
-import pandas as pd
-from pandas import DataFrame
 from sqlalchemy import create_engine, text, Engine, Table, MetaData, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import URL
 from sqlalchemy.sql import quoted_name
+
+# internal imports
+from src.data_models import MediaDataFrame
 
 # ------------------------------------------------------------------------------
 # load in environment variables
@@ -38,7 +39,7 @@ def create_db_engine(
     schema: Optional[str] = pg_schema
 ) -> Engine:
     """
-    Creates and returns a SQLAlchemy engine for PostgreSQL connection with specified schema.
+    Creates and returns a SQLAlchemy engine for PostgresQL connection with specified schema.
     Uses environment variables if parameters are not provided.
 
     Parameters:
@@ -91,9 +92,8 @@ def create_db_engine(
 
     try:
         with engine.connect():
-            #logging.error(f"Successfully connected to PostgreSQL database at {host}:{port}/{database}")
             return engine
-    except:  # This will catch and suppress the connection error
+    except:
         error_msg = (
             f"Unable to connect to database at {host}:{port}\n"
             f"Connection timed out. Please check:\n"
@@ -102,7 +102,7 @@ def create_db_engine(
             f"- Any firewalls or network settings are blocking the connection"
         )
         logging.error(error_msg)
-        sys.exit(1)  # This will exit the program silently
+        sys.exit(1)
 
 # ------------------------------------------------------------------------------
 # non SQL helper functions
@@ -242,18 +242,16 @@ def return_rejected_hashes(
 def get_media_from_db(
     media_type: str,
     status: str
-):
+) -> MediaDataFrame | None:
     """
     Retrieves data from movies or tv_shows table based on status.
 
     Args:
-        engine: SQLAlchemy PostgreSQL engine
-        query_type: str, either "movie" or "tv_show"
+        media_type: str, either "movie" or "tv_show"
         status: str, status to filter by
 
     Returns:
-        pandas.DataFrame containing matching rows
-        :param media_type:
+        MediaDataFrame containing matching rows
     """
     # assign engine
     engine = create_db_engine()
@@ -265,6 +263,7 @@ def get_media_from_db(
         SELECT *
         FROM {table}
         WHERE status = :status
+        AND error_status = FALSE
     """)
 
     params = {
@@ -272,13 +271,24 @@ def get_media_from_db(
     }
 
     with engine.connect() as conn:
-        media = conn.execute(query, params).fetchall()
-        media = pd.DataFrame(media)
+        # Execute the query
+        result = conn.execute(query, params)
 
-    if "hash" in media.columns:
-        media.set_index('hash', inplace=True)
+        # Get column names from the result
+        columns = result.keys()
 
-    return media
+        # Fetch all rows
+        rows = result.fetchall()
+
+        if not rows:
+            return None
+
+        # Convert to dict for polars
+        data = [dict(zip(columns, row)) for row in rows]
+
+    # Convert to polars DataFrame and wrap in MediaDataFrame
+    return MediaDataFrame(data)
+
 
 # ------------------------------------------------------------------------------
 # insert statements
@@ -286,17 +296,14 @@ def get_media_from_db(
 
 def insert_items_to_db(
     media_type: str,
-    media: DataFrame
+    media: MediaDataFrame
 ):
     """
-    Writes a DataFrame to the test.movies table.
+    Writes a MediaDataFrame to the database using SQLAlchemy.
 
     Parameters:
-    movie_df (pd.DataFrame): DataFrame containing movie data
-    engine: SQLAlchemy engine connection
-
-    Returns:
-    int: Number of rows inserted
+    media_type (str): Type of media ('movie', 'tv', etc.)
+    media (MediaDataFrame): MediaDataFrame containing data to insert
     """
     #media_type = 'movie'
     #media = new_items
@@ -307,36 +314,28 @@ def insert_items_to_db(
     # assign table and schema
     table, schema = [assign_table(media_type)[key] for key in ['table_only', 'schema_only']]
 
-    # Ensure all required columns are present
-    required_columns = ['raw_title']
-    missing_columns = [col for col in required_columns if
-                       col not in media.columns]
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {missing_columns}")
+    # Get the polars DataFrame
+    pl_df = media.df
 
-    # Convert arrays to postgresql arrays
-    if 'genre' in media.columns:
-        media['genre'] = media['genre'].apply(
-            lambda x: x if isinstance(x, list) else [])
-    if 'language' in media.columns:
-        media['language'] = media['language'].apply(
-            lambda x: x if isinstance(x, list) else [])
+    # Create SQLAlchemy table metadata
+    metadata = MetaData(schema=schema)
+    sa_table = Table(table, metadata, autoload_with=engine)
+
+    # Convert polars DataFrame to records
+    records = pl_df.to_dicts()
 
     # Write to database
-    try:
-        inserted_rows = media.to_sql(
-            table,
-            engine,
-            if_exists='append',
-            index=True,
-            index_label='hash',
-            schema=schema,
-            method='multi',
-            chunksize=1000
-        )
-        #print(f"Successfully inserted {inserted_rows} rows into movies table")
-    except Exception as e:
-        raise Exception(f"Error writing to database: {str(e)}")
+    with engine.connect() as conn:
+        transaction = conn.begin()
+        try:
+            # Insert records
+            result = conn.execute(sa_table.insert(), records)
+            transaction.commit()
+            inserted_rows = result.rowcount
+            logging.debug(f"successfully inserted {inserted_rows} rows")
+        except Exception as e:
+            transaction.rollback()
+            raise Exception(f"Error writing to database: {str(e)}")
 
 
 # ------------------------------------------------------------------------------
@@ -430,24 +429,30 @@ def update_rejection_status_by_hash(
     except Exception as e:
         raise Exception(f"Error updating status: {str(e)}")
 
-def media_db_update(media_df: pd.DataFrame, media_type: str) -> None:
+
+def media_db_update(
+    media: MediaDataFrame,
+    media_type: str
+) -> None:
     """
     Updates database records for media entries using SQLAlchemy's ORM approach.
 
     Parameters:
-    media_df (pd.DataFrame): DataFrame containing media records to update
+    media (MediaDataFrame): MediaDataFrame containing media records to update
     media_type (str): Type of media ('movie', 'tv_show', 'tv_season')
     """
-    #media_type = 'tv_show'
-    #media_df = pd.read_pickle('./dev/data_examples/media_parsed_df.pkl')
-
-    logging.debug(f"Starting database update for {len(media_df)} {media_type} records")
+    logging.debug(f"Starting database update for {len(media.df)} {media_type} records")
 
     table_info = assign_table(media_type)
     engine = create_db_engine()
 
-    # convert all pandas/numpy NaNs to None
-    media_df = media_df.astype(object).where(media_df.notna(), None)
+    # Convert all polars nulls to None for SQLAlchemy compatibility
+    # First convert to Python objects row by row
+    records = []
+    for row in media.df.iter_rows(named=True):
+        # Replace polars.Null with None in each row
+        clean_row = {k: (None if v is None or str(v) == "None" else v) for k, v in row.items()}
+        records.append(clean_row)
 
     # Get table metadata
     metadata = MetaData()
@@ -455,7 +460,7 @@ def media_db_update(media_df: pd.DataFrame, media_type: str) -> None:
     table = metadata.tables[f"{table_info['schema_only']}.{table_info['table_only']}"]
 
     # Create the upsert statement using SQLAlchemy
-    stmt = insert(table).values(media_df.to_dict('records'))
+    stmt = insert(table).values(records)
     update_cols = {col.name: col for col in stmt.excluded if col.name != 'hash'}
     update_cols['updated_at'] = func.current_timestamp()
 
@@ -465,9 +470,7 @@ def media_db_update(media_df: pd.DataFrame, media_type: str) -> None:
         set_=update_cols
     )
 
-    logging.debug(f"Attempting upsert of {len(media_df)} records to {media_type} table")
-    logging.debug(f"Sample record for upsert: {media_df.iloc[0].to_dict()}")
-    logging.debug(upsert_stmt)
+    logging.debug(f"Attempting upsert of {len(media.df)} records to {media_type} table")
 
     try:
         with engine.begin() as conn:

@@ -1,26 +1,56 @@
 # standard library imports
-import json
 import logging
+import polars as pl
 
 # local/custom imports
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# read in static parameters
+# initialization and setup
 # ------------------------------------------------------------------------------
-
-with open('./config/filter-parameters.json') as file:
-    filters = json.load(file)
 
 # logger config
 logger = logging.getLogger(__name__)
+
+# ------------------------------------------------------------------------------
+# utility functions
+# ------------------------------------------------------------------------------
+
+def initiate_media_item(
+    media_item: dict
+) -> dict:
+    """
+    attempts to initiate media items, and if collects error information if
+        initiation fails
+    :param media_item: contains data of individual
+    :return media_item: updated dict containing status and/or error data
+    """
+
+    # attempt to initiate each item
+    try:
+        utils.add_media_item(media_item['torrent_source'])
+        logging.info(f"downloading: {media_item['raw_title']}")
+        media_item['status'] = 'downloading'
+    except Exception as e:
+        logging.error(f"failed to download: {media_item['raw_title']}")
+        logging.error(f"initiate_item error: {e}")
+
+        media_item['error_status'] = True
+        media_item['error_condittion'] = f"initiate_item error: {e}"
+
+    return media_item
+
 
 # ------------------------------------------------------------------------------
 # full initiation pipeline
 # ------------------------------------------------------------------------------
 
 def initiate_media_download(media_type):
-    #media_type = 'tv_show'
+    """
+    attempts to initiate all media elements currently in the queued state
+    :param media_type: either "movie", "tv_show", or "tv_season"
+    """
+    #media_type = 'movie'
 
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(
@@ -28,26 +58,24 @@ def initiate_media_download(media_type):
         status='queued'
     )
 
-    # select only that have a status of filtered
-    hashes_initiated = []
+    # if no items to initiate, then return
+    if media is None:
+        return
 
-    # iterate though each item that passed filtration, initiate download, and udpate status
-    if len(media) > 0:
-        for index in media.index.tolist():
-            try:
-                utils.add_media_item(media.loc[index, 'torrent_source'])
-                hashes_initiated.append(index)
-                logging.info(f"downloading: {media.loc[index, 'raw_title']}")
-            except Exception as e:
-                logging.error(f"failed to download: {media.loc[index, 'raw_title']}")
-                logging.error(f"initiate_item error: {e}")
+    # initiate all queued downloads
+    updated_rows = []
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        updated_row = initiate_media_item(row)
+        updated_rows.append(updated_row)
 
-        if len(hashes_initiated) > 0:
-            utils.update_db_status_by_hash(
-                media_type=media_type,
-                hashes=hashes_initiated,
-                new_status='downloading'
-            )
+    media.update(pl.DataFrame(updated_rows))
+
+    # update database with results
+    utils.media_db_update(
+        media=media,
+        media_type=media_type
+    )
+
 
 # ------------------------------------------------------------------------------
 # end of _06_initiate.py

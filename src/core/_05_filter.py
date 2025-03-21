@@ -3,8 +3,7 @@ import json
 import logging
 
 # third-party imports
-import numpy as np
-import pandas as pd
+import polars as pl
 
 # local/custom imports
 import src.utils as utils
@@ -23,8 +22,19 @@ logger = logging.getLogger(__name__)
 # initiation helper functions
 # ------------------------------------------------------------------------------
 
-def filter_item(media_item, media_type):
+def filter_item(
+    media_item: dict,
+    media_type: str
+) -> dict:
+    """
+    filters individual rows of media as dicts based off of the media_type
+        and the parameters defined in filter-parameters.json
+    :param media_item:
+    :param media_type:
+    :return: dict containing the updated filtered data
+    """
     #filter_type = 'movie'
+
     # pass if override status was set
     if media_item['rejection_status'] == 'override':
         return media_item
@@ -32,34 +42,34 @@ def filter_item(media_item, media_type):
     # search separate criteria for move or tv_show
     if media_type == 'movie':
         sieve = filters['movie']
+        # iterate over each key in the filter-parameters.json file
         for key in sieve:
+            # if key is defined as not nullable, then item will be rejected if not populated
             if not sieve[key]["nullable"]:
-                if pd.api.types.is_scalar(media_item[key]) and pd.isna(media_item[key]) or (not pd.api.types.is_scalar(media_item[key]) and pd.isna(media_item[key]).all()):
+                if media_item[key] is None:
                     media_item['rejection_reason'] = f'{key} is null'
                     break
             if isinstance(media_item[key], str):
                 if media_item[key] not in sieve[key]["allowed_values"]:
                     media_item['rejection_reason'] = f'{key} {media_item[key]} is not in allowed_values'
                     break
-            elif pd.api.types.is_numeric_dtype(type(media_item[key])) or \
-                 isinstance(media_item[key], (int, float, np.number)):
+            elif isinstance(media_item[key], (int, float)):
                 if media_item[key] < sieve[key]["min"]:
                     media_item['rejection_reason'] = f'{key} {media_item[key]} is below min'
                     break
                 elif media_item[key] > sieve[key]["max"]:
                     media_item['rejection_reason'] = f'{key} {media_item[key]} is above max'
                     break
-            elif isinstance(media_item[key], (list, tuple, np.ndarray)) or \
-               (isinstance(media_item[key], pd.Series) and len(media_item[key]) > 0):
+            elif isinstance(media_item[key], list):
                 if not any([x in sieve[key]["allowed_values"] for x in media_item[key]]):
                     media_item['rejection_reason'] = f'{key} {media_item[key]} does not include {sieve[key]["allowed_values"]}'
                     break
+
+    # there are currently no filters set for tv_show or tv_season
     elif media_type == 'tv_show':
         pass
     elif media_type == 'tv_season':
         pass
-    else:
-        raise ValueError('filter_type must be either "movie", "tv_show", or "tv_season"')
 
     return media_item
 
@@ -67,7 +77,11 @@ def filter_item(media_item, media_type):
 # full initiation pipeline
 # ------------------------------------------------------------------------------
 
-def filter_media(media_type):
+def filter_media(media_type: str):
+    """
+    full pipeline for filtering all media after metadata has been collected
+    :param media_type: either "movie", "tv_show", or "tv_season"
+    """
     #media_type = 'movie'
 
     # read in existing data based on ingest_type
@@ -76,65 +90,46 @@ def filter_media(media_type):
         status='metadata_collected'
     )
 
-    # convert the index of the media to a column called hash
-    media['hash'] = media.index
+    if media is None:
+        return
 
-    # filter through each row and update the status
-    media_filtered = pd.DataFrame()
-    media_rejected = pd.DataFrame()
+    # filter data
+    updated_rows = []
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        updated_row = filter_item(row, media_type)
+        updated_rows.append(updated_row)
 
-    if len(media) > 0:
-        media_filtered = media.copy().iloc[0:0]
-        media_rejected = media.copy().iloc[0:0]
+    media.update(pl.DataFrame(updated_rows))
 
-        for index, row in media.iterrows():
-            try:
-                filtered_item = filter_item(
-                    media_item=row,
-                    media_type=media_type
-                )
-                if filtered_item['rejection_status'] == 'override':
-                    media_filtered = pd.concat([media_filtered, filtered_item.to_frame().T])
-                    logging.info(f"overridden: {media_filtered.loc[index, 'raw_title']}")
-                elif filtered_item['rejection_reason'] is not None:
-                    filtered_item['rejection_status'] = 'rejected'
-                    media_rejected = pd.concat([media_rejected, filtered_item.to_frame().T])
-                    logging.info(f"rejected: {media_rejected.loc[index, 'raw_title']}: {media_rejected.loc[index, 'rejection_reason']}")
-                else:
-                    filtered_item['rejection_status'] = 'accepted'
-                    media_filtered = pd.concat([media_filtered, filtered_item.to_frame().T])
-                    logging.info(f"accepted: {media_filtered.loc[index, 'raw_title']}")
-            except Exception as e:
-                logging.error(f"failed to filter: {media.loc[index, 'raw_title']}")
-                logging.error(f"filter_item error: {e}")
+    # update rejection status
+    media.update(media.df.with_columns(
+        rejection_status = pl.when(pl.col('rejection_reason').is_not_null())
+            .then(pl.lit('rejected'))
+            .otherwise(pl.col('rejection_status'))
+    ))
 
-    if len(media_rejected) > 0:
-        # update database with for items that passed filtration
-        utils.media_db_update(
-            media_type=media_type,
-            media_df=media_rejected
-        )
+    # log rejection entries
+    for row in media.df.iter_rows(named=True):
+        if row['error_status']:
+            logging.error(f"{row['raw_title']}: {row['error_condition']}")
+        elif row['rejection_status'] == 'rejected':
+            logging.info(f"rejected: {row['raw_title']}: {row['rejection_reason']}")
+        else:
+            logging.info(f"queued: {row['raw_title']}")
 
-        # update status
-        utils.update_db_status_by_hash(
-            media_type=media_type,
-            hashes=media_rejected.index.tolist(),
-            new_status='rejected'
-        )
+    # update status
+    media.update(media.df.with_columns(
+        pl.when(pl.col('rejection_status') == 'rejected')
+        .then(pl.lit('rejected'))
+        .otherwise(pl.lit('queued'))
+        .alias('status')
+    ))
 
-    if len(media_filtered) > 0:
-        # update database for rejected items
-        utils.media_db_update(
-            media_type=media_type,
-            media_df=media_filtered
-        )
+    utils.media_db_update(
+        media=media,
+        media_type=media_type
+    )
 
-        # update status
-        utils.update_db_status_by_hash(
-            media_type=media_type,
-            hashes=media_filtered.index.tolist(),
-            new_status='queued'
-        )
 
 # ------------------------------------------------------------------------------
 # end of _05_filter.py

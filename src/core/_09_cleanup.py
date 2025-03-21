@@ -1,5 +1,11 @@
 # standard library imports
+from datetime import datetime, timedelta, UTC
 import logging
+import os
+
+# third-party imports
+from dotenv import load_dotenv
+import polars as pl
 
 # local/custom imports
 import src.utils as utils
@@ -10,6 +16,9 @@ import src.utils as utils
 
 # logger config
 logger = logging.getLogger(__name__)
+
+# load environment variables in order to access CLEANUP_DELAY
+load_dotenv()
 
 # ------------------------------------------------------------------------------
 # function to perform cleanup for all media items
@@ -23,8 +32,7 @@ def cleanup_media(
         been verified completed successfully
     :param media_type: type of media to clean up
     """
-    # media_type = 'tv_show'
-    # media_type = 'tv_season'
+    #media_type = 'tv_show'
 
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(
@@ -32,20 +40,39 @@ def cleanup_media(
         status='transferred'
     )
 
-    # exit function if not media in transferred state
-    if media.empty:
+    # if no transferred items, return None
+    if media is None:
         return
 
-    # remove torrents from transmission client
-    for index, media_item in media.iterrows():
-        utils.remove_media_item(index)
-        logging.info(f"cleaned: {media_item['raw_title']}")
+    cleanup_delay = int(os.getenv('CLEANUP_DELAY'))
+
+    # filter by cleanup delay
+    updated_rows = []
+    for row in media.df.iter_rows(named=True):
+        seconds_since_transfer = int((datetime.now(UTC) - row['updated_at']).total_seconds())
+        if seconds_since_transfer >= cleanup_delay:
+            updated_row = row
+            try:
+                utils.remove_media_item(row['hash'])
+                updated_row['status'] = "complete"
+                logging.info(f"cleaned: {updated_row['raw_title']}")
+                updated_rows.append(updated_row)
+            except Exception as e:
+                updated_row['error_status'] = True
+                updated_row['error_condition'] = f"{e}"
+                logging.error(f"{updated_row['raw_title']}: {updated_row['error_condition']}")
+                updated_rows.append(updated_row)
+
+    # if no items have reached the cleanup_delay, return
+    if len(updated_rows) == 0:
+        return
+
+    media.update(pl.DataFrame(updated_rows))
 
     # update status of successfully parsed items
-    utils.update_db_status_by_hash(
-        media_type=media_type,
-        hashes=media.index.tolist(),
-        new_status='complete'
+    utils.media_db_update(
+        media=media,
+        media_type=media_type
     )
 
 # ------------------------------------------------------------------------------
