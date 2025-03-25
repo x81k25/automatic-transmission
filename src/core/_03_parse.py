@@ -42,9 +42,13 @@ def parse_media_items(
     parsed_media_df = media.df.clone()
 
     # Apply pre-processing replacements
+    parsed_media_df = parsed_media_df.with_columns(
+        cleaned_title = pl.col("raw_title")
+    )
+
     for old_str, new_str in special_conditions['pre_processing_replacements']:
         parsed_media_df = parsed_media_df.with_columns(
-            cleaned_title = pl.col("raw_title").str.replace(old_str, new_str)
+            cleaned_title = pl.col("cleaned_title").str.replace(old_str, new_str)
         )
 
     # Extract common patterns using vectorized operations
@@ -60,28 +64,9 @@ def parse_media_items(
     if media_type == "movie":
         # Extract movie-specific fields
         parsed_media_df = parsed_media_df.with_columns(
-            movie_title=pl.col("cleaned_title").map_elements(
-                lambda x: utils.extract_title(x, media_type),
-                return_dtype=pl.Utf8),
             release_year=pl.col("cleaned_title").map_elements(utils.extract_year, return_dtype=pl.Int32)
         )
-
     elif media_type == "tv_show":
-        # Extract TV show name
-        parsed_media_df = parsed_media_df.with_columns(
-            tv_show_name=pl.col("cleaned_title").map_elements(
-                lambda x: utils.extract_title(x, media_type),
-                return_dtype=pl.Utf8)
-        )
-
-        # Apply post-processing replacements for TV shows
-        for old_str, new_str in special_conditions[
-            'tv_post_processing_replacements']:
-            parsed_media_df = parsed_media_df.with_columns(
-                tv_show_name=pl.col("tv_show_name").str.replace(old_str,
-                                                                new_str)
-            )
-
         # Extract season and episode numbers
         parsed_media_df = parsed_media_df.with_columns(
             season=pl.col("cleaned_title").map_elements(
@@ -89,26 +74,38 @@ def parse_media_items(
             episode=pl.col("cleaned_title").map_elements(
                 utils.extract_episode_from_episode, return_dtype=pl.Int32)
         )
+    elif media_type == "tv_season":
+        # Extract season number
+        parsed_media_df = parsed_media_df.with_columns(
+            season=pl.col("cleaned_title").map_elements(
+                utils.extract_season_from_season, return_dtype=pl.Int32)
+        )
 
+    # extract media_title; will always be last step
+    for old_str, new_str in special_conditions['post_processing_replacements']:
+        parsed_media_df = parsed_media_df.with_columns(
+            cleaned_title = pl.col("cleaned_title").str.replace(old_str, new_str)
+        )
+
+    if media_type == 'movie':
+        # Extract movie-specific fields
+        parsed_media_df = parsed_media_df.with_columns(
+            movie_title=pl.col("cleaned_title").map_elements(
+                lambda x: utils.extract_title(x, media_type),
+                return_dtype=pl.Utf8)
+        )
+    elif media_type == "tv_show":
+        # Extract TV show name
+        parsed_media_df = parsed_media_df.with_columns(
+            tv_show_name=pl.col("cleaned_title").map_elements(
+                lambda x: utils.extract_title(x, media_type),
+                return_dtype=pl.Utf8)
+        )
     elif media_type == "tv_season":
         # Extract TV show name
         parsed_media_df = parsed_media_df.with_columns(
             tv_show_name=pl.col("cleaned_title").map_elements(
                 lambda x: utils.extract_title(x, media_type))
-        )
-
-        # Apply post-processing replacements for TV shows
-        for old_str, new_str in special_conditions[
-            'tv_post_processing_replacements']:
-            parsed_media_df = parsed_media_df.with_columns(
-                tv_show_name=pl.col("tv_show_name").str.replace(old_str,
-                                                                new_str)
-            )
-
-        # Extract season number
-        parsed_media_df = parsed_media_df.with_columns(
-            season=pl.col("cleaned_title").map_elements(
-                utils.extract_season_from_season, return_dtype=pl.Int32)
         )
 
     # drop the cleaned title

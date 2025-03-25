@@ -6,6 +6,44 @@ import logging
 import src.core as core
 
 # ------------------------------------------------------------------------------
+# setup
+# ------------------------------------------------------------------------------
+
+def setup_logging(debug=False):
+    # Define custom VERBOSE level (set to 5, below DEBUG)
+    VERBOSE = 5
+    logging.addLevelName(VERBOSE, "VERBOSE")
+    
+    # Add verbose method to Logger class
+    def verbose(self, message, *args, **kwargs):
+        if self.isEnabledFor(VERBOSE):
+            self._log(VERBOSE, message, args, **kwargs)
+    
+    # Add the method to the Logger class
+    logging.Logger.verbose = verbose
+    
+    if not debug:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+        logging.getLogger("paramiko").setLevel(logging.WARNING)
+    else:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+        logging.getLogger("paramiko").setLevel(logging.INFO)
+    
+    # Return logger for convenience
+    return logging.getLogger(__name__)
+
+
+# ------------------------------------------------------------------------------
 # end-to-end pipeline for downloading contents
 # accepts media_type = "movie" or media_type = "tv_show"
 #
@@ -34,22 +72,7 @@ def full_pipeline(
     if media_type not in ["movie", "tv_show", "tv_season"]:
         raise ValueError(f"Invalid media_type: {media_type}")
 
-    if not debug:
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-        logging.getLogger("paramiko").setLevel(logging.WARNING)
-    else:
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format= '%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-            datefmt = '%Y-%m-%d %H:%M:%S'
-        )
-        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-        logging.getLogger("paramiko").setLevel(logging.INFO)
+    logger = setup_logging(debug=debug)
 
     core.rss_ingest(media_type=media_type)
     core.collect_media(media_type=media_type)
