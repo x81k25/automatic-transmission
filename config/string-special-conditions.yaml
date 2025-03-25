@@ -1,13 +1,10 @@
 # special exceptions for known issues
-## removes exact prefix from beginning of raw_title within utils.parse_elements
-raw_title_prefixes:
-
-
 ## temporary string replacement applied at the beginning of 03_parse for all operations
 pre_processing_replacements:
   - ["www.Torrenting.com -", ""]
 
-## changes made after all other parsing operations complete, affecting the final media_title only
+## changes made after all other parsing operations complete within _03_parse
+## affects the media_title field only
 post_processing_replacements:
   - ["Farmer Wants a Wife US 2023", "Farmer Wants a Wife"]
   - ["EXTENDED", ""]
