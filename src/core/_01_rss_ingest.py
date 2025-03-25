@@ -169,6 +169,10 @@ def rss_ingest(media_type: str):
 
     feed_media.df.drop_in_place('media_type')
 
+    # if no media match type, return
+    if len(feed_media.df) == 0:
+        return
+
     # determine which feed entries are new entries
     #new_hashes = feed_items['hash'].to_list()
     new_hashes = utils.compare_hashes_to_db(
