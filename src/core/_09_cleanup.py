@@ -55,7 +55,7 @@ def cleanup_media(
             try:
                 utils.remove_media_item(row['hash'])
                 updated_row['status'] = "complete"
-                logging.info(f"cleaned: {updated_row['raw_title']}")
+                logging.info(f"cleaned: {updated_row['raw_title']}: {seconds_since_transfer}s after transfer")
                 updated_rows.append(updated_row)
             except Exception as e:
                 updated_row['error_status'] = True

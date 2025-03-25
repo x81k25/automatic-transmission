@@ -52,11 +52,11 @@ def classify_media_type(raw_title:str) -> Optional[str]:
 	"""
 	# Core patterns
 	# TV show must have SxxExx pattern (case insensitive)
-	tv_pattern = r'[Ss]\d{2}[Ee]\d{2}'
+	tv_pattern = r'[Ss]\d{1,4}[Ee]\d{1,4}'
 
 	# TV season can have either "season X" or "sXX" pattern (case insensitive)
 	# Looks for season/s followed by 1-2 digits, not followed by episode pattern
-	season_pattern = r'(?:[Ss]eason\s+\d{1,2}|[Ss]\d{1,2}(?![Ee]\d{2}))'
+	season_pattern = r'(?:[Ss]eason\s+\d{1,4}|[Ss]\d{1,4})'
 
 	# Movie pattern now accounts for years with or without parentheses
 	# Matches 19xx or 20xx with similar delimiters on both sides
@@ -80,12 +80,6 @@ def extract_title(raw_title: str, media_type: str) -> str:
     """
 	clean_title = raw_title
 
-	# initial string operations to be performed for all titles
-	# remove specified prefixes
-	for prefix in special_conditions['raw_title_prefixes']:
-		if clean_title.startswith(prefix):
-			clean_title = clean_title[len(prefix):].strip()
-
 	if media_type == 'movie':
 		# remove suffixes to the movie title
 		# Remove quality info and encoding info that comes after the year
@@ -98,7 +92,7 @@ def extract_title(raw_title: str, media_type: str) -> str:
 		clean_title = re.sub(r'\d{3,4}p.*$', '', clean_title)
 
 		# get everything before the SxxExx pattern
-		clean_title = re.split(r'[Ss]\d{2}[Ee]\d{2}', clean_title)[0]
+		clean_title = re.split(r'[Ss]\d{1,4}[Ee]\d{1,4}', clean_title)[0]
 
 	elif media_type == 'tv_season':
 		# Remove quality info and encoding info that comes after season pattern
@@ -143,12 +137,12 @@ def extract_year(raw_title: str) -> Optional[str]:
 ################################################################################
 
 def extract_season_from_episode(raw_title: str) -> Optional[str]:
-	pattern = re.compile(r'[. ]s(\d{1,3})e', re.IGNORECASE)
+	pattern = re.compile(r'[. ]s(\d{1,4})e\d{1,4}[. ]', re.IGNORECASE)
 	match = pattern.search(raw_title)
 	return int(match.group(1)) if match else None
 
 def extract_episode_from_episode(raw_title: str) -> Optional[str]:
-	pattern = re.compile(r'e(\d{1,3})[. ]', re.IGNORECASE)
+	pattern = re.compile(r'[. ]s\d{1,4}e(\d{1,4})[. ]', re.IGNORECASE)
 	match = pattern.search(raw_title)
 	return int(match.group(1)) if match else None
 

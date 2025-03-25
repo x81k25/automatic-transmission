@@ -1,17 +1,18 @@
 # special exceptions for known issues
+## removes exact prefix from beginning of raw_title within utils.parse_elements
 raw_title_prefixes:
-  - "www.Torrenting.com -"
 
+
+## temporary string replacement applied at the beginning of 03_parse for all operations
 pre_processing_replacements:
-  - ["Frontline S2025", "Frontline S44"]
+  - ["www.Torrenting.com -", ""]
 
-movie_post_processing_replacements:
-
-tv_post_processing_replacements:
+## changes made after all other parsing operations complete, affecting the final media_title only
+post_processing_replacements:
+  - ["Farmer Wants a Wife US 2023", "Farmer Wants a Wife"]
+  - ["EXTENDED", ""]
+  - ["UNRATED", ""]
   - ["Its Always Sunny", "It's Always Sunny"]
   - ["60 Minutes (US)", "60 Minutes"]
-
-#for entry in extracted_data:
-#    if media_type == 'tv_show':
-#    if entry['tv_show_name'] == '60 Minutes (US)':
-#         entry['tv_show_name'] = '60 Minutes'
+  - ["Theres", "There's"]
+  - ["Starsky and Hutch", "Starsky & Hutch"]

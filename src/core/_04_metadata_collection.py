@@ -47,22 +47,22 @@ def collect_omdb_metadata(
             'y': media_item["release_year"],
             'apikey': api_key
         }
+        logging.debug(f"collecting metadata for: {media_item['raw_title']} as {params['t']} - {params['y']}")
     elif media_type == 'tv_show' or media_type == 'tv_season':
         params = {
             't': media_item["tv_show_name"],
             'apikey': api_key
         }
+        logging.debug(f"collecting metadata for: {media_item['raw_title']} as {params['t']}")
 
     # Make a request to the OMDb API
-    logging.debug(f"collecting metadata for: {media_item['raw_title']} as {params['t']}")
-
     response = requests.get(omdb_base_url, params=params)
 
     status_code = response.status_code
     logging.debug(f"OMDb API call status code: {response.status_code}")
 
     data = json.loads(response.content)
-    logging.debug(f"OMDb API response: {data}")
+    logger.verbose(f"OMDb API response: {data}")
 
     # check if the response was successful, and if so move on
     if status_code == 200 and data["Response"] == "True":
@@ -90,13 +90,14 @@ def collect_omdb_metadata(
             # items to collect only for tv shows
             elif media_type == 'tv_show' or media_type == 'tv_season':
                 media_item['release_year'] = int(re.search(r'\d{4}', data.get('Year', '')).group())
+            media_item['status'] = "metadata_collected"
     # if response was not successful updates statuses appropriately
     elif status_code == 200 and data["Response"] == "False":
-        media_item['status'] = 'rejected'
-        media_item['rejection_reason'] = "metadata could not be collected"
-        media_item['rejection_status'] = 'rejected'
+        media_item['error_status'] = True
+        media_item['error_condition'] = f"metadata could not be collected for: {params['t']}"
     else:
-        raise ValueError(f"OMDB API error for query \"{media_item["raw_title"]}\": {response_content['Error']}")
+        media_item['error_status'] = True
+        media_item['error_condition'] = response
 
     # Save the updated tv_shows DataFrame
     return media_item
@@ -131,20 +132,12 @@ def collect_metadata(media_type: str):
 
     media.update(pl.DataFrame(updated_rows))
 
-    # log rejected items
+    # log rejected and accepted items
     for row in media.df.iter_rows(named=True):
-        if row['status'] == "rejected":
-            logging.error(f"failed to collect metadata: {row['raw_title']}")
+        if row['error_status']:
+            logging.error(f"{row['raw_title']}: {row['error_condition']}")
         else:
             logging.info(f"metadata collected: {row['raw_title']}")
-
-    # update status for successfully collected items
-    media.update(media.df.with_columns(
-        pl.when(pl.col('status') != 'rejected')
-        .then(pl.lit('metadata_collected'))
-        .otherwise(pl.col('status'))
-        .alias('status')
-    ))
 
     # write metadata back to the database
     utils.media_db_update(

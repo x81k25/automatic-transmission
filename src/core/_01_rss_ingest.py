@@ -35,7 +35,7 @@ def rss_feed_ingest(rss_url: str) -> feedparser.FeedParserDict:
     feed = feedparser.parse(rss_url)
 
     # print terminal message
-    logging.info("ingesting from: " + str(feed.channel.title))
+    logging.debug("ingesting from: " + str(feed.channel.title))
     logging.debug(f"feed: {str(feed)[:60]}...")
 
     return feed
@@ -51,11 +51,6 @@ def rss_entries_to_dataframe(
     :param media_type: type of feed, either "movie", "tv_show", or "tv_season"
     :return: Appropriate DataFrame object based on media_type
     """
-    logging.debug(
-        f"Feed type and keys: {type(feed)}, Keys: {feed.keys() if isinstance(feed, dict) else 'Not a dict'}")
-    logging.debug(
-        f"Number of entries: {len(feed['entries'])}, First entry keys: {feed['entries'][0].keys() if feed['entries'] else 'No entries'}")
-
     # Extract the entries
     entries = feed['entries']
 

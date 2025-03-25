@@ -324,18 +324,58 @@ def insert_items_to_db(
     # Convert polars DataFrame to records
     records = pl_df.to_dicts()
 
-    # Write to database
+    logging.debug(f"attempting insert of {len(media.df)} records to {media_type} table")
+
+    # insert to database
     with engine.connect() as conn:
         transaction = conn.begin()
         try:
-            # Insert records
             result = conn.execute(sa_table.insert(), records)
             transaction.commit()
             inserted_rows = result.rowcount
             logging.debug(f"successfully inserted {inserted_rows} rows")
         except Exception as e:
             transaction.rollback()
-            raise Exception(f"Error writing to database: {str(e)}")
+            logging.error(f"error writing to database: {str(e)}")
+
+
+# ------------------------------------------------------------------------------
+# delete statements
+# ------------------------------------------------------------------------------
+
+def delete_items_from_db(
+    hashes: list,
+    media_type: str
+):
+    """
+    deletes specified items from db
+    :param hashes: list of string value hashes
+    :param media_type: either movies, tv_shows, or tv_seasons
+    """
+    # assign engine
+    engine = create_db_engine()
+
+    # assign table and schema
+    table, schema = [assign_table(media_type)[key] for key in ['table_only', 'schema_only']]
+
+    # Create SQLAlchemy table metadata
+    metadata = MetaData(schema=schema)
+    sa_table = Table(table, metadata, autoload_with=engine)
+
+    logging.debug(f"attempting deletion of {len(hashes)} records from {media_type} table")
+
+    # insert to database
+    with engine.connect() as conn:
+        transaction = conn.begin()
+        try:
+            delete_stmt = sa_table.delete().where(sa_table.c.hash.in_(hashes))
+            logging.debug(delete_stmt)
+            result = conn.execute(delete_stmt)
+            transaction.commit()
+            logging.debug(f"{result}")
+        except Exception as e:
+            transaction.rollback()
+            logging.error(f"error writing to database: {str(e)}")
 
 
 # ------------------------------------------------------------------------------
