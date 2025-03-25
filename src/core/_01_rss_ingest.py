@@ -57,18 +57,58 @@ def rss_entries_to_dataframe(
     # Extract relevant fields from each entry
     extracted_data = []
 
+    # extract hash, raw_title and torrent_source based on media type
     if media_type == 'movie':
         for entry in entries:
             extracted_dict = {
-                'hash': utils.extract_hash_from_direct_download_url(
-                    entry['links'][1]['href']),
+                'hash': utils.extract_hash_from_direct_download_url(entry['links'][1]['href']),
+                'raw_title': entry['title'],
+                'torrent_source': entry['links'][1]['href'],
+            }
+            utils.validate_dict(extracted_dict)
+            extracted_data.append(extracted_dict)
+    elif media_type in ['tv_show', "tv_season"]:
+        for entry in entries:
+            extracted_dict = {
+                'hash': utils.extract_hash_from_magnet_link(entry['link']),
+                'raw_title': entry['title'],
+                'torrent_source': entry['link']
+            }
+            utils.validate_dict(extracted_dict)
+            extracted_data.append(extracted_dict)
+
+    # return MediaDataFrame instance
+    return MediaDataFrame(extracted_data)
+
+
+def classify_items(
+    feed: feedparser.FeedParserDict,
+    media_type: str
+) -> MediaDataFrame:
+    """
+    convert RSS feed entries into a structured DataFrame
+    :param feed: extracted rss feed
+    :param media_type: type of feed, either "movie", "tv_show", or "tv_season"
+    :return: Appropriate DataFrame object based on media_type
+    """
+    # Extract the entries
+    entries = feed['entries']
+
+    # Extract relevant fields from each entry
+    extracted_data = []
+
+    # extract hash, raw_title and torrent_source based on media type
+    if media_type == 'movie':
+        for entry in entries:
+            extracted_dict = {
+                'hash': utils.extract_hash_from_direct_download_url(entry['links'][1]['href']),
                 'raw_title': entry['title'],
                 'torrent_source': entry['links'][1]['href'],
             }
             utils.validate_dict(extracted_dict)
             extracted_data.append(extracted_dict)
 
-    elif media_type == 'tv_show':
+    elif media_type == 'tv_show' or media_type == "tv_season":
         for entry in entries:
             extracted_dict = {
                 'hash': utils.extract_hash_from_magnet_link(entry['link']),
@@ -78,18 +118,6 @@ def rss_entries_to_dataframe(
             utils.validate_dict(extracted_dict)
             if utils.classify_media_type(
                 extracted_dict['raw_title']) == 'tv_show':
-                extracted_data.append(extracted_dict)
-
-    elif media_type == 'tv_season':
-        for entry in entries:
-            extracted_dict = {
-                'hash': utils.extract_hash_from_magnet_link(entry['link']),
-                'raw_title': entry['title'],
-                'torrent_source': entry['link']
-            }
-            utils.validate_dict(extracted_dict)
-            if utils.classify_media_type(
-                extracted_dict['raw_title']) == 'tv_season':
                 extracted_data.append(extracted_dict)
 
     else:
@@ -107,16 +135,17 @@ def rss_entries_to_dataframe(
 def rss_ingest(media_type: str):
     """
     full ingest pipeline for either movies or tv shows
-    :param media_type: either "movie" or "tv_show"
+    :param media_type: either "movie", "tv_show", or "tv_season"
+        example:
+            media_type="tv_season"
     """
-    #media_type='movie'
-    #media_type='tv_show'
+
     # retrieve rss feed based on ingest_type
     rss_url = None
     if media_type == 'movie':
         rss_url = os.getenv('MOVIE_RSS_URL')
     # the tv show feed may occasionally contain tv seasons
-    elif media_type == 'tv_show' or media_type == 'tv_season':
+    elif media_type in ['tv_show', "tv_season"]:
         rss_url = os.getenv('TV_SHOW_RSS_URL')
 
     feed = rss_feed_ingest(rss_url)
@@ -126,6 +155,19 @@ def rss_ingest(media_type: str):
         feed=feed,
         media_type=media_type
     )
+
+    # classify media type and filter by applicable type only
+    feed_media.update(
+        feed_media.df.with_columns(
+            media_type = pl.col('raw_title').map_elements(utils.classify_media_type, return_dtype=pl.Utf8)
+        )
+    )
+
+    feed_media.update(
+        feed_media.df.filter(pl.col('media_type') == media_type)
+    )
+
+    feed_media.df.drop_in_place('media_type')
 
     # determine which feed entries are new entries
     #new_hashes = feed_items['hash'].to_list()

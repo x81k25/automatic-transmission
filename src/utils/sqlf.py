@@ -108,18 +108,17 @@ def create_db_engine(
 # non SQL helper functions
 # ------------------------------------------------------------------------------
 
-def assign_table(media_type: str):
+def assign_table(
+    media_type: str,
+    schema_name: str = pg_schema
+):
     """
     Assigns the table name based on the media type.
-
-    Parameters:
-    media_type (str): Type of media to assign table for
-
-    Returns:
-    str: Table name for the specified media type
+    :param schema_name: name of the database schem to be used
+    :param media_type: either "movie", "tv_show", or "tv_season"
+    :return: Table name for the specified media type
     """
-    schema_name = os.getenv('PG_SCHEMA')
-    schema_name = quoted_name(os.getenv('PG_SCHEMA'), True)
+    schema_name = quoted_name(schema_name, True)
 
     if media_type == 'movie':
         table_name = 'movies'
@@ -296,7 +295,8 @@ def get_media_from_db(
 
 def insert_items_to_db(
     media_type: str,
-    media: MediaDataFrame
+    media: MediaDataFrame,
+    schema_name: str = pg_schema
 ):
     """
     Writes a MediaDataFrame to the database using SQLAlchemy.
@@ -312,7 +312,7 @@ def insert_items_to_db(
     engine = create_db_engine()
 
     # assign table and schema
-    table, schema = [assign_table(media_type)[key] for key in ['table_only', 'schema_only']]
+    table, schema = [assign_table(media_type, schema_name)[key] for key in ['table_only', 'schema_only']]
 
     # Get the polars DataFrame
     pl_df = media.df
@@ -345,18 +345,20 @@ def insert_items_to_db(
 
 def delete_items_from_db(
     hashes: list,
-    media_type: str
+    media_type: str,
+    schema: str = pg_schema
 ):
     """
     deletes specified items from db
     :param hashes: list of string value hashes
     :param media_type: either movies, tv_shows, or tv_seasons
+    :param schema: db schema within which to perform deletion
     """
     # assign engine
     engine = create_db_engine()
 
     # assign table and schema
-    table, schema = [assign_table(media_type)[key] for key in ['table_only', 'schema_only']]
+    table, schema = [assign_table(media_type, schema)[key] for key in ['table_only', 'schema_only']]
 
     # Create SQLAlchemy table metadata
     metadata = MetaData(schema=schema)
@@ -369,10 +371,11 @@ def delete_items_from_db(
         transaction = conn.begin()
         try:
             delete_stmt = sa_table.delete().where(sa_table.c.hash.in_(hashes))
-            logging.debug(delete_stmt)
+            compiled_stmt = delete_stmt.compile(compile_kwargs={"literal_binds": True})
+            logging.debug(compiled_stmt)
             result = conn.execute(delete_stmt)
             transaction.commit()
-            logging.debug(f"{result}")
+            logging.debug(f"successfully deleted {result.rowcount}")
         except Exception as e:
             transaction.rollback()
             logging.error(f"error writing to database: {str(e)}")

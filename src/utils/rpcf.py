@@ -22,14 +22,15 @@ transmission_port = os.getenv('TRANSMISSION_PORT')
 # create client function
 # ------------------------------------------------------------------------------
 
-def get_transmission_client():
+def get_transmission_client(port: int = transmission_port):
     """
     Instantiate a transmission client
+    :param port: server port for transmission client being used
     :return: Transmission_client object
     """
     return Transmission_client(
         host=hostname,
-        port=transmission_port,
+        port=port,
         username=transmission_username,
         password=transmission_password
     )
@@ -52,14 +53,14 @@ def get_torrent_info(hash: str):
     return torrent
 
 
-def return_current_torrents():
+def return_current_torrents(port: int = transmission_port):
     """
     hit transmission rpc and return all current torrents
 
     :return: DataFrame containing all relevant torrent information if torrents exist, None if no torrents
     """
     # Get transmission client
-    client = get_transmission_client()
+    client = get_transmission_client(port)
 
     # Get all torrents
     torrents = client.get_torrents()
