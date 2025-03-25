@@ -1,11 +1,16 @@
 # Changelog
 
+## [1.2.4]
+
+
 ## [1.2.3]
 - transitioned from pandas to polars throughout the entire application
 - re-oriented all data operations around new MediaDataFrame class defined in src.data_models
 - added fields for error_handling
   - error_status is boolean value, when true will halt item flow in pipeline
   - error_condition is a varchar that contains information about the error
+- added cleanup delay environment variable
+  - media items will now wait until the clean up delay has been reached after they are transferred, to be deleted 
 
 ## [1.2.2]
 - change all file operations to run local via os, pathlib and shutil; replacing the older ssh options; depracating ssh options

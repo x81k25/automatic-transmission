@@ -324,18 +324,19 @@ def insert_items_to_db(
     # Convert polars DataFrame to records
     records = pl_df.to_dicts()
 
-    # Write to database
+    logging.debug(f"attempting insert of {len(media.df)} records to {media_type} table")
+
+    # insert to database
     with engine.connect() as conn:
         transaction = conn.begin()
         try:
-            # Insert records
             result = conn.execute(sa_table.insert(), records)
             transaction.commit()
             inserted_rows = result.rowcount
             logging.debug(f"successfully inserted {inserted_rows} rows")
         except Exception as e:
             transaction.rollback()
-            raise Exception(f"Error writing to database: {str(e)}")
+            logging.error(f"error writing to database: {str(e)}")
 
 
 # ------------------------------------------------------------------------------
