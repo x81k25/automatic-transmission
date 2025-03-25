@@ -62,7 +62,7 @@ def collect_omdb_metadata(
     logging.debug(f"OMDb API call status code: {response.status_code}")
 
     data = json.loads(response.content)
-    logging.verbose(f"OMDb API response: {data}")
+    logger.verbose(f"OMDb API response: {data}")
 
     # check if the response was successful, and if so move on
     if status_code == 200 and data["Response"] == "True":

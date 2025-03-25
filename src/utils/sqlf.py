@@ -340,6 +340,45 @@ def insert_items_to_db(
 
 
 # ------------------------------------------------------------------------------
+# delete statements
+# ------------------------------------------------------------------------------
+
+def delete_items_from_db(
+    hashes: list,
+    media_type: str
+):
+    """
+    deletes specified items from db
+    :param hashes: list of string value hashes
+    :param media_type: either movies, tv_shows, or tv_seasons
+    """
+    # assign engine
+    engine = create_db_engine()
+
+    # assign table and schema
+    table, schema = [assign_table(media_type)[key] for key in ['table_only', 'schema_only']]
+
+    # Create SQLAlchemy table metadata
+    metadata = MetaData(schema=schema)
+    sa_table = Table(table, metadata, autoload_with=engine)
+
+    logging.debug(f"attempting deletion of {len(hashes)} records from {media_type} table")
+
+    # insert to database
+    with engine.connect() as conn:
+        transaction = conn.begin()
+        try:
+            delete_stmt = sa_table.delete().where(sa_table.c.hash.in_(hashes))
+            logging.debug(delete_stmt)
+            result = conn.execute(delete_stmt)
+            transaction.commit()
+            logging.debug(f"{result}")
+        except Exception as e:
+            transaction.rollback()
+            logging.error(f"error writing to database: {str(e)}")
+
+
+# ------------------------------------------------------------------------------
 # update statements
 # ------------------------------------------------------------------------------
 
