@@ -73,10 +73,9 @@ def filter_item(media_item: dict) -> dict:
 # full initiation pipeline
 # ------------------------------------------------------------------------------
 
-def filter_media(media_type: str):
+def filter_media():
     """
     full pipeline for filtering all media after metadata has been collected
-    :param media_type: either "movie", "tv_show", or "tv_season"
     """
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status='metadata_collected')

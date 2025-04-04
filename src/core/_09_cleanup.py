@@ -24,9 +24,7 @@ load_dotenv()
 # function to perform cleanup for all media items
 # ------------------------------------------------------------------------------
 
-def cleanup_media(
-    media_type: str
-):
+def cleanup_media():
     """
     perform final clean-up operations for torrents once all other steps have
         been verified completed successfully

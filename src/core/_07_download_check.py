@@ -60,7 +60,7 @@ def extract_and_verify_filename(media_item: dict) -> dict:
 # main check download function for all media items
 # ------------------------------------------------------------------------------
 
-def check_downloads(media_type: str):
+def check_downloads():
     """
     check downloads for all downloading media elements, and extracts file_name
         if download is complete

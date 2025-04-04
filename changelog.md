@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2.3]
+## [1.2.4]
 - moved tables tv_shows, tv_season, and movies into consolidated media table that accepts all values
 
 ## [1.2.3]
