@@ -43,17 +43,17 @@ def collect_omdb_metadata(
     # Define the parameters for the OMDb API request
     if media_type == 'movie':
         params = {
-            't': media_item["movie_title"],
+            't': media_item["media_title"],
             'y': media_item["release_year"],
             'apikey': api_key
         }
-        logging.debug(f"collecting metadata for: {media_item['raw_title']} as {params['t']} - {params['y']}")
+        logging.debug(f"collecting metadata for: {media_item['original_title']} as {params['t']} - {params['y']}")
     elif media_type == 'tv_show' or media_type == 'tv_season':
         params = {
-            't': media_item["tv_show_name"],
+            't': media_item["media_title"],
             'apikey': api_key
         }
-        logging.debug(f"collecting metadata for: {media_item['raw_title']} as {params['t']}")
+        logging.debug(f"collecting metadata for: {media_item['original_title']} as {params['t']}")
 
     # Make a request to the OMDb API
     response = requests.get(omdb_base_url, params=params)
@@ -62,7 +62,7 @@ def collect_omdb_metadata(
     logging.debug(f"OMDb API call status code: {response.status_code}")
 
     data = json.loads(response.content)
-    logger.verbose(f"OMDb API response: {data}")
+    #logger.verbose(f"OMDb API response: {data}")
 
     # check if the response was successful, and if so move on
     if status_code == 200 and data["Response"] == "True":
@@ -90,7 +90,7 @@ def collect_omdb_metadata(
             # items to collect only for tv shows
             elif media_type == 'tv_show' or media_type == 'tv_season':
                 media_item['release_year'] = int(re.search(r'\d{4}', data.get('Year', '')).group())
-            media_item['status'] = "metadata_collected"
+            media_item['pipeline_status'] = "metadata_collected"
     # if response was not successful updates statuses appropriately
     elif status_code == 200 and data["Response"] == "False":
         media_item['error_status'] = True
@@ -106,19 +106,12 @@ def collect_omdb_metadata(
 # full metadata collection pipeline
 # ------------------------------------------------------------------------------
 
-def collect_metadata(media_type: str):
+def collect_metadata():
     """
     Collect metadata for all movies or tv shows that have been ingested
-    :param media_type: either "movie", "tv_show", or "tv_season"
-    :return:
     """
-    #media_type = 'movie'
-
     # read in existing data
-    media = utils.get_media_from_db(
-        media_type=media_type,
-        status='parsed'
-    )
+    media = utils.get_media_from_db(pipeline_status='parsed')
 
     # if no media to parse, return
     if media is None:
@@ -127,7 +120,7 @@ def collect_metadata(media_type: str):
     # collect metadata for all elements
     updated_rows = []
     for idx, row in enumerate(media.df.iter_rows(named=True)):
-        updated_row = collect_omdb_metadata(row, media_type)
+        updated_row = collect_omdb_metadata(row, row['media_type'])
         updated_rows.append(updated_row)
 
     media.update(pl.DataFrame(updated_rows))
@@ -135,15 +128,12 @@ def collect_metadata(media_type: str):
     # log rejected and accepted items
     for row in media.df.iter_rows(named=True):
         if row['error_status']:
-            logging.error(f"{row['raw_title']}: {row['error_condition']}")
+            logging.error(f"{row['original_title']}: {row['error_condition']}")
         else:
-            logging.info(f"metadata collected: {row['raw_title']}")
+            logging.info(f"metadata collected: {row['original_title']}")
 
     # write metadata back to the database
-    utils.media_db_update(
-        media=media,
-        media_type=media_type
-    )
+    utils.media_db_update(media=media)
 
 # ------------------------------------------------------------------------------
 # end of _04_metadata_collection.py

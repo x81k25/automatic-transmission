@@ -1,6 +1,9 @@
 # Changelog
 
 ## [1.2.3]
+- moved tables tv_shows, tv_season, and movies into consolidated media table that accepts all values
+
+## [1.2.3]
 - transitioned from pandas to polars throughout the entire application
 - re-oriented all data operations around new MediaDataFrame class defined in src.data_models
 - added fields for error_handling
