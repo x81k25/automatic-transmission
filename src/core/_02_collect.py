@@ -112,7 +112,7 @@ def collect_media():
     # set new status for new and rejcted hashes
     media.update(media.df.with_columns(
         pipeline_status = pl.lit('ingested'),
-        rejections_status = pl.lit('override')
+        rejection_status = pl.lit('override')
     ))
 
     # insert new items, if any

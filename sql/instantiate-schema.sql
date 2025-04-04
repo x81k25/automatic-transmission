@@ -1,5 +1,5 @@
-CREATE SCHEMA IF NOT EXISTS media;
-SET search_path TO media;
+CREATE SCHEMA IF NOT EXISTS automatic_transmission;
+SET search_path TO automatic_transmission;
 
 -- Create the media_type enum type
 DO $$
@@ -41,7 +41,7 @@ BEGIN
     CREATE TYPE rejection_status AS ENUM (
         'unfiltered',
         'accepted',
-        'failed',
+        'rejected',
         'override'
     );
 EXCEPTION

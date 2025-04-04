@@ -17,7 +17,7 @@ from src.data_models import MediaDataFrame
 # ------------------------------------------------------------------------------
 # load in environment variables
 # ------------------------------------------------------------------------------
-load_dotenv()
+load_dotenv(override=True)
 
 pg_username = os.getenv('PG_USERNAME')
 pg_password = os.getenv('PG_PASSWORD')
@@ -62,7 +62,8 @@ def create_db_engine(
         'password': password,
         'host': host,
         'port': port,
-        'database': database
+        'database': database,
+        'schema': schema
     }
 
     missing_params = [k for k, v in required_params.items() if not v]
@@ -82,13 +83,13 @@ def create_db_engine(
 
     engine = create_engine(
         url,
+        connect_args={'options': f'-c search_path={schema}'},
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,
         pool_timeout=30,
         pool_recycle=1800,
-        echo=False,
-        connect_args={'options': f'-c search_path={schema},public'}
+        echo=False
     )
 
     try:

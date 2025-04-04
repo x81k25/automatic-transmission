@@ -15,7 +15,7 @@ import src.utils as utils
 # ------------------------------------------------------------------------------
 
 # load environment variables
-load_dotenv()
+load_dotenv(override=True)
 
 # logger config
 logger = logging.getLogger(__name__)

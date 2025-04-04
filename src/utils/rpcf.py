@@ -11,7 +11,7 @@ from transmission_rpc import Client as Transmission_client
 # ------------------------------------------------------------------------------
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 # transmission connection details
 hostname=os.getenv('SERVER_IP')
