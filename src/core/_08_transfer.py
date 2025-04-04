@@ -98,7 +98,7 @@ def transfer_media():
 
 	# update pipeline_status if no error occurred
 	media.update(media.df.with_columns(
-		status = pl.when(pl.col('error_pipeline_status'))
+		pipeline_status = pl.when(pl.col('error_pipeline_status'))
 			.then(pl.col('pipeline_status'))
 			.otherwise(pl.lit('transferred'))
 	))
@@ -111,10 +111,7 @@ def transfer_media():
 			logging.info(f"transferred: {row['original_title']}")
 
 	# update database
-	utils.media_db_update(
-		media=media,
-		media_type=media_type
-	)
+	utils.media_db_update(media=media)
 
 
 # ------------------------------------------------------------------------------
