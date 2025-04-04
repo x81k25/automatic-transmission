@@ -85,12 +85,6 @@ def main():
         help="Enable debug mode"
     )
 
-    subparsers = parser.add_subparsers(
-        dest="command",
-        help="Available functions",
-        required=True  # Make subcommand required
-    )
-
     args = parser.parse_args()
 
     # Use the mapping to call full_pipeline
