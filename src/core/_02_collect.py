@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 import polars as pl
 import requests
+from sqlalchemy.orm.sync import update
 
 # local/custom imports
 from src.data_models import MediaDataFrame
@@ -66,7 +67,6 @@ def collect_media():
     """
     collect ad hoc items added to transmission not from rss feeds and insert
     into automatic-transmission pipeline
-    :param media_type: type of media to collect, either 'movie' or 'tv_show'
     """
     # get torrents currently in transmission
     current_media_dict = utils.return_current_torrents()
@@ -75,33 +75,66 @@ def collect_media():
     if current_media_dict is None:
         return
 
-    # convert response to pl.DataFrame
-    rows = []
-    for hash_id, inner_dict in current_media_dict.items():
-        if isinstance(inner_dict, dict):
-            # Create a row with hash and all attributes
-            row = {'hash': hash_id}
-            for k, v in inner_dict.items():
-                row[k] = v
-            rows.append(row)
-
-    media_df = pl.DataFrame(rows)
-    media_df = media_df.rename({'name': 'original_title'})
-
-    # determine media type and keep only the desired type
-    media_df = media_df.with_columns(
-        pl.col("original_title")
-            .map_elements(utils.classify_media_type, return_dtype=pl.Utf8)
-            .alias("media_type")
-    ).filter(
-        pl.col('media_type').is_not_null()
-    ).filter(
-        pl.col('media_type') == media_type
+    # create MediaDataFrame for ingestion and validation
+    media = MediaDataFrame(
+        pl.DataFrame({
+            'hash': current_media_dict.keys(),
+            'original_title': [inner_values['name'] for inner_values in current_media_dict.values()]
+        }).with_columns(
+            media_type=pl.col("original_title")
+                .map_elements(utils.classify_media_type, return_dtype=pl.Utf8)
+        ).filter(
+            pl.col('media_type').is_not_null()
+        )
     )
 
-    # if no items match classification end function
-    if len(media_df) == 0:
+    # if no valid items, return
+    if len(media.df) == 0:
         return
+
+    # determine which items are new
+    new_hashes = utils.compare_hashes_to_db(hashes=media.df['hash'].to_list())
+
+    # determine which items were previously reject
+    rejected_hashes = utils.return_rejected_hashes(hashes=media.df['hash'].to_list())
+
+    # filter MDF for new or previously rejected hashes
+    media.update(
+        media.df.filter(
+            pl.col('hash').is_in(new_hashes + rejected_hashes)
+        )
+    )
+
+    # if no items are new or rejected hashes, return
+    if len(media.df) == 0:
+        return
+
+    # set new status for new and rejcted hashes
+    media.update(media.df.with_columns(
+        pipeline_status = pl.lit('ingested'),
+        rejections_status = pl.lit('override')
+    ))
+
+    # insert new items, if any
+    new_mask = media.df['hash'].is_in(new_hashes)
+    if new_mask.any():
+        new_media = MediaDataFrame(media.df.filter(new_mask))
+        utils.insert_items_to_db(media=new_media)
+
+    # insert previously rejected items if any
+    rejected_mask = media.df['hash'].is_in(rejected_hashes)
+    if rejected_mask.any():
+        rejected_media = MediaDataFrame(media.df.filter(rejected_mask))
+        utils.media_db_update(rejected_media)
+
+   # log collected items
+    for row in media.df.iter_rows(named=True):
+        logging.info(f"collected {row['media_type']}: {row['original_title']}")
+
+# ------------------------------------------------------------------------------
+# code used to conduct OMDB verification of names, currently not in use as to
+# not get rate limited on API
+# ------------------------------------------------------------------------------
 
     # extract clean item name from raw_title
     # media_df = media_df.with_columns(
@@ -127,60 +160,6 @@ def collect_media():
     # # if no items are OMDB retrievable end function
     # if len(current_media) == 0:
     #     return
-
-    # determine which items are new
-    new_hashes = utils.compare_hashes_to_db(hashes=media_df['hash'].to_list())
-
-    # determine which items were previously reject
-    rejected_hashes = utils.return_rejected_hashes(hashes=media_df['hash'].to_list())
-
-    # convert new items to MediaDataFrame for db ingestion
-    new_media = MediaDataFrame(
-        media_df.select(['hash', 'raw_title', 'torrent_source'])
-            .filter(pl.col('hash').is_in(new_hashes))
-    )
-
-    # add new items to db and set statuses
-    if len(new_media.df) > 0:
-
-        # insert new items to db
-        utils.insert_items_to_db(media=new_media)
-
-        # update status
-        utils.update_db_status_by_hash(
-            hashes=new_media.df['hash'].to_list(),
-            new_status='ingested'
-        )
-
-        # update rejection status to override
-        utils.update_rejection_status_by_hash(
-            hashes=new_media.df['hash'].to_list(),
-            new_rejection_status='override'
-        )
-
-        # log collected items
-        for row in new_media.df.iter_rows(named=True):
-            logging.info(f"collected {row['media_type']}: {row['raw_title']}")
-
-    # update statuses of items that have been previously rejected
-    rejected_media_df = media_df.filter(pl.col('hash').is_in(rejected_hashes))
-
-    if len(rejected_hashes) > 0:
-        # update status
-        utils.update_db_pipeline_status_by_hash(
-            hashes=rejected_hashes,
-            new_status='ingested'
-        )
-
-        # update rejection status
-        utils.update_rejection_status_by_hash(
-            hashes=rejected_hashes,
-            new_rejection_status='override'
-        )
-
-        # log items that have been previously rejected, with the rejection overridden
-        for row in rejected_media_df.iter_rows(named=True):
-            logging.info(f"collected {row['media_type']}: {row['raw_title']}")
 
 # ------------------------------------------------------------------------------
 # end of _02_collect.py

@@ -44,17 +44,7 @@ def setup_logging(debug=False):
 
 
 # ------------------------------------------------------------------------------
-# end-to-end pipeline for downloading contents
-# accepts media_type = "movie" or media_type = "tv_show"
-#
-# to execute the tv show pipeline
-# cd <automatic-transmission-dir> & python main.py movie_pipeline
-#
-# to execute the tv show pipeline
-# cd <automatic-transmission-dir> & python main.py tv_show_pipeline
-#
-#statements for testing
-#
+# end-to-end pipeline for downloading all media
 # ------------------------------------------------------------------------------
 
 def full_pipeline(debug: bool):
