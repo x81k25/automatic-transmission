@@ -1,5 +1,6 @@
 # standard library imports
 import os
+import re
 
 # third-party imports
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ from transmission_rpc import Client as Transmission_client
 # ------------------------------------------------------------------------------
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 # transmission connection details
 hostname=os.getenv('SERVER_IP')
@@ -100,9 +101,18 @@ def return_current_torrents(port: int = transmission_port):
 def add_media_item(torrent_source: str):
     """
     add media item to transmission client
-    :param torrent_source: any acceptable for of torrent link
+    :param torrent_source: any acceptable format of torrent link
     """
     transmission_client = get_transmission_client()
+
+    # Regex pattern for a 40-character hex string (SHA-1 hash)
+    hash_pattern = re.compile(r'^[0-9a-f]{40}$')
+
+    # check if the input is pure hash, and if so format as magnet
+    if hash_pattern.match(torrent_source):
+        torrent_source = f"magnet:?xt=urn:btih:{torrent_source}"
+
+    # send to transmission
     transmission_client.add_torrent(torrent_source)
 
 
