@@ -82,7 +82,8 @@ def collect_media():
             'original_title': [inner_values['name'] for inner_values in current_media_dict.values()]
         }).with_columns(
             media_type=pl.col("original_title")
-                .map_elements(utils.classify_media_type, return_dtype=pl.Utf8)
+                .map_elements(utils.classify_media_type, return_dtype=pl.Utf8),
+            rejection_status = pl.lit('override')
         ).filter(
             pl.col('media_type').is_not_null()
         )
@@ -111,8 +112,7 @@ def collect_media():
 
     # set new status for new and rejcted hashes
     media.update(media.df.with_columns(
-        pipeline_status = pl.lit('ingested'),
-        rejection_status = pl.lit('override')
+        pipeline_status = pl.lit('ingested')
     ))
 
     # insert new items, if any

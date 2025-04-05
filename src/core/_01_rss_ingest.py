@@ -76,6 +76,9 @@ def format_entries(entry: FeedParserDict) -> dict:
         formatted_entry['original_title'] = entry['title']
         formatted_entry['original_link'] = entry['link']
 
+    # add rejection status to meet not nullable constratin
+    formatted_entry['rejection_status'] = 'unfiltered'
+
     return formatted_entry
 
 
@@ -113,22 +116,18 @@ def rss_ingest():
     media = MediaDataFrame(formatted_entries)
 
     # determine which feed entries are new entries
-    #new_hashes = feed_items['hash'].to_list()
-    new_hashes = utils.compare_hashes_to_db(
-        hashes=media.df['hash'].to_list()
-    )
+    new_hashes = utils.compare_hashes_to_db(hashes=media.df['hash'].to_list())
 
     if len(new_hashes) > 0:
-        media.update(media.df.filter(pl.col('hash').is_in(new_hashes)))
+        # filter for new_hashes and update status
+        media.update(
+            media.df.filter(pl.col('hash').is_in(new_hashes)).with_columns(
+                pipeline_status='ingested'
+            )
+        )
 
         # write new items to the database
         utils.insert_items_to_db(media=media)
-
-        # update status of ingested items
-        utils.update_db_pipeline_status_by_hash(
-            hashes=new_hashes,
-            new_pipeline_status='ingested'
-        )
 
         for row in media.df.iter_rows(named=True):
             logging.info(f"ingested: {row['original_title']}")

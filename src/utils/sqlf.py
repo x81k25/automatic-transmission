@@ -201,7 +201,6 @@ def get_media_from_db(pipeline_status: str) -> MediaDataFrame | None:
     Retrieves data from movies or tv_shows table based on pipeline_status.
 
     Args:
-        media_type: str, either "movie" or "tv_show"
         pipeline_status: str, pipeline_status to filter by
 
     Returns:
