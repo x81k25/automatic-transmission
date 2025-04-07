@@ -17,7 +17,7 @@ from src.data_models import MediaDataFrame
 # ------------------------------------------------------------------------------
 # load in environment variables
 # ------------------------------------------------------------------------------
-load_dotenv()
+load_dotenv(override=True)
 
 pg_username = os.getenv('PG_USERNAME')
 pg_password = os.getenv('PG_PASSWORD')
@@ -62,7 +62,8 @@ def create_db_engine(
         'password': password,
         'host': host,
         'port': port,
-        'database': database
+        'database': database,
+        'schema': schema
     }
 
     missing_params = [k for k, v in required_params.items() if not v]
@@ -82,6 +83,7 @@ def create_db_engine(
 
     engine = create_engine(
         url,
+        connect_args={'options': f'-c search_path={schema}'},
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,
@@ -105,47 +107,12 @@ def create_db_engine(
         sys.exit(1)
 
 # ------------------------------------------------------------------------------
-# non SQL helper functions
-# ------------------------------------------------------------------------------
-
-def assign_table(
-    media_type: str,
-    schema_name: str = pg_schema
-):
-    """
-    Assigns the table name based on the media type.
-    :param schema_name: name of the database schem to be used
-    :param media_type: either "movie", "tv_show", or "tv_season"
-    :return: Table name for the specified media type
-    """
-    schema_name = quoted_name(schema_name, True)
-
-    if media_type == 'movie':
-        table_name = 'movies'
-    elif media_type == 'tv_show':
-        table_name = 'tv_shows'
-    elif media_type == 'tv_season':
-        table_name = 'tv_seasons'
-    else:
-        logging.error("media_type must be either 'movie' or 'tv_show'")
-        raise ValueError('media_type must be either "movie" or "tv_show"')
-
-    output = {
-        'table_only': quoted_name(table_name, True),
-        'schema_only': quoted_name(schema_name, True),
-        'schema_and_table': quoted_name(f"{schema_name}.{table_name}", True)
-    }
-
-    return output
-
-# ------------------------------------------------------------------------------
 # select statements
 # ------------------------------------------------------------------------------
 
 def compare_hashes_to_db(
-    media_type: str,
     hashes: List[str],
-    status: str = None
+    pipeline_status: str = None
 ):
     """
     Compares hashes in the input list against existing hashes in the database.
@@ -162,11 +129,8 @@ def compare_hashes_to_db(
     # assign engine if none provided
     engine = create_db_engine()
 
-    # assign table and schema
-    table = assign_table(media_type)['schema_and_table']
-
-    # define status condition if exists
-    status_condition = f"AND {table}.status = {status}" if status is not None else ""
+    # define pipeline_status condition if exists
+    pipeline_status_condition = f"AND media.pipeline_status = {pipeline_status}" if pipeline_status is not None else ""
 
     try:
         # Query existing hashes from database
@@ -176,9 +140,9 @@ def compare_hashes_to_db(
             )
             SELECT input_hashes.hash
             FROM input_hashes
-            LEFT JOIN {table} ON {table}.hash = input_hashes.hash
-            WHERE {table}.hash IS NULL
-            {status_condition};
+            LEFT JOIN media ON media.hash = input_hashes.hash
+            WHERE media.hash IS NULL
+            {pipeline_status_condition};
         """)
 
         # Read existing hashes into a list
@@ -193,10 +157,7 @@ def compare_hashes_to_db(
         raise Exception(f"compare_hashes error: {str(e)}")
 
 
-def return_rejected_hashes(
-    media_type: str,
-    hashes: List[str]
-):
+def return_rejected_hashes(hashes: List[str]):
     """
     Returns hashes from the input list that exist in the database and have rejection_status = 'rejected'.
 
@@ -211,9 +172,6 @@ def return_rejected_hashes(
     # assign engine
     engine = create_db_engine()
 
-    # assign table and schema
-    table = assign_table(media_type)['schema_and_table']
-
     try:
         # Query rejected hashes from database
         query = text(f"""
@@ -222,8 +180,8 @@ def return_rejected_hashes(
             )
             SELECT input_hashes.hash
             FROM input_hashes
-            JOIN {table} ON {table}.hash = input_hashes.hash
-            WHERE {table}.rejection_status = 'rejected';
+            JOIN media ON media.hash = input_hashes.hash
+            WHERE media.rejection_status = 'rejected';
         """)
 
         # Execute query and fetch results
@@ -238,16 +196,13 @@ def return_rejected_hashes(
         raise Exception(f"return_rejected_hashes error: {str(e)}")
 
 
-def get_media_from_db(
-    media_type: str,
-    status: str
-) -> MediaDataFrame | None:
+def get_media_from_db(pipeline_status: str) -> MediaDataFrame | None:
     """
-    Retrieves data from movies or tv_shows table based on status.
+    Retrieves data from movies or tv_shows table based on pipeline_status.
 
     Args:
         media_type: str, either "movie" or "tv_show"
-        status: str, status to filter by
+        pipeline_status: str, pipeline_status to filter by
 
     Returns:
         MediaDataFrame containing matching rows
@@ -255,18 +210,15 @@ def get_media_from_db(
     # assign engine
     engine = create_db_engine()
 
-    # assign table and schema
-    table = assign_table(media_type)['schema_and_table']
-
     query = text(f"""
         SELECT *
-        FROM {table}
-        WHERE status = :status
+        FROM media
+        WHERE pipeline_status = :pipeline_status
         AND error_status = FALSE
     """)
 
     params = {
-        'status': status
+        'pipeline_status': pipeline_status
     }
 
     with engine.connect() as conn:
@@ -293,11 +245,7 @@ def get_media_from_db(
 # insert statements
 # ------------------------------------------------------------------------------
 
-def insert_items_to_db(
-    media_type: str,
-    media: MediaDataFrame,
-    schema_name: str = pg_schema
-):
+def insert_items_to_db(media: MediaDataFrame):
     """
     Writes a MediaDataFrame to the database using SQLAlchemy.
 
@@ -305,26 +253,20 @@ def insert_items_to_db(
     media_type (str): Type of media ('movie', 'tv', etc.)
     media (MediaDataFrame): MediaDataFrame containing data to insert
     """
-    #media_type = 'movie'
-    #media = new_items
-
     # assign engine
     engine = create_db_engine()
-
-    # assign table and schema
-    table, schema = [assign_table(media_type, schema_name)[key] for key in ['table_only', 'schema_only']]
 
     # Get the polars DataFrame
     pl_df = media.df
 
     # Create SQLAlchemy table metadata
-    metadata = MetaData(schema=schema)
-    sa_table = Table(table, metadata, autoload_with=engine)
+    metadata = MetaData(schema=pg_schema)
+    sa_table = Table('media', metadata, autoload_with=engine)
 
     # Convert polars DataFrame to records
     records = pl_df.to_dicts()
 
-    logging.debug(f"attempting insert of {len(media.df)} records to {media_type} table")
+    logging.debug(f"attempting insert of {len(media.df)} records to table")
 
     # insert to database
     with engine.connect() as conn:
@@ -343,28 +285,19 @@ def insert_items_to_db(
 # delete statements
 # ------------------------------------------------------------------------------
 
-def delete_items_from_db(
-    hashes: list,
-    media_type: str,
-    schema: str = pg_schema
-):
+def delete_items_from_db(hashes: list):
     """
     deletes specified items from db
     :param hashes: list of string value hashes
-    :param media_type: either movies, tv_shows, or tv_seasons
-    :param schema: db schema within which to perform deletion
     """
     # assign engine
     engine = create_db_engine()
 
-    # assign table and schema
-    table, schema = [assign_table(media_type, schema)[key] for key in ['table_only', 'schema_only']]
-
     # Create SQLAlchemy table metadata
-    metadata = MetaData(schema=schema)
-    sa_table = Table(table, metadata, autoload_with=engine)
+    metadata = MetaData(schema=pg_schema)
+    sa_table = Table('media', metadata, autoload_with=engine)
 
-    logging.debug(f"attempting deletion of {len(hashes)} records from {media_type} table")
+    logging.debug(f"attempting deletion of {len(hashes)} records")
 
     # insert to database
     with engine.connect() as conn:
@@ -385,18 +318,16 @@ def delete_items_from_db(
 # update statements
 # ------------------------------------------------------------------------------
 
-def update_db_status_by_hash(
-    media_type: str,
+def update_db_pipeline_status_by_hash(
     hashes: List[str],
-    new_status: str
+    new_pipeline_status: str
 ):
     """
-    Updates the status for all rows matching the provided hash values.
+    Updates the pipeline_status for all rows matching the provided hash values.
 
     Parameters:
-    engine: SQLAlchemy engine connection
     hash_list (list): List of hash strings to update
-    new_status (str): New status value to set
+    new_pipeline_status (str): New pipeline_status value to set
 
     Returns:
     int: Number of rows updated
@@ -404,19 +335,16 @@ def update_db_status_by_hash(
     # assign engine
     engine = create_db_engine()
 
-    # assign table and schema
-    table = assign_table(media_type)['schema_and_table']
-
     try:
         # Construct query with parameterized values for safety
         query = text(f"""
-            UPDATE {table} 
-            SET status = :status
+            UPDATE media 
+            SET pipeline_status = :pipeline_status
             WHERE hash IN :hashes
         """)
 
         params = {
-            'status': new_status,
+            'pipeline_status': new_pipeline_status,
             'hashes': tuple(hashes)
         }
 
@@ -426,21 +354,20 @@ def update_db_status_by_hash(
             conn.commit()
 
     except Exception as e:
-        raise Exception(f"Error updating status: {str(e)}")
+        raise Exception(f"Error updating pipeline_status: {str(e)}")
 
 
 def update_rejection_status_by_hash(
-    media_type: str,
     hashes: List[str],
-    new_status: str
+    new_rejection_status: str
 ):
     """
-    Updates the status for all rows matching the provided hash values.
+    Updates the rejection_status for all rows matching the provided hash values.
 
     Parameters:
     engine: SQLAlchemy engine connection
     hash_list (list): List of hash strings to update
-    new_status (str): New status value to set
+    new_rejection_status (str): New rejection_status value to set
 
     Returns:
     int: Number of rows updated
@@ -448,19 +375,16 @@ def update_rejection_status_by_hash(
     # assign engine
     engine = create_db_engine()
 
-    # assign table and schema
-    table = assign_table(media_type)['schema_and_table']
-
     try:
         # Construct query with parameterized values for safety
         query = text(f"""
-            UPDATE {table} 
+            UPDATE media 
             SET rejection_status = :rejection_status
             WHERE hash IN :hashes
         """)
 
         params = {
-            'rejection_status': new_status,
+            'rejection_status': new_rejection_status,
             'hashes': tuple(hashes)
         }
 
@@ -470,23 +394,18 @@ def update_rejection_status_by_hash(
             conn.commit()
 
     except Exception as e:
-        raise Exception(f"Error updating status: {str(e)}")
+        raise Exception(f"Error updating rejection_status: {str(e)}")
 
 
-def media_db_update(
-    media: MediaDataFrame,
-    media_type: str
-) -> None:
+def media_db_update(media: MediaDataFrame) -> None:
     """
     Updates database records for media entries using SQLAlchemy's ORM approach.
 
     Parameters:
     media (MediaDataFrame): MediaDataFrame containing media records to update
-    media_type (str): Type of media ('movie', 'tv_show', 'tv_season')
     """
-    logging.debug(f"Starting database update for {len(media.df)} {media_type} records")
+    logging.debug(f"Starting database update for {len(media.df)} records")
 
-    table_info = assign_table(media_type)
     engine = create_db_engine()
 
     # Convert all polars nulls to None for SQLAlchemy compatibility
@@ -499,8 +418,8 @@ def media_db_update(
 
     # Get table metadata
     metadata = MetaData()
-    metadata.reflect(bind=engine, schema=table_info['schema_only'])
-    table = metadata.tables[f"{table_info['schema_only']}.{table_info['table_only']}"]
+    metadata.reflect(bind=engine, schema=pg_schema)
+    table = metadata.tables[f"{pg_schema}.media"]
 
     # Create the upsert statement using SQLAlchemy
     stmt = insert(table).values(records)
@@ -513,15 +432,15 @@ def media_db_update(
         set_=update_cols
     )
 
-    logging.debug(f"Attempting upsert of {len(media.df)} records to {media_type} table")
+    logging.debug(f"Attempting upsert of {len(media.df)} records")
 
     try:
         with engine.begin() as conn:
             result = conn.execute(upsert_stmt)
-            logging.debug(f"Successfully updated {result.rowcount} records in {media_type} table")
+            logging.debug(f"Successfully updated {result.rowcount} records")
 
     except Exception as e:
-        logging.error(f"Error updating {media_type} records: {str(e)}")
+        logging.error(f"Error updating records: {str(e)}")
         raise
 
     finally:

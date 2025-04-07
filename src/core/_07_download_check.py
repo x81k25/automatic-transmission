@@ -25,12 +25,11 @@ def media_item_download_complete(hash: str):
     :param hash: media item hash string value
     :return: True/False depending on download complete status
     """
-    # Instantiate transmission client
+    # get status from transmission
     torrent = utils.get_torrent_info(hash)
 
     # remove completed downloads and update status
     if torrent.progress == 100.0:
-        # get file name
         return True
     else:
         return False
@@ -44,16 +43,16 @@ def extract_and_verify_filename(media_item: dict) -> dict:
     """
 
     # get filename if download complete
-    if media_item['status'] == 'downloaded':
+    if media_item['pipeline_status'] == 'downloaded':
         torrent = utils.get_torrent_info(media_item['hash'])
-        file_name = torrent.name
+        file_or_dir_name = torrent.name
 
         # test filename and either assign or induce error state
-        if not file_name or not isinstance(file_name, str) or not file_name.strip():
+        if not file_or_dir_name or not isinstance(file_or_dir_name, str) or not file_or_dir_name.strip():
             media_item['error_status'] = True
             media_item['error_condition'] = "file_name must be a non-empty string"
         else:
-            media_item['file_name'] = file_name
+            media_item['original_path'] = file_or_dir_name
 
     return media_item
 
@@ -61,36 +60,32 @@ def extract_and_verify_filename(media_item: dict) -> dict:
 # main check download function for all media items
 # ------------------------------------------------------------------------------
 
-def check_downloads(media_type: str):
+def check_downloads():
     """
     check downloads for all downloading media elements, and extracts file_name
         if download is complete
-    :param media_type: either "movie", "tv_show", or "tv_season"
     """
-    #media_type = 'movie'
-
     # read in existing data based on ingest_type
-    media = utils.get_media_from_db(
-        media_type=media_type,
-        status='downloading'
-    )
+    media = utils.get_media_from_db(pipeline_status='downloading')
 
     # return if no media downloading
     if media is None:
         return
 
-    # determine if downloaded, and if so change status
+    # determine if downloaded, and if so change pipeline_status
     media.update(media.df.with_columns(
-        status = pl.when(pl.col('hash').map_elements(media_item_download_complete, return_dtype=pl.Boolean))
+        pipeline_status = pl.when(pl.col('hash').map_elements(media_item_download_complete, return_dtype=pl.Boolean))
             .then(pl.lit('downloaded'))
-            .otherwise(pl.col('status'))
+            .otherwise(pl.col('pipeline_status'))
     ))
 
     # if no items complete, return
-    if 'downloaded' not in media.df['status']:
+    if 'downloaded' not in media.df['pipeline_status']:
         return
 
     # extract file names of completed downloads
+    media.update(media.df.filter(pl.col('pipeline_status') == "downloaded"))
+
     updated_rows = []
     for row in media.df.iter_rows(named=True):
         updated_row = extract_and_verify_filename(row)
@@ -101,15 +96,12 @@ def check_downloads(media_type: str):
     # report errors if present
     for row in media.df.iter_rows(named=True):
         if row['error_status']:
-            logging.error(f"{row['raw_title']}: {row['error_condition']}")
-        elif row['status'] == "downloaded":
-            logging.info(f"downloaded: {row['raw_title']}")
+            logging.error(f"{row['original_title']}: {row['error_condition']}")
+        elif row['pipeline_status'] == "downloaded":
+            logging.info(f"downloaded: {row['original_title']}")
 
     # update db
-    utils.media_db_update(
-        media=media,
-        media_type=media_type
-    )
+    utils.media_db_update(media=media)
 
 
 # ------------------------------------------------------------------------------

@@ -22,15 +22,11 @@ logger = logging.getLogger(__name__)
 # initiation helper functions
 # ------------------------------------------------------------------------------
 
-def filter_item(
-    media_item: dict,
-    media_type: str
-) -> dict:
+def filter_item(media_item: dict) -> dict:
     """
     filters individual rows of media as dicts based off of the media_type
         and the parameters defined in filter-parameters.json
     :param media_item:
-    :param media_type:
     :return: dict containing the updated filtered data
     """
     #filter_type = 'movie'
@@ -40,7 +36,7 @@ def filter_item(
         return media_item
 
     # search separate criteria for move or tv_show
-    if media_type == 'movie':
+    if media_item['media_type'] == 'movie':
         sieve = filters['movie']
         # iterate over each key in the filter-parameters.json file
         for key in sieve:
@@ -66,9 +62,9 @@ def filter_item(
                     break
 
     # there are currently no filters set for tv_show or tv_season
-    elif media_type == 'tv_show':
+    elif media_item['media_type'] == 'tv_show':
         pass
-    elif media_type == 'tv_season':
+    elif media_item['media_type'] == 'tv_season':
         pass
 
     return media_item
@@ -77,18 +73,12 @@ def filter_item(
 # full initiation pipeline
 # ------------------------------------------------------------------------------
 
-def filter_media(media_type: str):
+def filter_media():
     """
     full pipeline for filtering all media after metadata has been collected
-    :param media_type: either "movie", "tv_show", or "tv_season"
     """
-    #media_type = 'movie'
-
     # read in existing data based on ingest_type
-    media = utils.get_media_from_db(
-        media_type=media_type,
-        status='metadata_collected'
-    )
+    media = utils.get_media_from_db(pipeline_status='metadata_collected')
 
     if media is None:
         return
@@ -96,7 +86,7 @@ def filter_media(media_type: str):
     # filter data
     updated_rows = []
     for idx, row in enumerate(media.df.iter_rows(named=True)):
-        updated_row = filter_item(row, media_type)
+        updated_row = filter_item(media_item=row)
         updated_rows.append(updated_row)
 
     media.update(pl.DataFrame(updated_rows))
@@ -111,25 +101,21 @@ def filter_media(media_type: str):
     # log rejection entries
     for row in media.df.iter_rows(named=True):
         if row['error_status']:
-            logging.error(f"{row['raw_title']}: {row['error_condition']}")
+            logging.error(f"{row['original_title']}: {row['error_condition']}")
         elif row['rejection_status'] == 'rejected':
-            logging.info(f"rejected: {row['raw_title']}: {row['rejection_reason']}")
+            logging.info(f"rejected: {row['original_title']}: {row['rejection_reason']}")
         else:
-            logging.info(f"queued: {row['raw_title']}")
+            logging.info(f"queued: {row['original_title']}")
 
-    # update status
+    # update pipeline_status
     media.update(media.df.with_columns(
-        pl.when(pl.col('rejection_status') == 'rejected')
-        .then(pl.lit('rejected'))
-        .otherwise(pl.lit('queued'))
-        .alias('status')
+        pipeline_status=pl.when(pl.col('rejection_status') == 'rejected')
+            .then(pl.lit('rejected'))
+            .otherwise(pl.lit('queued'))
     ))
 
-    utils.media_db_update(
-        media=media,
-        media_type=media_type
-    )
-
+    # update media data
+    utils.media_db_update(media=media)
 
 # ------------------------------------------------------------------------------
 # end of _05_filter.py
