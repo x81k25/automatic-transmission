@@ -117,15 +117,22 @@ class MediaDataFrame:
     def _validate_and_prepare(self, df: pl.DataFrame) -> None:
         """
         Validate that DataFrame conforms to the required schema and prepare it.
-
-        Args:
-            df: DataFrame to validate
         """
         # Check required columns
         missing = [col for col in self.required_columns if
                    col not in df.columns]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
+
+        # Ensure datetime columns are timezone-aware (UTC)
+        if 'created_at' in df.columns:
+            df = df.with_columns(
+                pl.col('created_at').dt.replace_time_zone('UTC')
+            )
+        if 'updated_at' in df.columns:
+            df = df.with_columns(
+                pl.col('updated_at').dt.replace_time_zone('UTC')
+            )
 
         # Set the underlying DataFrame
         self._df = df
