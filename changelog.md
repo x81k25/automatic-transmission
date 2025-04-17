@@ -4,6 +4,7 @@
 - fixed issues with setting all not null status fields on ingest
 - fixed issue where parser would overwrite season number for tv_shows
 - altered download_check logic so that items missing from the daemon will be re-ingested
+- added UTC timestamp to MediaDataFrame to align with database definition
 
 ## [1.2.4]
 - moved tables tv_shows, tv_season, and movies into consolidated media table that accepts all values
