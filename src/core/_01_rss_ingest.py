@@ -76,9 +76,6 @@ def format_entries(entry: FeedParserDict) -> dict:
         formatted_entry['original_title'] = entry['title']
         formatted_entry['original_link'] = entry['link']
 
-    # add rejection status to meet not nullable constratin
-    formatted_entry['rejection_status'] = 'unfiltered'
-
     return formatted_entry
 
 
@@ -119,10 +116,17 @@ def rss_ingest():
     new_hashes = utils.compare_hashes_to_db(hashes=media.df['hash'].to_list())
 
     if len(new_hashes) > 0:
-        # filter for new_hashes and update status
+        # filter for new_hashes, update status, remove dups, set initial values for statuses
+
+        # add rejection status to meet not nullable constratin
         media.update(
-            media.df.filter(pl.col('hash').is_in(new_hashes)).with_columns(
-                pipeline_status='ingested'
+            media.df.filter(pl.col('hash').is_in(new_hashes))
+            .group_by('hash')
+            .agg(pl.all().first())  # Take first row for each unique hash
+            .with_columns(
+                pipeline_status=pl.lit('ingested'),
+                error_status=False,
+                rejection_status=pl.lit('unfiltered')
             )
         )
 
