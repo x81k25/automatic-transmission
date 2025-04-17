@@ -64,7 +64,7 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
                 .then(pl.col('cleaned_title').map_elements(
                     utils.extract_year,
                     return_dtype=pl.Int32
-                )).otherwise(None)
+                )).otherwise(pl.col('release_year'))
         )
 
     tv_show_mask = parsed_media['media_type'] == "tv_show"
@@ -74,12 +74,12 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
                 .then(pl.col('cleaned_title').map_elements(
                     utils.extract_season_from_episode,
                     return_dtype=pl.Int32
-                )).otherwise(None),
+                )).otherwise(pl.col('season')),
             episode = pl.when(tv_show_mask)
                 .then(pl.col('cleaned_title').map_elements(
                     utils.extract_episode_from_episode,
                     return_dtype=pl.Int32
-                )).otherwise(None)
+                )).otherwise(pl.col('episode'))
         )
 
     tv_season_mask = parsed_media['media_type'] == "tv_season"
@@ -89,7 +89,7 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
                 .then(pl.col('cleaned_title').map_elements(
                     utils.extract_season_from_season,
                     return_dtype=pl.Int32
-                )).otherwise(None)
+                )).otherwise(pl.col('season'))
         )
 
     # extract media_title; will always be last step

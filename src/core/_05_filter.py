@@ -7,6 +7,7 @@ import polars as pl
 
 # local/custom imports
 import src.utils as utils
+from src.data_models import MediaDataFrame
 
 # ------------------------------------------------------------------------------
 # read in static parameters
@@ -89,7 +90,7 @@ def filter_media():
         updated_row = filter_item(media_item=row)
         updated_rows.append(updated_row)
 
-    media.update(pl.DataFrame(updated_rows))
+    media = MediaDataFrame(updated_rows)
 
     # update rejection status
     media.update(media.df.with_columns(
