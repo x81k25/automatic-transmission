@@ -41,19 +41,27 @@ def cleanup_media():
     # filter by cleanup delay
     updated_rows = []
     for row in media.df.iter_rows(named=True):
-        seconds_since_transfer = int((datetime.now(UTC) - row['updated_at']).total_seconds())
-        if seconds_since_transfer >= cleanup_delay:
-            updated_row = row
-            try:
-                utils.remove_media_item(row['hash'])
-                updated_row['pipeline_status'] = "complete"
-                logging.info(f"cleaned: {updated_row['original_title']}: {seconds_since_transfer}s after transfer")
-                updated_rows.append(updated_row)
-            except Exception as e:
-                updated_row['error_status'] = True
-                updated_row['error_condition'] = f"{e}"
-                logging.error(f"{updated_row['original_title']}: {updated_row['error_condition']}")
-                updated_rows.append(updated_row)
+        try:
+            seconds_since_transfer = int(
+                (datetime.now(UTC) - row['updated_at']).total_seconds())
+            if seconds_since_transfer >= cleanup_delay:
+                updated_row = row
+                try:
+                    utils.remove_media_item(row['hash'])
+                    updated_row['pipeline_status'] = "complete"
+                    logging.info(
+                        f"cleaned: {updated_row['original_title']}: {seconds_since_transfer}s after transfer")
+                    updated_rows.append(updated_row)
+                except Exception as e:
+                    updated_row['error_status'] = True
+                    updated_row['error_condition'] = f"{e}"
+                    logging.error(
+                        f"{updated_row['original_title']}: {updated_row['error_condition']}")
+                    updated_rows.append(updated_row)
+        except TypeError as e:
+            # Skip rows with naive/aware datetime mismatch
+            logging.warning(f"Skipping row for {row['original_title']}: {e}")
+            continue
 
     # if no items have reached the cleanup_delay, return
     if len(updated_rows) == 0:
