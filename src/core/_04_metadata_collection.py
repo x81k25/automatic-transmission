@@ -11,6 +11,7 @@ import requests
 
 # local/custom imports
 import src.utils as utils
+from src.data_models import MediaDataFrame
 
 # ------------------------------------------------------------------------------
 # initialization and setup
@@ -123,7 +124,8 @@ def collect_metadata():
         updated_row = collect_omdb_metadata(row, row['media_type'])
         updated_rows.append(updated_row)
 
-    media.update(pl.DataFrame(updated_rows))
+    # collect in MediaDataFrame for ingest and validation
+    media = MediaDataFrame(updated_rows)
 
     # log rejected and accepted items
     for row in media.df.iter_rows(named=True):

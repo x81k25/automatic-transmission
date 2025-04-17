@@ -1,7 +1,12 @@
 # Changelog
 
+## [1.2.5]
+- fixed issues with setting all not null status fields on ingest
+- fixed issue where parser would overwrite season number for tv_shows
+
 ## [1.2.4]
 - moved tables tv_shows, tv_season, and movies into consolidated media table that accepts all values
+- transitioned from baremetal postgres database to k8s databases partitioned by deployment environment
 
 ## [1.2.3]
 - transitioned from pandas to polars throughout the entire application

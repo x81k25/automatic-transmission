@@ -1,5 +1,5 @@
-CREATE SCHEMA IF NOT EXISTS automatic_transmission;
-SET search_path TO automatic_transmission;
+CREATE SCHEMA IF NOT EXISTS atp;
+SET search_path TO atp;
 
 -- Create the media_type enum type
 DO $$
@@ -65,7 +65,7 @@ DROP TABLE IF EXISTS media;
 
 CREATE TABLE media (
     -- identifier column
-    hash VARCHAR(255) PRIMARY KEY CHECK (hash ~ '^[a-f0-9]+$'),
+    hash CHAR(40) PRIMARY KEY CHECK (hash ~ '^[a-f0-9]+$' AND length(hash) = 40),
     -- media information
     media_type media_type NOT NULL,
     media_title VARCHAR(255),
@@ -74,7 +74,7 @@ CREATE TABLE media (
     release_year INTEGER CHECK (release_year BETWEEN 1850 AND 2100),
     -- pipeline status information
     pipeline_status pipeline_status,
-    error_status BOOLEAN DEFAULT FALSE,
+    error_status BOOLEAN DEFAULT FALSE NOT NULL,
     error_condition TEXT,
     rejection_status rejection_status NOT NULL DEFAULT 'unfiltered',
     rejection_reason TEXT,
@@ -101,8 +101,8 @@ CREATE TABLE media (
     upload_type VARCHAR(10),
     audio_codec VARCHAR(10),
     -- timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 -- create additional indexes

@@ -67,7 +67,7 @@ class MediaDataFrame:
         # download information
         'original_title': pl.Utf8,
         'original_path': pl.Utf8,
-        'original_source': pl.Utf8,
+        'original_link': pl.Utf8,
         'rss_source': pl.Categorical,
         'uploader': pl.Utf8,
         # metadata pertaining to the media item
@@ -89,8 +89,7 @@ class MediaDataFrame:
     }
 
     # Common required columns
-    required_columns = ['hash', 'original_title', 'media_type']
-
+    required_columns = ['hash', 'original_title', 'media_type', 'rejection_status']
 
     def __init__(self, data: Optional[Any] = None):
         """
@@ -107,7 +106,8 @@ class MediaDataFrame:
         else:
             # Try to create from other data types (dict, list, etc.)
             try:
-                self._df = pl.DataFrame(data)
+                # Use the predefined schema here
+                self._df = pl.DataFrame(data, schema=self.schema)
                 self._validate_and_prepare(self._df)
             except Exception as e:
                 raise ValueError(
