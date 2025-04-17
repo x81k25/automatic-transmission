@@ -18,23 +18,32 @@ logger = logging.getLogger(__name__)
 # functions to operate on individual media items
 # ------------------------------------------------------------------------------
 
-# check download status of individual media item
-def media_item_download_complete(hash: str):
+def media_item_download_complete(hash: str) -> str:
     """
     checks to determine if media is complete for items in the downloading state
     :param hash: media item hash string value
     :return: True/False depending on download complete status
     """
-    # get status from transmission
-    torrent = utils.get_torrent_info(hash)
+    # attempt to get status from transmission
+    try:
+        torrent = utils.get_torrent_info(hash)
 
-    # remove completed downloads and update status
-    if torrent.progress == 100.0:
-        return True
-    else:
-        return False
+        # return true if download compelte
+        if torrent.progress == 100.0:
+            return "true"
+        else:
+            return "false"
 
-# extract filename and ensure extraction was successful
+    except KeyError as e:
+        logging.error(f"{hash} not found within transmission")
+        logging.info(f"restarting: {hash}")
+        return "error"
+    except Exception as e:
+        logging.error(f"{hash} encountered {e}")
+        logging.info(f"restarting: {hash}")
+        return "error"
+
+
 def extract_and_verify_filename(media_item: dict) -> dict:
     """
     if download is complete, extract the file name for subsequent transfer
@@ -73,24 +82,44 @@ def check_downloads():
         return
 
     # determine if downloaded, and if so change pipeline_status
+    # if error occurs during torrent retrieval, torrent will be restarted
     media.update(media.df.with_columns(
-        pipeline_status = pl.when(pl.col('hash').map_elements(media_item_download_complete, return_dtype=pl.Boolean))
-            .then(pl.lit('downloaded'))
-            .otherwise(pl.col('pipeline_status'))
-    ))
+        download_complete=pl.col('hash').map_elements(
+            media_item_download_complete, return_dtype=pl.Utf8)
+    ).with_columns(
+        pipeline_status=pl.when(pl.col("download_complete") == "true")
+            .then(pl.lit("downloaded"))
+            .when(pl.col("download_complete") == "error")
+            .then(pl.lit('ingested'))
+            .otherwise(pl.col('pipeline_status')),
+        error_status=pl.when(pl.col("download_complete") == "error")
+            .then(pl.lit(False))
+            .otherwise(pl.col("error_status")),
+        error_condition=pl.when(pl.col("download_complete") == "error")
+            .then(pl.lit(None))
+            .otherwise(pl.col('error_condition')),
+        rejection_status=pl.when(pl.col("download_complete") == "error")
+            .then(pl.lit("unfiltered"))
+            .otherwise(pl.col("rejection_status")),
+        rejection_reason=pl.when(pl.col("download_complete") == "error")
+            .then(pl.lit(None))
+            .otherwise(pl.col('rejection_reason'))
+    ).drop('download_complete'))
 
-    # if no items complete, return
-    if 'downloaded' not in media.df['pipeline_status']:
+    # if no items complete or with error, return
+    if not set(media.df['pipeline_status']).intersection(['downloaded', 'ingested']):
         return
 
-    # extract file names of completed downloads
-    media.update(media.df.filter(pl.col('pipeline_status') == "downloaded"))
-
+    # extract filename of compelted downloads
     updated_rows = []
     for row in media.df.iter_rows(named=True):
-        updated_row = extract_and_verify_filename(row)
-        updated_rows.append(updated_row)
+        if row['pipeline_status'] == "downloaded":
+            updated_row = extract_and_verify_filename(row)
+            updated_rows.append(updated_row)
+        else:
+            updated_rows.append(row)
 
+    # Update the dataframe with the processed rows
     media.update(pl.DataFrame(updated_rows))
 
     # report errors if present
@@ -102,7 +131,6 @@ def check_downloads():
 
     # update db
     utils.media_db_update(media=media)
-
 
 # ------------------------------------------------------------------------------
 # end of _07_download_check.py
