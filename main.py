@@ -10,18 +10,6 @@ import src.core as core
 # ------------------------------------------------------------------------------
 
 def setup_logging(debug=False):
-    # Define custom VERBOSE level (set to 5, below DEBUG)
-    VERBOSE = 5
-    logging.addLevelName(VERBOSE, "VERBOSE")
-    
-    # Add verbose method to Logger class
-    def verbose(self, message, *args, **kwargs):
-        if self.isEnabledFor(VERBOSE):
-            self._log(VERBOSE, message, args, **kwargs)
-    
-    # Add the method to the Logger class
-    logging.Logger.verbose = verbose
-    
     if not debug:
         logging.basicConfig(
             level=logging.INFO,
