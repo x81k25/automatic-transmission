@@ -94,17 +94,30 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
 
     # extract media_title; will always be last step
     for old_str, new_str in special_conditions['post_processing_replacements']:
+        old_str_mask = parsed_media['cleaned_title'].str.contains(old_str)
+
+        # Log only when mask is True
+        for i, (cleaned_title, mask_value) in enumerate(
+            zip(parsed_media['cleaned_title'], old_str_mask)):
+            if mask_value:
+                print(f"{cleaned_title} contains {old_str} - replacing with {new_str}")
+                logging.debug(f"{cleaned_title} contains {old_str} - replacing with {new_str}")
+
         parsed_media = parsed_media.with_columns(
-            cleaned_title = pl.col("cleaned_title").str.replace(old_str, new_str)
+            cleaned_title = pl.when(old_str_mask)
+                .then(pl.col('cleaned_title').str.replace(old_str, new_str))
+                .otherwise(pl.col('cleaned_title'))
         )
 
+    for item in parsed_media['cleaned_title'].to_list():
+        print(item)
+
+
     parsed_media = parsed_media.with_columns(
-        media_title=pl.when(pl.col('media_title').is_null()).then(
-            pl.struct(["cleaned_title", "media_type"]).map_elements(
+        media_title=pl.struct(["cleaned_title", "media_type"]).map_elements(
                 lambda x: utils.extract_title(x["cleaned_title"], x["media_type"]),
                 return_dtype=pl.Utf8
-            )
-        ).otherwise(pl.col('media_title'))
+        )
     )
 
     # drop the cleaned title
