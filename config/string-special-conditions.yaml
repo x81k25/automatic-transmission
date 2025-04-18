@@ -14,3 +14,4 @@ post_processing_replacements:
   - ["Theres", "There's"]
   - ["Starsky and Hutch", "Starsky & Hutch"]
   - ["The Studio 2025", "The Studio"]
+  - ["Schindlers List", "Schindler's List"]
