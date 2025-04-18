@@ -9,7 +9,7 @@ import src.core as core
 # setup
 # ------------------------------------------------------------------------------
 
-def setup_logging(debug=False):
+def setup_logging(debug: bool = False):
     if not debug:
         logging.basicConfig(
             level=logging.INFO,

@@ -1,11 +1,13 @@
-import polars as pl
+from datetime import datetime, timezone
 from enum import Enum
+import polars as pl
 from typing import List, Dict, Any, Optional, ClassVar, Type
-from datetime import datetime
 
 # ------------------------------------------------------------------------------
 # enum classes
 # ------------------------------------------------------------------------------
+
+pl.enable_string_cache()
 
 class PipelineStatus(str, Enum):
     INGESTED = 'ingested'
@@ -132,15 +134,17 @@ class MediaDataFrame:
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
 
-        # Ensure datetime columns are timezone-aware (UTC)
-        if 'created_at' in df.columns:
-            df = df.with_columns(
-                pl.col('created_at').dt.replace_time_zone('UTC')
+        # Ensure datetime columns are present and timezone-aware (UTC)
+        df = df.with_columns(
+            created_at = pl.when(pl.col('created_at').is_null())
+                .then(pl.lit(datetime.now(timezone.utc)))
+                .otherwise(pl.col('created_at').dt.replace_time_zone('UTC')
+            ),
+            updated_at = pl.when(pl.col('updated_at').is_null())
+                .then(pl.lit(datetime.now(timezone.utc)))
+                .otherwise(pl.col('updated_at').dt.replace_time_zone('UTC')
             )
-        if 'updated_at' in df.columns:
-            df = df.with_columns(
-                pl.col('updated_at').dt.replace_time_zone('UTC')
-            )
+        )
 
         # Set the underlying DataFrame
         self._df = df
