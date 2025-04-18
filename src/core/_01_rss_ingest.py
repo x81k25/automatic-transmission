@@ -1,4 +1,5 @@
 # standard library imports
+from datetime import datetime, timezone
 import logging
 import os
 
@@ -125,8 +126,9 @@ def rss_ingest():
             .agg(pl.all().first())  # Take first row for each unique hash
             .with_columns(
                 pipeline_status=pl.lit('ingested'),
-                error_status=False,
-                rejection_status=pl.lit('unfiltered')
+                error_status=pl.lit(False),
+                rejection_status=pl.lit('unfiltered'),
+                updated_at=pl.lit(datetime.now(timezone.utc))
             )
         )
 

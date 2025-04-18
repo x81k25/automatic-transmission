@@ -1,5 +1,12 @@
+--------------------------------------------------------------------------------
+-- schema config
+--------------------------------------------------------------------------------
 CREATE SCHEMA IF NOT EXISTS atp;
 SET search_path TO atp;
+
+--------------------------------------------------------------------------------
+-- enums
+--------------------------------------------------------------------------------
 
 -- Create the media_type enum type
 DO $$
@@ -60,6 +67,10 @@ EXCEPTION
     WHEN others THEN NULL;
 END $$;
 
+--------------------------------------------------------------------------------
+-- table creation statement
+--------------------------------------------------------------------------------
+
 -- create the primary media table
 DROP TABLE IF EXISTS media;
 
@@ -73,7 +84,7 @@ CREATE TABLE media (
     episode INTEGER,
     release_year INTEGER CHECK (release_year BETWEEN 1850 AND 2100),
     -- pipeline status information
-    pipeline_status pipeline_status,
+    pipeline_status pipeline_status NOT NULL DEFAULT 'ingested',
     error_status BOOLEAN DEFAULT FALSE NOT NULL,
     error_condition TEXT,
     rejection_status rejection_status NOT NULL DEFAULT 'unfiltered',
@@ -101,31 +112,57 @@ CREATE TABLE media (
     upload_type VARCHAR(10),
     audio_codec VARCHAR(10),
     -- timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') NOT NULL
 );
+
+--------------------------------------------------------------------------------
+-- additional indices
+--------------------------------------------------------------------------------
 
 -- create additional indexes
 CREATE INDEX IF NOT EXISTS idx_media_imdb_id ON media(imdb_id);
 CREATE INDEX IF NOT EXISTS idx_media_pipeline_status ON media(pipeline_status);
 
--- drop automatic update trigger if exists
+--------------------------------------------------------------------------------
+-- triggers
+--------------------------------------------------------------------------------
+
+-- updated_at trigger
 DROP TRIGGER IF EXISTS update_media_updated_at ON media;
 
--- create function if not exists
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC';
     RETURN NEW;
 END;
 $$ language 'plpgsql';
 
--- create trigger
 CREATE TRIGGER update_media_updated_at
     BEFORE UPDATE ON media
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- created_on trigger
+DROP TRIGGER IF EXISTS set_created_at_column ON media;
+
+CREATE OR REPLACE FUNCTION set_created_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.created_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC';
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER set_media_created_at
+    BEFORE INSERT ON media
+    FOR EACH ROW
+    EXECUTE FUNCTION set_created_at_column();
+
+--------------------------------------------------------------------------------
+-- comments
+--------------------------------------------------------------------------------
 
 -- add table comment
 COMMENT ON TABLE media IS 'stores media data for movies, tv shows, and tv seasons';
@@ -169,3 +206,7 @@ COMMENT ON COLUMN media.upload_type IS 'uploading type indicating source of uplo
 -- timestamps
 COMMENT ON COLUMN media.created_at IS 'timestamp for initial database creation of item';
 COMMENT ON COLUMN media.updated_at IS 'timestamp of last database alteration of item';
+
+--------------------------------------------------------------------------------
+-- end of instantiate_schema.sql
+--------------------------------------------------------------------------------
