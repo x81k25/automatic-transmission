@@ -65,6 +65,23 @@ def clean_downloading_items(
 		schema=schema
 	)
 
+
+# add function to handle elements where metadata could not be found due to
+# insufficient interest
+
+# update atp.media
+# set error_status = False,
+# 	error_condition = Null,
+# 	pipeline_status = 'rejected',
+# 	rejection_status = 'rejected',
+# 	rejection_reason = 'metadata could not be collected due to insufficient interest'
+# where hash in (
+# '124fbe29a33ca58039ce750d017081048f92bac9',
+# '8fffc4bb83fe24be9b504fefce425d4d30b499f4',
+# 'a88e4b3b5b9d0814729f8444211b072e2e60a4ac',
+# '4aa34336721133ffec4ce0889aa2733a77d0ea7e'
+# );
+
 # ------------------------------------------------------------------------------
 # end of error_handling.py
 # ------------------------------------------------------------------------------

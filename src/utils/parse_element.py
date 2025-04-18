@@ -113,10 +113,6 @@ def extract_title(raw_title: str, media_type: str) -> str:
 	## remove trailing or leading white spice
 	clean_title = clean_title.strip()
 
-	# handle special cases
-	## Special case: Add apostrophe for "Its" -> "It's"
-	# clean_title = clean_title.replace('Its ', "It's ")
-
 	return clean_title
 
 ################################################################################

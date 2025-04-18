@@ -1,11 +1,13 @@
-import polars as pl
+from datetime import datetime, timezone
 from enum import Enum
+import polars as pl
 from typing import List, Dict, Any, Optional, ClassVar, Type
-from datetime import datetime
 
 # ------------------------------------------------------------------------------
 # enum classes
 # ------------------------------------------------------------------------------
+
+pl.enable_string_cache()
 
 class PipelineStatus(str, Enum):
     INGESTED = 'ingested'
@@ -89,7 +91,15 @@ class MediaDataFrame:
     }
 
     # Common required columns
-    required_columns = ['hash', 'original_title', 'media_type', 'rejection_status']
+    required_columns = [
+        'hash',
+        'original_title',
+        'media_type',
+        'pipeline_status',
+        'error_status',
+        'rejection_status'
+    ]
+
 
     def __init__(self, data: Optional[Any] = None):
         """
@@ -117,15 +127,24 @@ class MediaDataFrame:
     def _validate_and_prepare(self, df: pl.DataFrame) -> None:
         """
         Validate that DataFrame conforms to the required schema and prepare it.
-
-        Args:
-            df: DataFrame to validate
         """
         # Check required columns
         missing = [col for col in self.required_columns if
                    col not in df.columns]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
+
+        # Ensure datetime columns are present and timezone-aware (UTC)
+        df = df.with_columns(
+            created_at = pl.when(pl.col('created_at').is_null())
+                .then(pl.lit(datetime.now(timezone.utc)))
+                .otherwise(pl.col('created_at').dt.replace_time_zone('UTC')
+            ),
+            updated_at = pl.when(pl.col('updated_at').is_null())
+                .then(pl.lit(datetime.now(timezone.utc)))
+                .otherwise(pl.col('updated_at').dt.replace_time_zone('UTC')
+            )
+        )
 
         # Set the underlying DataFrame
         self._df = df
