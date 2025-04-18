@@ -89,7 +89,15 @@ class MediaDataFrame:
     }
 
     # Common required columns
-    required_columns = ['hash', 'original_title', 'media_type', 'rejection_status']
+    required_columns = [
+        'hash',
+        'original_title',
+        'media_type',
+        'pipeline_status',
+        'error_status',
+        'rejection_status'
+    ]
+
 
     def __init__(self, data: Optional[Any] = None):
         """

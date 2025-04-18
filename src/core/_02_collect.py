@@ -110,10 +110,11 @@ def collect_media():
     if len(media.df) == 0:
         return
 
-    # set new status for new and rejcted hashes
+    # set new status for new and rejceted hashes
     media.update(media.df.with_columns(
         pipeline_status=pl.lit('ingested'),
-        error_status=False
+        error_status=pl.lit(False),
+        rejection_stuats=pl.lit('override')
     ))
 
     # insert new items, if any
