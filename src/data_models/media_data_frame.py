@@ -134,17 +134,57 @@ class MediaDataFrame:
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
 
-        # Ensure datetime columns are present and timezone-aware (UTC)
-        df = df.with_columns(
-            created_at = pl.when(pl.col('created_at').is_null())
-                .then(pl.lit(datetime.now(timezone.utc)))
-                .otherwise(pl.col('created_at').dt.replace_time_zone('UTC')
-            ),
-            updated_at = pl.when(pl.col('updated_at').is_null())
-                .then(pl.lit(datetime.now(timezone.utc)))
-                .otherwise(pl.col('updated_at').dt.replace_time_zone('UTC')
-            )
-        )
+        # Get current timestamp once to ensure consistency
+        current_timestamp = datetime.now(timezone.utc)
+
+        # For both timestamp columns, conditionally add or update
+        timestamp_exprs = []
+
+        # Handle created_at
+        if 'created_at' in df.columns:
+            # First check if the column has any non-null values
+            if df['created_at'].null_count() < len(df):
+                timestamp_exprs.append(
+                    pl.when(pl.col('created_at').is_null())
+                    .then(pl.lit(current_timestamp))
+                    .otherwise(
+                        # Only apply timezone conversion to non-null values
+                        pl.when(pl.col('created_at').is_not_null())
+                        .then(pl.col('created_at').dt.replace_time_zone('UTC'))
+                        .otherwise(pl.lit(current_timestamp))
+                    )
+                    .alias('created_at')
+                )
+            else:
+                # All values are null, just use current timestamp
+                timestamp_exprs.append(
+                    pl.lit(current_timestamp).alias('created_at'))
+        else:
+            timestamp_exprs.append(
+                pl.lit(current_timestamp).alias('created_at'))
+
+        # Handle updated_at - same logic
+        if 'updated_at' in df.columns:
+            if df['updated_at'].null_count() < len(df):
+                timestamp_exprs.append(
+                    pl.when(pl.col('updated_at').is_null())
+                    .then(pl.lit(current_timestamp))
+                    .otherwise(
+                        pl.when(pl.col('updated_at').is_not_null())
+                        .then(pl.col('updated_at').dt.replace_time_zone('UTC'))
+                        .otherwise(pl.lit(current_timestamp))
+                    )
+                    .alias('updated_at')
+                )
+            else:
+                timestamp_exprs.append(
+                    pl.lit(current_timestamp).alias('updated_at'))
+        else:
+            timestamp_exprs.append(
+                pl.lit(current_timestamp).alias('updated_at'))
+
+        # Apply all expressions at once
+        df = df.with_columns(timestamp_exprs)
 
         # Set the underlying DataFrame
         self._df = df
