@@ -44,7 +44,7 @@ def full_pipeline(debug: bool):
     logger = setup_logging(debug=debug)
 
     core.rss_ingest()
-    #core.collect_media()
+    core.collect_media()
     core.parse_media()
     core.collect_metadata()
     core.filter_media()
