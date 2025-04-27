@@ -100,7 +100,6 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
         for i, (cleaned_title, mask_value) in enumerate(
             zip(parsed_media['cleaned_title'], old_str_mask)):
             if mask_value:
-                print(f"{cleaned_title} contains {old_str} - replacing with {new_str}")
                 logging.debug(f"{cleaned_title} contains {old_str} - replacing with {new_str}")
 
         parsed_media = parsed_media.with_columns(
@@ -108,10 +107,6 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
                 .then(pl.col('cleaned_title').str.replace(old_str, new_str))
                 .otherwise(pl.col('cleaned_title'))
         )
-
-    for item in parsed_media['cleaned_title'].to_list():
-        print(item)
-
 
     parsed_media = parsed_media.with_columns(
         media_title=pl.struct(["cleaned_title", "media_type"]).map_elements(
