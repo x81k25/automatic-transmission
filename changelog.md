@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.6]
+- added TMDB, and specifically TMDB search to the metadata collection pipeline
+  - the metadata collection now has 3 phases
+    - the first phase searches TMDB base off of the parsed title string
+    - the top match is returned, and re-ingested to TMDB for additional metadata
+    - the OMDb API is then queried for additional metadata
+- the TMDB search functionality catches many of the string edge cases, so for now I have commented out the string post-processing replacement operations in the _03_parse 
+
 ## [1.2.5]
 - fixed issues with setting all not null status fields on ingest
 - fixed issue where parser would overwrite season number for tv_shows
