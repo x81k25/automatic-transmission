@@ -135,12 +135,12 @@ def cleanup_hung_items():
     )
 
     # filter for only items that have exceeded time limit
-    media_exceeded.filter(
+    media_exceeded = media_exceeded.filter(
         pl.col('seconds_since_transfer') > cleanup_delay
     )
 
     # if not items have exceeded time limit, return
-    if len(media_exceeded) < 0:
+    if len(media_exceeded) < 1:
         return
 
     # remove items that have exceeded time limit
