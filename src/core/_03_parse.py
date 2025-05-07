@@ -20,6 +20,19 @@ load_dotenv(override=True)
 # logger config
 logger = logging.getLogger(__name__)
 
+# if not inherited set parameters here
+if __name__ == "__main__" or not logger.handlers:
+    # Set up standalone logging for testing
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
+    # Prevent propagation to avoid duplicate logs
+    logger.propagate = False
+
 # read in string special conditions
 with open('./config/string-special-conditions.yaml', 'r') as file:
     special_conditions = yaml.safe_load(file)
@@ -92,22 +105,7 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
                 )).otherwise(pl.col('season'))
         )
 
-    # extract media_title; will always be last step
-    for old_str, new_str in special_conditions['post_processing_replacements']:
-        old_str_mask = parsed_media['cleaned_title'].str.contains(old_str)
-
-        # Log only when mask is True
-        for i, (cleaned_title, mask_value) in enumerate(
-            zip(parsed_media['cleaned_title'], old_str_mask)):
-            if mask_value:
-                logging.debug(f"{cleaned_title} contains {old_str} - replacing with {new_str}")
-
-        parsed_media = parsed_media.with_columns(
-            cleaned_title = pl.when(old_str_mask)
-                .then(pl.col('cleaned_title').str.replace(old_str, new_str))
-                .otherwise(pl.col('cleaned_title'))
-        )
-
+    # extract media_title
     parsed_media = parsed_media.with_columns(
         media_title=pl.struct(["cleaned_title", "media_type"]).map_elements(
                 lambda x: utils.extract_title(x["cleaned_title"], x["media_type"]),
@@ -255,9 +253,9 @@ def parse_media():
 
     for row in media.df.iter_rows(named=True):
         if row['error_status']:
-            logging.error(f"{row['original_title']}: {row['error_condition']}")
+            logging.error(f"{row['hash']} - {row['error_condition']}")
         else:
-            logging.info(f"parsed: {row['original_title']}")
+            logging.info(f"parsed - {row['hash']}")
 
     # update status of successfully parsed items
     media.update(media.df.with_columns(

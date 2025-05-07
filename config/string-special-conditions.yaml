@@ -2,16 +2,3 @@
 ## temporary string replacement applied at the beginning of 03_parse for all operations
 pre_processing_replacements:
   - ["www.Torrenting.com -", ""]
-
-## changes made after all other parsing operations complete within _03_parse
-## affects the media_title field only
-post_processing_replacements:
-  - ["Farmer Wants a Wife US 2023", "Farmer Wants a Wife"]
-  - ["EXTENDED", ""]
-  - ["UNRATED", ""]
-  - ["Its Always Sunny", "It's Always Sunny"]
-  - ["60 Minutes (US)", "60 Minutes"]
-  - ["Theres", "There's"]
-  - ["Starsky and Hutch", "Starsky & Hutch"]
-  - ["The Studio 2025", "The Studio"]
-  - ["Schindlers List", "Schindler's List"]

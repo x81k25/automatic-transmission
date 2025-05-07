@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, Engine, Table, MetaData, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import URL
-from sqlalchemy.sql import quoted_name
 
 # internal imports
 from src.data_models import MediaDataFrame
@@ -218,6 +217,50 @@ def get_media_from_db(pipeline_status: str) -> MediaDataFrame | None:
 
     params = {
         'pipeline_status': pipeline_status
+    }
+
+    with engine.connect() as conn:
+        # Execute the query
+        result = conn.execute(query, params)
+
+        # Get column names from the result
+        columns = result.keys()
+
+        # Fetch all rows
+        rows = result.fetchall()
+
+        if not rows:
+            return None
+
+        # Convert to dict for polars
+        data = [dict(zip(columns, row)) for row in rows]
+
+    # Convert to polars DataFrame and wrap in MediaDataFrame
+    return MediaDataFrame(data)
+
+
+def get_media_by_hash(hashes: list) -> MediaDataFrame | None:
+    """
+    Retrieves data from movies or tv_shows table based on pipeline_status.
+
+    Args:
+        pipeline_status: str, pipeline_status to filter by
+
+    Returns:
+        MediaDataFrame containing matching rows
+    """
+    # assign engine
+    engine = create_db_engine()
+
+    query = text(f"""
+        SELECT *
+        FROM media
+        WHERE hash IN :hashes
+        AND error_status = FALSE
+    """)
+
+    params = {
+        'hashes': tuple(hashes)
     }
 
     with engine.connect() as conn:

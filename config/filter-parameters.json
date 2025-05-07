@@ -3,7 +3,8 @@
         "language": {
             "nullable": false,
             "allowed_values": [
-                "English"
+                "English",
+                "en"
             ]
         },
         "resolution": {
