@@ -12,6 +12,7 @@
 - added _09_cleanup function to remove hung items
 - gradually transitioning all logging statements to use the item hash rather than the original_tile and "-" instead of ":" 
 - altered extract_title function to return None if no meaningful title can be extracted
+- added functions to error_handling to reparse and recollect metadata for given hash ranges
 
 ## [1.2.5]
 - fixed issues with setting all not null status fields on ingest
