@@ -1,14 +1,17 @@
 # standard imports
 import logging
+import os
 import time
+import sys
 
 # third-party imports
 import psycopg2
 from psycopg2.extensions import connection
+import yaml
 
 # custom and internal imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 import src.utils as utils
-import yaml
 
 # ------------------------------------------------------------------------------
 # load environment variables and params
