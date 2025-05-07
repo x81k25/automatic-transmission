@@ -7,6 +7,7 @@
     - the top match is returned, and re-ingested to TMDB for additional metadata
     - the OMDb API is then queried for additional metadata
 - the TMDB search functionality catches many of the string edge cases, so for now I have commented out the string post-processing replacement operations in the _03_parse 
+- added _09_cleanup function to remove hung items
 
 ## [1.2.5]
 - fixed issues with setting all not null status fields on ingest
