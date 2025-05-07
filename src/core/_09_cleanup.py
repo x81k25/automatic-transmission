@@ -76,17 +76,17 @@ def cleanup_transferred_media():
                 utils.remove_media_item(row['hash'])
                 updated_row['pipeline_status'] = "complete"
                 logging.info(
-                    f"removed transferred item: {updated_row['hash']}: {updated_row['seconds_since_transfer']}s transfer")
+                    f"removed transferred item - {updated_row['hash']} - {updated_row['seconds_since_transfer']}s transfer")
                 updated_rows.append(updated_row)
             except Exception as e:
                 updated_row['error_status'] = True
                 updated_row['error_condition'] = f"{e}"
                 logging.error(
-                    f"could not remove{updated_row['hash']}: {updated_row['error_condition']}")
+                    f"could not remove{updated_row['hash']} - {updated_row['error_condition']}")
                 updated_rows.append(updated_row)
         except TypeError as e:
             # Skip rows with naive/aware datetime mismatch
-            logging.warning(f"could not remove {row['hash']}: {e}")
+            logging.warning(f"could not remove {row['hash']} - {e}")
             continue
 
     # if no items have successfully been removed, return
@@ -150,17 +150,17 @@ def cleanup_hung_items():
                 updated_row['rejection_status'] = "rejected"
                 updated_row['rejection_reason'] = "exceeded time limit"
                 logging.info(
-                    f"removed hung item: {updated_row['hash']}: {updated_row['seconds_since_transfer']}s after last status update")
+                    f"removed hung item: {updated_row['hash']} - {updated_row['seconds_since_transfer']}s after last status update")
                 updated_rows.append(updated_row)
             except Exception as e:
                 updated_row['error_status'] = True
                 updated_row['error_condition'] = f"{e}"
                 logging.error(
-                    f"could not remove{updated_row['hash']}: {updated_row['error_condition']}")
+                    f"could not remove{updated_row['hash']} - {updated_row['error_condition']}")
                 updated_rows.append(updated_row)
         except TypeError as e:
             # Skip rows with naive/aware datetime mismatch
-            logging.warning(f"could not remove {row['hash']}: {e}")
+            logging.warning(f"could not remove {row['hash']} - {e}")
             continue
 
     # if no items have successfully been removed, return
