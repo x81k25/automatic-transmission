@@ -6,7 +6,12 @@
     - the first phase searches TMDB base off of the parsed title string
     - the top match is returned, and re-ingested to TMDB for additional metadata
     - the OMDb API is then queried for additional metadata
-- the TMDB search functionality catches many of the string edge cases, so for now I have commented out the string post-processing replacement operations in the _03_parse 
+- the TMDB search functionality catches many of the string edge cases, so we have simplified title parsing
+  - the post-processing string replacement step has been removed
+  - the extract_title functions has been simplified to only return the portion of the title before season/episode/year identifiers and remove some special characters 
+- added _09_cleanup function to remove hung items
+- gradually transitioning all logging statements to use the item hash rather than the original_tile and "-" instead of ":" 
+- altered extract_title function to return None if no meaningful title can be extracted
 
 ## [1.2.5]
 - fixed issues with setting all not null status fields on ingest

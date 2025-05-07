@@ -71,49 +71,44 @@ def classify_media_type(raw_title:str) -> Optional[str]:
 	else:
 		return None
 
-def extract_title(raw_title: str, media_type: str) -> str:
+def extract_title(raw_title: str, media_type: str) -> str | None:
 	"""
-	Extract and format the movie name for OMDb API queries
+	extract and format the title of a media object given a more complicated
+		media string; this function should return None if any issue occurred
+		with makes the extract title invalid
+
 	:param raw_title: raw_title string of media item
-	:param media_type: type of collection, either "movie" or "tv_show"
-	:return: string of movie name formatted for OMDb API
+	:param media_type: type of collection, either "movie", "tv_show", or "tv_season"
+	:return: string of the cleaned media title
     """
-	clean_title = raw_title
+	cleaned_title = None
 
 	if media_type == 'movie':
-		# remove suffixes to the movie title
-		# Remove quality info and encoding info that comes after the year
-		# Match year pattern (with or without parentheses) and everything after
-		clean_title = re.split(r'(?:^|\s)\(?(?:19|20)\d{2}\)?[^\w]*.*$', clean_title)[0]
-	
+		# return everything before the year pattern
+		match = re.search(r'(.+?)\s*\((?:19|20)\d{2}\)\s*(\[.+)?$', raw_title)
+		if match:
+			cleaned_title = match.group(1).strip()
 	elif media_type == 'tv_show':
-		# remove suffixes to tv_show_name
-		## remove quality info and encoding info
-		clean_title = re.sub(r'\d{3,4}p.*$', '', clean_title)
-
 		# get everything before the SxxExx pattern
-		clean_title = re.split(r'[Ss]\d{1,4}[Ee]\d{1,4}', clean_title)[0]
-
+		match = re.search(r'(.+?)s\d{1,4}e\d{1,4}', raw_title, re.IGNORECASE)
+		if match:
+			cleaned_title = match.group(1).strip()
 	elif media_type == 'tv_season':
-		# Remove quality info and encoding info that comes after season pattern
-		# Matches either "Season XX" or "SXX" pattern (case insensitive)
-		clean_title = re.split(r'(?:[Ss]eason\s+\d{1,2}|[Ss]\d{1,2})[^\w]*.*$',
-					 clean_title)[0]
+		# get everything before the season pattern
+		match = re.search(r'(.+?)(?:season.{1,4}\d{1,4}|s\d{1,4})', raw_title, re.IGNORECASE)
+		if match:
+			cleaned_title = match.group(1).strip()
 
-		# Remove any year pattern that follows the shows name
-		clean_title = re.sub(r'\s*\([12][90]\d{2}\)\s*', ' ', clean_title)
+	# determine if initial title extraction was successful, and if not return none
+	if cleaned_title is None or cleaned_title.strip() == "":
+		return None
+	else:
+		# Replace special characters with spaces
+		cleaned_title = re.sub('[._\\-+]', ' ', cleaned_title)
+		# remove trailing or leading white spice
+		cleaned_title = cleaned_title.strip()
 
-		# Remove any year pattern that's adjacent to show name
-		clean_title = re.sub(r'[.\s_-]*(?:19|20)\d{2}[.\s_-]*', '.', clean_title)
-
-	# process the title once prefixes and suffixes are removed
-	## Replace periods with spaces
-	clean_title = re.sub('[._\\-+]', ' ', clean_title)
-
-	## remove trailing or leading white spice
-	clean_title = clean_title.strip()
-
-	return clean_title
+	return cleaned_title
 
 ################################################################################
 # parse time

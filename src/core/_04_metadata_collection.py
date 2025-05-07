@@ -137,7 +137,7 @@ def collect_details(media_item: dict) -> dict:
     :param media_item: dict containing one for of media.df
     :return: dict of items with metadata added
     """
-    # media_item = media.df.row(0, named=True)
+    #media_item = media.df.row(0, named=True)
     response = {}
 
     # prepare and send response
@@ -147,7 +147,6 @@ def collect_details(media_item: dict) -> dict:
 
         logging.debug(f"collecting metadata details for: {media_item['hash']}")
         response = requests.get(url, params=params)
-
     elif media_item['media_type'] in ['tv_show', 'tv_season']:
         params = {'api_key': tv_details_api_key}
         url = f"{tv_details_api_base_url}/{media_item['tmdb_id']}"
@@ -173,8 +172,10 @@ def collect_details(media_item: dict) -> dict:
     media_item['genre'] = genres
 
     languages = []
+    languages.append(data.get('original_language'))
     for language in data.get('spoken_languages'):
-        languages.append(language['english_name'])
+        languages.append(language['iso_639_1'])
+    languages=list(set(languages))
 
     media_item['language'] = languages
 
@@ -190,13 +191,11 @@ def collect_details(media_item: dict) -> dict:
     #created_by
     #networks
     #origin_country
-    #original_language
     #languages
     #overview
     #popularity
     #production_companies
     #production_countries
-    #spoken_languages
 
     return media_item
 
