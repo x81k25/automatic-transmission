@@ -99,13 +99,14 @@ CREATE TABLE media (
     rss_source rss_source,
     uploader VARCHAR(25),
     -- metadata pertaining to the media item
+    imdb_id VARCHAR(10) CHECK (imdb_id ~ '^tt[0-9]{7,8}$'),
+    tmdb_id INTEGER CHECK (tmdb_id > 0),
     genre VARCHAR(20)[],
     language VARCHAR(20)[],
     rt_score INTEGER CHECK (rt_score IS NULL OR (rt_score BETWEEN 0 AND 100)),
     metascore INTEGER CHECK (metascore IS NULL OR (metascore BETWEEN 0 AND 100)),
     imdb_rating DECIMAL(3,1) CHECK (imdb_rating IS NULL OR (imdb_rating BETWEEN 0 AND 100)),
     imdb_votes INTEGER,
-    imdb_id VARCHAR(12),
     -- metadata pertaining to the video file
     resolution VARCHAR(10),
     video_codec VARCHAR(10),
@@ -191,13 +192,14 @@ COMMENT ON COLUMN media.original_link IS 'may contain either the direct download
 COMMENT ON COLUMN media.rss_source IS 'source of rss feed for item ingestion, if any';
 COMMENT ON COLUMN media.uploader IS 'uploading entity of the media item';
 -- metadata pertaining to the media item
+COMMENT ON COLUMN media.imdb_id IS 'IMDB identifier for media item';
+COMMENT ON COLUMN media.tmdb_id IS 'identifier for themoviedb.org API';
 COMMENT ON COLUMN media.genre IS 'array of genres associated with the movie';
 COMMENT ON COLUMN media.language IS 'array of languages available';
 COMMENT ON COLUMN media.rt_score IS 'Rotten Tomatoes score';
 COMMENT ON COLUMN media.metascore IS 'MetaCritic score';
 COMMENT ON COLUMN media.imdb_rating IS 'IMDB rating out of 10';
 COMMENT ON COLUMN media.imdb_votes IS 'number of votes on IMDB';
-COMMENT ON COLUMN media.imdb_id IS 'IMDB identifier for media item';
 -- metadata pertaining to the video file
 COMMENT ON COLUMN media.resolution IS 'video resolution';
 COMMENT ON COLUMN media.video_codec IS 'video compression codec';

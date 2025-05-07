@@ -73,13 +73,14 @@ class MediaDataFrame:
         'rss_source': pl.Categorical,
         'uploader': pl.Utf8,
         # metadata pertaining to the media item
+        'imdb_id': pl.Utf8,
+        'tmdb_id': pl.Int64,
         'genre': pl.List(pl.Utf8),
         'language': pl.List(pl.Utf8),
         'rt_score': pl.Int64,
         'metascore': pl.Int64,
         'imdb_rating': pl.Float64,
         'imdb_votes': pl.Int64,
-        'imdb_id': pl.Utf8,
         # metadata pertaining to the video file
         'resolution': pl.Utf8,
         'video_codec': pl.Utf8,
