@@ -93,7 +93,10 @@ def cleanup_transferred_media():
     if len(updated_rows) < 1:
         return
 
-    media.update(pl.DataFrame(updated_rows))
+    # return to proper MediaDataFrame class for update
+    media.update(
+        pl.DataFrame(updated_rows).drop('seconds_since_transfer')
+    )
 
     # update status of successfully parsed items
     utils.media_db_update(media=media)
@@ -164,7 +167,10 @@ def cleanup_hung_items():
     if len(updated_rows) < 1:
         return
 
-    media.update(pl.DataFrame(updated_rows))
+    # return to proper MediaDataFrame class for update
+    media.update(
+        pl.DataFrame(updated_rows).drop('seconds_since_transfer')
+    )
 
     # update status of successfully parsed items
     utils.media_db_update(media=media)
