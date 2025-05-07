@@ -109,9 +109,14 @@ def cleanup_hung_items():
     """
     # get media items currently in daemon
     current_items = utils.return_current_torrents()
+
+    # if no current items, return
+    if current_items is None:
+        return
+
+    # get hashes from current items
     hashes = list(current_items.keys())
     media = utils.get_media_by_hash(hashes)
-    # create copy of media
 
     # if nothing to clean, return
     if media is None:
@@ -120,7 +125,7 @@ def cleanup_hung_items():
     # determine items which have exceeded time limit
     cleanup_delay = int(os.getenv('HUNG_ITEM_CLEANUP_DELAY'))
 
-    # create copy of media.df in order to add non template column
+    # create copy of media.df in order to add non-template column
     media_exceeded = media.df.with_columns(
         seconds_since_transfer = (
             (datetime.now(UTC) - pl.col('updated_at'))
