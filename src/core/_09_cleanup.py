@@ -62,7 +62,7 @@ def cleanup_transferred_media():
     )
 
     # filter for only items that have exceeded time limit
-    media_exceeded.filter(
+    media_exceeded = media_exceeded.filter(
         pl.col('seconds_since_transfer') > cleanup_delay
     )
 
