@@ -884,17 +884,21 @@ def rerun_metadata(hashes: list):
 # make error handling function calls
 # ------------------------------------------------------------------------------
 
-hashes = get_all_hashes('dev')
+def main():
+    hashes = get_all_hashes('dev')
 
-re_parse_hashes(hashes)
+    re_parse_hashes(hashes)
 
-for i in range((len(hashes) + 49) // 50):
-    hash_floor = 50 * i
-    hash_ceiling = min(50 * (i + 1), len(hashes))
-    batch = hashes[hash_floor:hash_ceiling]
-    rerun_metadata(batch)
-    logging.info(f"batch {i} complete")
-    time.sleep(5)
+    for i in range((len(hashes) + 49) // 50):
+        hash_floor = 50 * i
+        hash_ceiling = min(50 * (i + 1), len(hashes))
+        batch = hashes[hash_floor:hash_ceiling]
+        rerun_metadata(batch)
+        logging.info(f"batch {i} complete")
+        time.sleep(5)
+
+if __name__ == "__main__":
+    main()
 
 # ------------------------------------------------------------------------------
 # end of error_handling.py
