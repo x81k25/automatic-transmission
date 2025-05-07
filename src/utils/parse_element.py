@@ -148,7 +148,7 @@ def extract_season_from_season(raw_title: str) -> Optional[str]:
 ################################################################################
 
 def extract_resolution(raw_title: str)-> Optional[str]:
-	pattern = re.compile(r'(\d{3,4}p)')
+	pattern = re.compile(r'(\d{3,4}p)', re.IGNORECASE)
 	match = pattern.search(raw_title)
 	return match.group(0) if match else None
 
