@@ -1,302 +1,1063 @@
 # standard imports
 import logging
+import os
+import time
+import sys
 
 # third-party imports
 import psycopg2
 from psycopg2.extensions import connection
+import yaml
 
 # custom and internal imports
 import src.utils as utils
-import yaml
 
 # ------------------------------------------------------------------------------
 # load environment variables and params
 # ------------------------------------------------------------------------------
 
 logging.basicConfig(
-	level=logging.DEBUG,
-	format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-	datefmt='%Y-%m-%d %H:%M:%S'
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 logging.getLogger("paramiko").setLevel(logging.INFO)
 
 # ------------------------------------------------------------------------------
-# error_handling functions
+# supporting functions used by multiple error_handling functions
 # ------------------------------------------------------------------------------
 
 def create_conn(env: str) -> psycopg2.extensions.connection:
-	"""
-	created connection object with given items from the connection yaml based
-		off of the env provided
+    """
+    created connection object with given items from the connection yaml based
+        off of the env provided
 
-	:param env: env name as a string to connect to
-	:return: psycopg2 connection based off of the env provided
-	"""
-	# Read the YAML configuration file
-	try:
-		with open('environments.yaml', 'r') as file:
-			config = yaml.safe_load(file)
-	except FileNotFoundError:
-		raise FileNotFoundError("environments.yaml file not found")
+    :param env: env name as a string to connect to
+    :return: psycopg2 connection based off of the env provided
+    """
+    # Read the YAML configuration file
+    try:
+        with open('environments.yaml', 'r') as file:
+            config = yaml.safe_load(file)
+    except FileNotFoundError:
+        raise FileNotFoundError("environments.yaml file not found")
 
-	# Get the database configuration for the specified environment
-	if env not in config['pgsql']:
-		raise ValueError(f"Environment '{env}' not found in configuration")
+    # Get the database configuration for the specified environment
+    if env not in config['pgsql']:
+        raise ValueError(f"Environment '{env}' not found in configuration")
 
-	db_config = config['pgsql'][env]
+    db_config = config['pgsql'][env]
 
-	# Create the connection string
-	conn_string = f"host={db_config['endpoint']} " \
-				  f"port={db_config['port']} " \
-				  f"dbname={db_config['database_name']} " \
-				  f"user={db_config['username']} " \
-				  f"password={db_config['password']}"
+    # Create the connection string
+    conn_string = f"host={db_config['endpoint']} " \
+                  f"port={db_config['port']} " \
+                  f"dbname={db_config['database_name']} " \
+                  f"user={db_config['username']} " \
+                  f"password={db_config['password']}"
 
-	# Connect to the database
-	conn = psycopg2.connect(conn_string)
+    # Connect to the database
+    conn = psycopg2.connect(conn_string)
 
-	# Set the schema as the default for lookups
-	with conn.cursor() as cursor:
-		cursor.execute(f"SET search_path TO {db_config['schema']}")
-		conn.commit()
+    # Set the schema as the default for lookups
+    with conn.cursor() as cursor:
+        cursor.execute(f"SET search_path TO {db_config['schema']}")
+        conn.commit()
 
-	return conn
+    return conn
+
+
+def get_all_hashes(env: str) -> list:
+    """
+    returns all hashes from the select environment media table
+
+    :param env: either "prod" "stg" or "dev" used for mapping to appropriate
+        ports and credentials
+    :returns hashes: list of media item hashes
+    """
+    # get database con
+    conn = create_conn(env)
+
+    # construct udpate statement
+    statement = f"""select hash from atp.media order by hash"""
+
+    with conn.cursor() as cursor:
+        cursor.execute(statement)
+        results = cursor.fetchall()
+        hashes = [row[0] for row in results]
+
+    conn.close()
+
+    return hashes
+
 
 # ------------------------------------------------------------------------------
 # error_handling functions
 # ------------------------------------------------------------------------------
 
 def recycle_downloading_items(
-	media_type: str,
-	port: int = 9093,
-	schema: str = "dev"
+    media_type: str,
+    port: int = 9093,
+    schema: str = "dev"
 ):
-	"""
-	- removes all items currently downloading from the database
-	- upon rerun of pipeline, all elements this function removed should be
+    """
+    - removes all items currently downloading from the database
+    - upon rerun of pipeline, all elements this function removed should be
       collected and properly re-inserted into pipeline
 
-	example execution:
+    example execution:
 
-	clean_downloading_items(
-		media_type = "tv_show"
-		,port = 9091
-		,schema = "prod"
-	)
+    clean_downloading_items(
+        media_type = "tv_show"
+        ,port = 9091
+        ,schema = "prod"
+    )
 
-	:param media_type: either "movies", "tv_shows", or "tv_seasons"
-	:param port: the given port number for the cleaning;
-	  - 9091 for prod
-	  - 9092 for stg
-	  - 9093 for dev (default)
-	:param schema: matching schema name for port number
-	"""
-	#port = 9091
+    :param media_type: either "movies", "tv_shows", or "tv_seasons"
+    :param port: the given port number for the cleaning;
+      - 9091 for prod
+      - 9092 for stg
+      - 9093 for dev (default)
+    :param schema: matching schema name for port number
+    """
+    #port = 9091
 
-	# get all current downloading torrents
-	current_items = utils.return_current_torrents(port=port)
+    # get all current downloading torrents
+    current_items = utils.return_current_torrents(port=port)
 
-	if current_items is None:
-		logging.info("no items to clean")
-		return
+    if current_items is None:
+        logging.info("no items to clean")
+        return
 
-	current_hashes = list(current_items.keys())
+    current_hashes = list(current_items.keys())
 
-	logging.debug(f"current hashes: {current_hashes}")
+    logging.debug(f"current hashes: {current_hashes}")
 
-	# delete them from the database
-	utils.delete_items_from_db(
-		hashes=current_hashes,
-		media_type=media_type,
-		schema=schema
-	)
+    # delete them from the database
+    utils.delete_items_from_db(
+        hashes=current_hashes,
+        media_type=media_type,
+        schema=schema
+    )
 
 
 def mark_items_as_complete(
-	hashes: list,
-	env: str
+    hashes: list,
+    env: str
 ) -> int:
-	"""
-	- marks items as pipeline_status = "complete"
-	- removes any error flags or conditions
-	- set rejection status to override
+    """
+    - marks items as pipeline_status = "complete"
+    - removes any error flags or conditions
+    - set rejection status to override
 
-	:param hashes: list of hashes as strings to be marked as complete
-	:param env: either "prod" "stg" or "dev" used for mapping to appropriate
-		ports and credentials
-	:returns: int of the number of rows successfully updated
-	"""
-	# get database con
-	conn = create_conn(env)
+    :param hashes: list of hashes as strings to be marked as complete
+    :param env: either "prod" "stg" or "dev" used for mapping to appropriate
+        ports and credentials
+    :returns: int of the number of rows successfully updated
+    """
+    # get database con
+    conn = create_conn(env)
 
-	# convert list to string
-	hash_string = ",".join([f"'{h}'" for h in hashes])
+    # convert list to string
+    hash_string = ",".join([f"'{h}'" for h in hashes])
 
-	# construct udpate statement
-	statement = f"""
-	update atp.media 
-	set pipeline_status = 'complete',
-		error_status = False,
-		error_condition = Null,
-		rejection_status = 'override',
-		rejection_reason = Null
-	where hash in (
-		{hash_string}
-	)
-	"""
+    # construct udpate statement
+    statement = f"""
+    update atp.media 
+    set pipeline_status = 'complete',
+        error_status = False,
+        error_condition = Null,
+        rejection_status = 'override',
+        rejection_reason = Null
+    where hash in (
+        {hash_string}
+    )
+    """
 
-	with conn.cursor() as cursor:
-		cursor.execute(statement)
-		rows_updated = cursor.rowcount
-		conn.commit()
+    with conn.cursor() as cursor:
+        cursor.execute(statement)
+        rows_updated = cursor.rowcount
+        conn.commit()
 
-	conn.close()
+    conn.close()
 
-	return rows_updated
+    return rows_updated
 
 
 def reingest_items(
-	hashes: list,
-	env: str
+    hashes: list,
+    env: str
 ) -> int:
-	"""
-	takes elements at any stage in the ingestion pipeline and puts them back
-		into the initial ingested state
+    """
+    takes elements at any stage in the ingestion pipeline and puts them back
+        into the initial ingested state
 
-	:param hashes: list of hashes as strings to be marked as complete
-	:param env: either "prod" "stg" or "dev" used for mapping to appropriate
-		ports and credentials
-	:returns: int of the number of rows successfully updated
-	"""
-	# get database con
-	conn = create_conn(env)
+    :param hashes: list of hashes as strings to be marked as complete
+    :param env: either "prod" "stg" or "dev" used for mapping to appropriate
+        ports and credentials
+    :returns: int of the number of rows successfully updated
+    """
+    # get database con
+    conn = create_conn(env)
 
-	# convert list to string
-	hash_string = ",".join([f"'{h}'" for h in hashes])
+    # convert list to string
+    hash_string = ",".join([f"'{h}'" for h in hashes])
 
-	# construct udpate statement
-	statement = f"""
-	update atp.media
-	set pipeline_status = 'ingested', 
-		error_status = False,
-		error_condition = Null,
-		rejection_status = 'unfiltered',
-		rejection_reason = Null
-	where hash in (
-		{hash_string}
-	)
-	"""
+    # construct udpate statement
+    statement = f"""
+    update atp.media
+    set pipeline_status = 'ingested', 
+        error_status = False,
+        error_condition = Null,
+        rejection_status = 'unfiltered',
+        rejection_reason = Null
+    where hash in (
+        {hash_string}
+    )
+    """
 
-	with conn.cursor() as cursor:
-		cursor.execute(statement)
-		rows_updated = cursor.rowcount
-		conn.commit()
+    with conn.cursor() as cursor:
+        cursor.execute(statement)
+        rows_updated = cursor.rowcount
+        conn.commit()
 
-	conn.close()
+    conn.close()
 
-	return rows_updated
+    return rows_updated
 
 
 def reject_hung_downloads(
-	hashes: list,
-	env: str
+    hashes: list,
+    env: str
 ) -> int:
-	"""
-	takes downloads that are just taking too long and updates status
-		appropriately; in many cases these will be items that are redundant
-		to other items that have already been successful; also remove the
-		item from the daemon
+    """
+    takes downloads that are just taking too long and updates status
+        appropriately; in many cases these will be items that are redundant
+        to other items that have already been successful; also remove the
+        item from the daemon
 
-	:param hashes: list of hashes as strings to be marked as complete
-	:param env: either "prod" "stg" or "dev" used for mapping to appropriate
-		ports and credentials
-	:returns: int of the number of rows successfully updated
-	"""
-	# get database con
-	conn = create_conn(env)
+    :param hashes: list of hashes as strings to be marked as complete
+    :param env: either "prod" "stg" or "dev" used for mapping to appropriate
+        ports and credentials
+    :returns: int of the number of rows successfully updated
+    """
+    # get database con
+    conn = create_conn(env)
 
-	# convert list to string
-	hash_string = ",".join([f"'{h}'" for h in hashes])
+    # convert list to string
+    hash_string = ",".join([f"'{h}'" for h in hashes])
 
-	# construct udpate statement
-	statement = f"""
-	update atp.media
-	set pipeline_status = 'rejected', 
-		error_status = False,
-		error_condition = Null,
-		rejection_status = 'rejected',
-		rejection_reason = 'download time limit exceeded'
-	where hash in (
-		{hash_string}
-	)
-	"""
+    # construct udpate statement
+    statement = f"""
+    update atp.media
+    set pipeline_status = 'rejected', 
+        error_status = False,
+        error_condition = Null,
+        rejection_status = 'rejected',
+        rejection_reason = 'download time limit exceeded'
+    where hash in (
+        {hash_string}
+    )
+    """
 
-	with conn.cursor() as cursor:
-		cursor.execute(statement)
-		rows_updated = cursor.rowcount
-		conn.commit()
+    with conn.cursor() as cursor:
+        cursor.execute(statement)
+        rows_updated = cursor.rowcount
+        conn.commit()
 
-	conn.close()
+    conn.close()
 
-	# needs to be properly connected to the correct environment
-	for hash in hashes:
-		utils.remove_media_item(hash)
+    # needs to be properly connected to the correct environment
+    for hash in hashes:
+        utils.remove_media_item(hash)
 
-	return rows_updated
+    return rows_updated
+
+# ------------------------------------------------------------------------------
+# re-run metadata
+# ------------------------------------------------------------------------------
+
+def re_parse_hashes(hashes: list):
+    """
+    - reruns elements through the parsing pipeline; will return error if
+        encountered, but will not otherwise update status
+    - this function is environmentally locked, and not currently parameterizable
+
+    :param hashes: list of hashes to rerun
+    """
+    # standard library imports
+    import logging
+
+    # third-party imports
+    from dotenv import load_dotenv
+    import polars as pl
+    import yaml
+
+    # local/custom imports
+    from src.data_models import MediaDataFrame
+    import src.utils as utils
+
+    # ------------------------------------------------------------------------------
+    # config
+    # ------------------------------------------------------------------------------
+
+    # load environment variables
+    load_dotenv(override=True)
+
+    # log config
+    logger = logging.getLogger(__name__)
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
+
+    # read in string special conditions
+    with open('./config/string-special-conditions.yaml', 'r') as file:
+        special_conditions = yaml.safe_load(file)
+
+    # ------------------------------------------------------------------------------
+    # title parse helper functions
+    # ------------------------------------------------------------------------------
+
+    def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
+        """
+        Parse the title of media items to extract relevant information
+        :param media: MediaDataFrame contain all elements to be parsed
+        :returns: DataFrame with parsed elements
+        """
+        # Create a copy of the input DataFrame
+        parsed_media = media.df.clone()
+
+        # Apply pre-processing replacements
+        parsed_media = parsed_media.with_columns(
+            cleaned_title=pl.col("original_title")
+        )
+
+        for old_str, new_str in special_conditions[
+            'pre_processing_replacements']:
+            parsed_media = parsed_media.with_columns(
+                cleaned_title=pl.col("cleaned_title").str.replace(old_str,
+                                                                  new_str)
+            )
+
+        # Extract common patterns using vectorized operations
+        parsed_media = parsed_media.with_columns(
+            resolution=pl.col("cleaned_title").map_elements(
+                utils.extract_resolution, return_dtype=pl.Utf8),
+            video_codec=pl.col("cleaned_title").map_elements(
+                utils.extract_video_codec, return_dtype=pl.Utf8),
+            audio_codec=pl.col("cleaned_title").map_elements(
+                utils.extract_audio_codec, return_dtype=pl.Utf8),
+            upload_type=pl.col("cleaned_title").map_elements(
+                utils.extract_upload_type, return_dtype=pl.Utf8),
+            uploader=pl.col("cleaned_title").map_elements(
+                utils.extract_uploader, return_dtype=pl.Utf8)
+        )
+
+        # process based on media type
+        movie_mask = parsed_media['media_type'] == "movie"
+        if movie_mask.any():
+            parsed_media = parsed_media.with_columns(
+                release_year=pl.when(movie_mask)
+                .then(pl.col('cleaned_title').map_elements(
+                    utils.extract_year,
+                    return_dtype=pl.Int32
+                )).otherwise(pl.col('release_year'))
+            )
+
+        tv_show_mask = parsed_media['media_type'] == "tv_show"
+        if tv_show_mask.any():
+            parsed_media = parsed_media.with_columns(
+                season=pl.when(tv_show_mask)
+                .then(pl.col('cleaned_title').map_elements(
+                    utils.extract_season_from_episode,
+                    return_dtype=pl.Int32
+                )).otherwise(pl.col('season')),
+                episode=pl.when(tv_show_mask)
+                .then(pl.col('cleaned_title').map_elements(
+                    utils.extract_episode_from_episode,
+                    return_dtype=pl.Int32
+                )).otherwise(pl.col('episode'))
+            )
+
+        tv_season_mask = parsed_media['media_type'] == "tv_season"
+        if tv_season_mask.any():
+            parsed_media = parsed_media.with_columns(
+                season=pl.when(tv_season_mask)
+                .then(pl.col('cleaned_title').map_elements(
+                    utils.extract_season_from_season,
+                    return_dtype=pl.Int32
+                )).otherwise(pl.col('season'))
+            )
+
+        # extract media_title
+        parsed_media = parsed_media.with_columns(
+            media_title=pl.struct(["cleaned_title", "media_type"]).map_elements(
+                lambda x: utils.extract_title(x["cleaned_title"],
+                                              x["media_type"]),
+                return_dtype=pl.Utf8
+            )
+        )
+
+        # drop the cleaned title
+        parsed_media.drop_in_place('cleaned_title')
+
+        return parsed_media
+
+    def validate_parsed_media(media: MediaDataFrame) -> pl.DataFrame:
+        """
+        validates media data based on the media type and update error status columns.
+        :param media : MediaDataFrame containing parsed elements
+        :returns verified_media: MediaDataFrame with verification check elements
+            contained within
+        """
+        verified_media = media.df.clone()
+
+        # Define mandatory fields for each media type
+        mandatory_fields = {
+            'all_media': ['media_title'],
+            'movie': ['release_year'],
+            'tv_show': ['season', 'episode'],
+            'tv_season': ['season']
+        }
+
+        # verify mandatory fields for all media types
+        for field in mandatory_fields['all_media']:
+            verified_media = verified_media.with_columns(
+                error_status=pl.when(pl.col(field).is_null())
+                .then(pl.lit(True))
+                .otherwise(pl.col('error_status')),
+                error_condition=pl.when(pl.col(field).is_null())
+                .then(
+                    pl.when(pl.col('error_condition').is_null())
+                    .then(pl.lit(f"{field} is null"))
+                    .otherwise(pl.concat_str(
+                        pl.col('error_condition'),
+                        pl.lit(f"; {field} is null")
+                    ))
+                )
+                .otherwise(pl.col('error_condition'))
+            )
+
+        # verify mandatory fields for specific media types
+        movie_mask = verified_media['media_type'] == "movie"
+        if movie_mask.any():
+            for field in mandatory_fields['movie']:
+                null_mask = pl.col(field).is_null()
+                verified_media = verified_media.with_columns(
+                    error_status=pl.when(movie_mask).then(
+                        pl.when(null_mask)
+                        .then(pl.lit(True))
+                        .otherwise(pl.col("error_status")),
+                    ).otherwise('error_status'),
+                    error_condition=pl.when(movie_mask).then(
+                        pl.when(null_mask)
+                        .then(
+                            pl.when(pl.col('error_condition').is_null())
+                            .then(pl.lit(f"{field} is null"))
+                            .otherwise(pl.concat_str(
+                                pl.col('error_condition'),
+                                pl.lit(f"; {field} is null")
+                            ))
+                        )
+                        .otherwise(pl.col('error_condition'))
+                    ).otherwise('error_condition')
+                )
+
+        tv_show_mask = verified_media['media_type'] == "tv_show"
+        if tv_show_mask.any():
+            for field in mandatory_fields['tv_show']:
+                null_mask = pl.col(field).is_null()
+                verified_media = verified_media.with_columns(
+                    error_status=pl.when(tv_show_mask).then(
+                        pl.when(null_mask)
+                        .then(pl.lit(True))
+                        .otherwise(pl.col("error_status"))
+                    ).otherwise('error_status'),
+                    error_condition=pl.when(tv_show_mask).then(
+                        pl.when(null_mask)
+                        .then(
+                            pl.when(pl.col('error_condition').is_null())
+                            .then(pl.lit(f"{field} is null"))
+                            .otherwise(pl.concat_str(
+                                pl.col('error_condition'),
+                                pl.lit(f"; {field} is null")
+                            ))
+                        )
+                        .otherwise(pl.col('error_condition'))
+                    ).otherwise('error_condition')
+                )
+
+        tv_season_mask = verified_media['media_type'] == "tv_season"
+        if tv_season_mask.any():
+            for field in mandatory_fields['tv_season']:
+                null_mask = pl.col(field).is_null()
+                verified_media = verified_media.with_columns(
+                    error_status=pl.when(tv_season_mask).then(
+                        pl.when(null_mask)
+                        .then(pl.lit(True))
+                        .otherwise(pl.col("error_status"))
+                    ).otherwise('error_status'),
+                    error_condition=pl.when(tv_season_mask).then(
+                        pl.when(null_mask)
+                        .then(
+                            pl.when(pl.col('error_condition').is_null())
+                            .then(pl.lit(f"{field} is null"))
+                            .otherwise(pl.concat_str(
+                                pl.col('error_condition'),
+                                pl.lit(f"; {field} is null")
+                            ))
+                        )
+                        .otherwise(pl.col('error_condition'))
+                    ).otherwise('error_condition')
+                )
+
+        return verified_media
+
+    # ------------------------------------------------------------------------------
+    # main execution
+    # ------------------------------------------------------------------------------
+
+    # read in existing data based on ingest_type
+    media = utils.get_media_by_hash(hashes)
+
+    # if no new data, return
+    if media is None:
+        return
+
+    # iterate through all new movies, parse data from the title and add to new dataframe
+    media.update(parse_media_items(media=media))
+
+    # validate all essential fields are present
+    media.update(validate_parsed_media(media))
+
+    for row in media.df.iter_rows(named=True):
+        if row['error_status']:
+            logging.error(f"{row['hash']} - {row['error_condition']}")
+        else:
+            logging.info(f"parsed - {row['hash']}")
+
+    # write parsed data back to the database
+    utils.media_db_update(media=media)
+
+
+def rerun_metadata(hashes: list):
+    """
+    - reruns all selected hashes through metadata collection
+    - does commit errors to db, but does not otherwise update status
+    - is locked to enviroment running from, not parameterizable like other
+        functions here
+
+    :param hashes: hash list of items to be reran
+    """
+    # standard library imports
+    import json
+    import logging
+    import os
+    import re
+    import time
+
+    # third-party imports
+    from dotenv import load_dotenv
+    import polars as pl
+    import requests
+
+    # local/custom imports
+    import src.utils as utils
+    from src.data_models import MediaDataFrame
+
+    # ------------------------------------------------------------------------------
+    # initialization and setup
+    # ------------------------------------------------------------------------------
+
+    # Load environment variables from .env file
+    load_dotenv()
+
+    # logger config
+    logger = logging.getLogger(__name__)
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
+
+    # load api env vars
+    movie_search_api_base_url = os.getenv('MOVIE_SEARCH_API_BASE_URL')
+    movie_details_api_base_url = os.getenv('MOVIE_DETAILS_API_BASE_URL')
+    movie_ratings_api_base_url = os.getenv('MOVIE_RATINGS_API_BASE_URL')
+    movie_search_api_key = os.getenv('MOVIE_SEARCH_API_KEY')
+    movie_details_api_key = os.getenv('MOVIE_DETAILS_API_KEY')
+    movie_ratings_api_key = os.getenv('MOVIE_RATINGS_API_KEY')
+
+    tv_search_api_base_url = os.getenv('TV_SEARCH_API_BASE_URL')
+    tv_details_api_base_url = os.getenv('TV_DETAILS_API_BASE_URL')
+    tv_ratings_api_base_url = os.getenv('TV_RATINGS_API_BASE_URL')
+    tv_search_api_key = os.getenv('TV_SEARCH_API_KEY')
+    tv_details_api_key = os.getenv('TV_DETAILS_API_KEY')
+    tv_ratings_api_key = os.getenv('TV_RATINGS_API_KEY')
+
+    # ------------------------------------------------------------------------------
+    # metadata collection helper functions
+    # ------------------------------------------------------------------------------
+
+    def media_search(media_item: dict) -> dict:
+        """
+        uses TMDB to search for a media item; the TMDB search API is less strict
+            than its actual media retrieval API; this step is intended to be one
+            additional check on the string parsing of the original_title field
+
+        :param media_item: dict containing one for of media.df
+        :return: dict of items with metadata added
+        """
+        #media_item = media.df.row(0, named=True)
+        # make API call for media search
+        response = {}
+
+        if media_item['media_type'] == 'movie':
+            params = {
+                'query': media_item["media_title"],
+                'year': media_item["release_year"],
+                'api_key': movie_search_api_key
+            }
+            logging.debug(f"searching for: {media_item['hash']} as '{params['query']}' - '{params['year']}'")
+
+            response = requests.get(movie_search_api_base_url, params=params)
+
+        elif media_item['media_type'] in ['tv_show', 'tv_season']:
+            if media_item['release_year'] is not None:
+                params = {
+                    'query': media_item["media_title"],
+                    'year': media_item['release_year'],
+                    'api_key': tv_search_api_key
+                }
+            else:
+                params = {
+                    'query': media_item["media_title"],
+                    'api_key': tv_search_api_key
+                }
+
+            logging.debug(f"searching for: {media_item['hash']} as '{params['query']}'")
+
+            # Make a request to the media API
+            response = requests.get(tv_search_api_base_url, params=params)
+
+        # verify successful API response and update status accordingly
+        if response.status_code != 200:
+            logging.error(f"media search API returned status code: {response.status_code}")
+            media_item['error_status'] = True
+            media_item['error_condition'] = f"media search API returned status code: {response.status_code}"
+            return media_item
+
+        # verify that contents exist within the data object and update status accordingly
+        if len(json.loads(response.content)['results']) == 0:
+            logging.debug(f'no metadata could be found for: {media_item['hash']} as "{media_item['media_title']}"')
+            media_item['error_status'] = False
+            media_item['error_condition'] = None
+            media_item['rejection_status'] = 'rejected'
+            media_item['rejection_reason'] = f"media search failed"
+            return media_item
+
+        # if no issue load results
+        data = json.loads(response.content)['results'][0]
+
+        # re-assign title to media_item based off of query search
+        query_title = None
+        if media_item['media_type'] == 'movie':
+            query_title = data.get('title')
+        elif media_item['media_type'] in ['tv_show', 'tv_season']:
+            query_title = data.get('name')
+
+        if query_title != media_item['media_title']:
+            logging.debug(
+                f"for item {media_item['hash']} changing title from {media_item['media_title']} -> {query_title}"
+            )
+            media_item['media_title'] = query_title
+
+        # store tmdb_id
+        media_item['tmdb_id'] = int(data.get('id'))
+
+        # Save the updated tv_shows DataFrame
+        return media_item
+
+
+    def collect_details(media_item: dict) -> dict:
+        """
+        uses TMDB to get the details of a media item; this is a different API
+            then the one above, which accepts only the tmdb_id collected above
+
+        :param media_item: dict containing one for of media.df
+        :return: dict of items with metadata added
+        """
+        #media_item = media.df.row(0, named=True)
+        response = {}
+
+        # prepare and send response
+        if media_item['media_type'] == 'movie':
+            params = {'api_key': movie_details_api_key}
+            url = f"{movie_details_api_base_url}/{media_item['tmdb_id']}"
+
+            logging.debug(f"collecting metadata details for: {media_item['hash']}")
+            response = requests.get(url, params=params)
+        elif media_item['media_type'] in ['tv_show', 'tv_season']:
+            params = {'api_key': tv_details_api_key}
+            url = f"{tv_details_api_base_url}/{media_item['tmdb_id']}"
+
+            logging.debug(f"collecting metadata details for: {media_item['hash']}")
+            response = requests.get(url, params=params)
+
+        # verify successful API response and update status accordingly
+        if response.status_code != 200:
+            logging.error(f"media details API returned status code: {response.status_code}")
+            media_item['error_status'] = True
+            media_item['error_condition'] = f"media details API status code: {response.status_code}"
+            return media_item
+
+        # if no issue load results
+        data = json.loads(response.content)
+
+        # metadata items common to all media types
+        genres = []
+        for genre in data.get('genres'):
+            genres.append(genre['name'])
+
+        media_item['genre'] = genres
+
+        languages = []
+        languages.append(data.get('original_language'))
+        for language in data.get('spoken_languages'):
+            languages.append(language['iso_639_1'])
+        languages=list(set(languages))
+
+        media_item['language'] = languages
+
+        # media type specific fields to collect
+        if media_item['media_type'] == 'movie':
+            media_item['imdb_id'] = data.get('imdb_id')
+        elif media_item['media_type'] in ['tv_show', 'tv_season']:
+            year_pattern = r'(19|20)\d{2}'
+            release_year = re.search(year_pattern, data.get('first_air_date'))[0]
+            media_item['release_year'] = int(release_year)
+
+        # potential fields to include at a later data
+        #created_by
+        #networks
+        #origin_country
+        #languages
+        #overview
+        #popularity
+        #production_companies
+        #production_countries
+
+        return media_item
+
+
+    def collect_ratings(media_item: dict) -> dict:
+        """
+        get ratings specific details for each media item, e.g. rt_score, metascore
+
+        :param media_item: dict containing one for of media.df
+        :return: dict of items with metadata added
+        """
+        # media_item = media.df.row(5, named=True)
+
+        response = {}
+
+        # Define the parameters for the OMDb API request
+        if media_item['media_type'] == 'movie':
+            params = {
+                't': media_item["media_title"],
+                'y': media_item["release_year"],
+                'apikey': movie_ratings_api_key
+            }
+
+            logging.debug(f"collecting ratings for: {media_item['hash']}")
+            response = requests.get(movie_ratings_api_base_url, params=params)
+
+        elif media_item['media_type'] in ['tv_show', 'tv_season']:
+            params = {
+                't': media_item["media_title"],
+                'y': media_item["release_year"],
+                'apikey': tv_ratings_api_key
+            }
+
+            logging.debug(f"collecting ratings for: {media_item['hash']}")
+            response = requests.get(tv_ratings_api_base_url, params=params)
+
+        status_code = response.status_code
+
+        if response.status_code != 200:
+            logging.error(f"media ratings API returned status code: {response.status_code}")
+            media_item['error_status'] = True
+            media_item['error_condition'] = f"media ratings API status code: {response.status_code}"
+            return media_item
+
+        data = json.loads(response.content)
+
+        # check if the response was successful, and if so move on
+        if status_code == 200 and data["Response"] == "True":
+            # Extract the metadata from the response
+            if data:
+                # items to collect for movies and tv shows
+                if data.get('Metascore', None) != "N/A":
+                    media_item['metascore'] = data.get('Metascore')
+                if data.get('imdbRating', None) != "N/A":
+                    media_item['imdb_rating'] = float(re.sub(r"\D", "", data.get('imdbRating')))
+                if data.get('imdbVotes', None) != "N/A":
+                    media_item['imdb_votes'] = int(re.sub(r"\D", "", data.get('imdbVotes')))
+                media_item['imdb_id'] = data.get('imdbID', None)
+                # items to collect only for movies
+                if media_item['media_type'] == 'movie':
+                    if "Ratings" in data:
+                        # determine if Rotten tomato exists in json
+                        for rating in data.get("Ratings", []):
+                            if rating["Source"] == "Rotten Tomatoes":
+                                media_item['rt_score'] = int(rating["Value"].rstrip('%'))
+                # items to collect only for tv shows
+
+        # return the updated media_item
+        return media_item
+
+
+    # ------------------------------------------------------------------------------
+    # full metadata collection pipeline
+    # ------------------------------------------------------------------------------
+
+    # read in existing data
+    media = utils.get_media_by_hash(hashes)
+
+    # if no media to parse, return
+    if media is None:
+        return
+
+    # search for media, and if not available reject
+    updated_rows = []
+
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        # pause at increments of 50 items to avoid rate limiting
+        if (idx+1) % 50 == 0:
+            logging.debug(f"completed metadata search batch {(idx+1)//50}")
+            time.sleep(1)
+        updated_row = media_search(row)
+        updated_rows.append(updated_row)
+
+    media = MediaDataFrame(updated_rows)
+
+    # get additional media details
+    updated_rows = []
+
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        # pause at increments of 50 items to avoid rate limiting
+        if (idx+1) % 50 == 0:
+            logging.debug(f"completed metadata details batch {(idx+1)//50}")
+            time.sleep(1)
+        if not row['error_status'] and row['tmdb_id'] is not None :
+            updated_row = collect_details(row)
+        else:
+            updated_row = row
+        updated_rows.append(updated_row)
+
+    media.update(pl.DataFrame(updated_rows))
+
+    # get media rating metadata
+    # updated_rows = []
+    #
+    # for idx, row in enumerate(media.df.iter_rows(named=True)):
+    #     # pause 1 second between all items
+    #     time.sleep(1)
+    #     # pause at increments of 50 items to avoid rate limiting
+    #     if (idx + 1) % 50 == 0:
+    #         logging.debug(
+    #             f"completed metadata rating batch {(idx + 1) // 50}")
+    #         time.sleep(10)
+    #     if not row['error_status']:
+    #         updated_row = collect_ratings(row)
+    #     else:
+    #         updated_row = row
+    #     updated_rows.append(updated_row)
+    #
+    # media.update(pl.DataFrame(updated_rows))
+
+    # log succssefully collected items
+    #for idx, row in enumerate(media.df.filter(~pl.col('error_status')).iter_rows(named=True)):
+    #    logging.info(f"metadata collected - {row['hash']}")
+
+    # write metadata back to the database
+    utils.media_db_update(media=media)
+
+
+def rerun_metadata_ratings(hashes: list, delay: int = 1):
+    """
+    - reruns all metadata ratings through metadata ratings API
+    - does commit errors to db, but does not otherwise update status
+    - is locked to environment running from, not parameterizable like other
+        functions here
+
+    :param hashes: hash list of items to be reran
+    :param delay: number of seconds to wait between API calls
+    """
+    # standard library imports
+    import json
+    import logging
+    import os
+    import re
+    import time
+
+    # third-party imports
+    from dotenv import load_dotenv
+    import polars as pl
+    import requests
+
+    # local/custom imports
+    import src.utils as utils
+    from src.data_models import MediaDataFrame
+
+    # ------------------------------------------------------------------------------
+    # initialization and setup
+    # ------------------------------------------------------------------------------
+
+    # Load environment variables from .env file
+    load_dotenv()
+
+    # logger config
+    logger = logging.getLogger(__name__)
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
+
+    # load api env vars
+    ratings_api_base_url = os.getenv('MOVIE_RATINGS_API_BASE_URL')
+    ratings_api_key = os.getenv('MOVIE_RATINGS_API_KEY')
+
+    def collect_ratings(media_item: dict) -> dict:
+        """
+        get ratings specific details for each media item, e.g. rt_score, metascore
+
+        :param media_item: dict containing one for of media.df
+        :return: dict of items with metadata added
+        """
+        # media_item = media.df.row(5, named=True)
+
+        response = {}
+
+        # Define the parameters for the OMDb API request
+        if media_item['imdb_id'] is not None:
+            params = {
+                'i': media_item["imdb_id"],
+                'apikey': ratings_api_key
+            }
+            logging.debug(f"collecting ratings for: {media_item['hash']} - imdb_id - {media_item['imdb_id']}")
+        elif media_item['release_year'] is not None:
+            params = {
+                't': media_item["media_title"],
+                'y': media_item["release_year"],
+                'apikey': ratings_api_key
+            }
+            logging.debug(f"collecting ratings for: {media_item['hash']} - '{media_item['media_title']}' - {media_item['release_year']}")
+        else:
+            params = {
+                't': media_item["media_title"],
+                'apikey': ratings_api_key
+            }
+            logging.debug(f"collecting ratings for: {media_item['hash']} - '{media_item['media_title']}'")
+
+        response = requests.get(ratings_api_base_url, params=params)
+        status_code = response.status_code
+
+        if response.status_code != 200:
+            logging.error(f"media ratings API returned status code: {response.status_code}")
+            media_item['error_status'] = True
+            media_item['error_condition'] = f"media ratings API status code: {response.status_code}"
+            return media_item
+
+        data = json.loads(response.content)
+
+        # check if the response was successful, and if so move on
+        if status_code == 200 and data["Response"] == "True":
+            # Extract the metadata from the response
+            if data:
+                # items to collect for movies and tv shows
+                if data.get('Metascore', None) != "N/A":
+                    media_item['metascore'] = data.get('Metascore')
+                if data.get('imdbRating', None) != "N/A":
+                    media_item['imdb_rating'] = float(re.sub(r"\D", "", data.get('imdbRating')))
+                if data.get('imdbVotes', None) != "N/A":
+                    media_item['imdb_votes'] = int(re.sub(r"\D", "", data.get('imdbVotes')))
+                media_item['imdb_id'] = data.get('imdbID', None)
+                # items to collect only for movies
+                if media_item['media_type'] == 'movie':
+                    if "Ratings" in data:
+                        # determine if Rotten tomato exists in json
+                        for rating in data.get("Ratings", []):
+                            if rating["Source"] == "Rotten Tomatoes":
+                                media_item['rt_score'] = int(rating["Value"].rstrip('%'))
+                # items to collect only for tv shows
+
+        # return the updated media_item
+        return media_item
+
+    # -------------------------------------------------------------------------
+    # primary function execution
+    # -------------------------------------------------------------------------
+
+    # read in existing data
+    media = utils.get_media_by_hash(hashes)
+
+    # if no media to parse, return
+    if media is None:
+        return
+
+    # get media rating metadata
+    updated_rows = []
+
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        # pause between elements to avoid rate limiting
+        time.sleep(delay)
+        if not row['error_status'] and row['tmdb_id'] is not None:
+            updated_row = collect_ratings(row)
+        else:
+            updated_row = row
+        updated_rows.append(updated_row)
+
+    media.update(pl.DataFrame(updated_rows))
+
+    # log successfully collected items
+    for idx, row in enumerate(media.df.filter(~pl.col('error_status')).iter_rows(named=True)):
+       logging.info(f"metadata collected - {row['hash']}")
+
+    # write metadata back to the database
+    utils.media_db_update(media=media)
+
 
 # ------------------------------------------------------------------------------
 # make error handling function calls
 # ------------------------------------------------------------------------------
 
-hashes = [
-"1beb03f016f323331ef1d6986db62d7adc20fa44",
-"9a406d05e19846af2c806c299c7bbc76a8cfa252",
-"1dd556a88bd0eca58c7b33265ee7ac4f2cdc920d",
-"5610bedad0f5b39b78582b8197c632f08a6036cf",
-"932411ca300bc1e848f8ea26b8538ab25986a1cc",
-"8a4aaebd2677c000f4af484a4a1ed154348f46b5",
-"3a2015a608bddbbb5f386bbda8efffc62b014b1a",
-"4f515ff1941e1258504621f85a793a736155f960",
-"7d01923f04832809687548d214db1b8a6554784f",
-"d0549bc8d774d8140610fb95a62adcf8cf8bf598",
-"ba17c130e8954fab53cdf471ce697cc7fe4d4283",
-"cfe1b90dbbdd64abc168e9bcae9dd8aebf564743",
-"138ac106139787c779fcc3d9924a7f8ee91e3cd6",
-"831060f7b729ecb68b071e144ac2294147578fc9",
-"9c22e30a99e420533e31d77328d838397fb95427",
-"08262ee9469659b098ea1e3748f51c7130737a6a",
-"38c84e703759322ae805ba727bd4202c7221efed",
-"b1a16cb34fcc65371bebe39ebb7b15d1b7b0c71a",
-"a064d3414a353c69356b398c0b5c0c6192046155",
-"f9a2c06947c928e71d6a96111711d096eabbddf0",
-"fe850f33510ec5ef5ea65701568a107c276b6cfe",
-"0aa4d5a114e3e381d0f278720ffe606f03250870",
-"12c71832869d3957864f10c538b586caf05c892f",
-"902246e9bc6076d26c7bf4838f983f90a5dd0056",
-"b1c0ff2818e0b595c04a8d3326abea27dd3935f7",
-"e11128783bbff5eb68df60327c4748a67ce7095e",
-"08bea67a3205c1fa4955540c38d38a39d1a04deb",
-"f345671caddb14af480be7521021775dfd9e99c4",
-"19827c0a8196f98252bdee8055230924b2744b53",
-"e5781de2ad387bad945661d936769ba21f0ede18",
-"2a4f4be0b5dddf699ca5734a6e8977c55a3a2660",
-"85f8f5862c1d5e04e19fee238c282f0d0d76cabe",
-"ff4b1a9e01ec7866b8075d64950269c7279fbe6e",
-"15332fd186a75b4bb6b414276a4c66718da1dee5",
-"044313b2b2e5f4016a50a26ac735fbf124687f31",
-"dd055ea29c345bba57487351d23079008e2d41cb",
-"52fd638c2be4c0b755f4ae9e8c5a4b9254deb4ae",
-"60fa4272aa48efe34b7d5c3ccff58e6d1f4747a9",
-"b68027c1dbfc5c40e5984fcd3b442b0242e5b93f",
-"34cc0f0ddb66f36fd580d0e138906dde507a6903"
-]
+hashes = get_all_hashes('prod')
 
-reingest_items(hashes, 'stg')
+batch_size = 100
+delay = 0
 
-mark_items_as_complete(hashes, 'prod')
+for i in range((len(hashes) + (batch_size-1)) // batch_size):
+    hash_floor = batch_size * i
+    hash_ceiling = min(batch_size * (i + 1), len(hashes))
+    batch = hashes[hash_floor:hash_ceiling]
+    rerun_metadata_ratings(batch, delay)
+    logging.info(f"batch {i} of size {len(batch)} rows complete")
+    # batch level sleep timer
+    time.sleep(0)
 
-reject_hung_downloads(hashes, 'prod')
 
 # ------------------------------------------------------------------------------
 # end of error_handling.py

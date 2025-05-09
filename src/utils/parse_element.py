@@ -104,7 +104,7 @@ def extract_title(raw_title: str, media_type: str) -> str | None:
 		return None
 	else:
 		# Replace special characters with spaces
-		cleaned_title = re.sub('[._\\-+]', ' ', cleaned_title)
+		cleaned_title = re.sub('[._\\-+()\\[\\]]', ' ', cleaned_title)
 		# remove trailing or leading white spice
 		cleaned_title = cleaned_title.strip()
 
@@ -148,7 +148,7 @@ def extract_season_from_season(raw_title: str) -> Optional[str]:
 ################################################################################
 
 def extract_resolution(raw_title: str)-> Optional[str]:
-	pattern = re.compile(r'(\d{3,4}p)')
+	pattern = re.compile(r'(\d{3,4}p)', re.IGNORECASE)
 	match = pattern.search(raw_title)
 	return match.group(0) if match else None
 
