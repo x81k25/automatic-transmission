@@ -104,7 +104,7 @@ def extract_title(raw_title: str, media_type: str) -> str | None:
 		return None
 	else:
 		# Replace special characters with spaces
-		cleaned_title = re.sub('[._\\-+]', ' ', cleaned_title)
+		cleaned_title = re.sub('[._\\-+()\\[\\]]', ' ', cleaned_title)
 		# remove trailing or leading white spice
 		cleaned_title = cleaned_title.strip()
 

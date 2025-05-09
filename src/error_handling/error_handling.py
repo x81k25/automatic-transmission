@@ -10,7 +10,6 @@ from psycopg2.extensions import connection
 import yaml
 
 # custom and internal imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
@@ -80,7 +79,7 @@ def get_all_hashes(env: str) -> list:
     conn = create_conn(env)
 
     # construct udpate statement
-    statement = f"""select hash from atp.media"""
+    statement = f"""select hash from atp.media order by hash"""
 
     with conn.cursor() as cursor:
         cursor.execute(statement)
@@ -632,10 +631,18 @@ def rerun_metadata(hashes: list):
             response = requests.get(movie_search_api_base_url, params=params)
 
         elif media_item['media_type'] in ['tv_show', 'tv_season']:
-            params = {
-                'query': media_item["media_title"],
-                'api_key': tv_search_api_key
-            }
+            if media_item['release_year'] is not None:
+                params = {
+                    'query': media_item["media_title"],
+                    'year': media_item['release_year'],
+                    'api_key': tv_search_api_key
+                }
+            else:
+                params = {
+                    'query': media_item["media_title"],
+                    'api_key': tv_search_api_key
+                }
+
             logging.debug(f"searching for: {media_item['hash']} as '{params['query']}'")
 
             # Make a request to the media API
@@ -787,6 +794,7 @@ def rerun_metadata(hashes: list):
 
         if response.status_code != 200:
             logging.error(f"media ratings API returned status code: {response.status_code}")
+            media_item['error_status'] = True
             media_item['error_condition'] = f"media ratings API status code: {response.status_code}"
             return media_item
 
@@ -849,35 +857,184 @@ def rerun_metadata(hashes: list):
         if (idx+1) % 50 == 0:
             logging.debug(f"completed metadata details batch {(idx+1)//50}")
             time.sleep(1)
-        if not row['error_status'] and row['rejection_status'] != 'rejected':
+        if not row['error_status'] and row['tmdb_id'] is not None :
             updated_row = collect_details(row)
-            updated_rows.append(updated_row)
         else:
-            updated_rows.append(row)
+            updated_row = row
+        updated_rows.append(updated_row)
 
     media.update(pl.DataFrame(updated_rows))
+
+    # get media rating metadata
+    # updated_rows = []
+    #
+    # for idx, row in enumerate(media.df.iter_rows(named=True)):
+    #     # pause 1 second between all items
+    #     time.sleep(1)
+    #     # pause at increments of 50 items to avoid rate limiting
+    #     if (idx + 1) % 50 == 0:
+    #         logging.debug(
+    #             f"completed metadata rating batch {(idx + 1) // 50}")
+    #         time.sleep(10)
+    #     if not row['error_status']:
+    #         updated_row = collect_ratings(row)
+    #     else:
+    #         updated_row = row
+    #     updated_rows.append(updated_row)
+    #
+    # media.update(pl.DataFrame(updated_rows))
+
+    # log succssefully collected items
+    #for idx, row in enumerate(media.df.filter(~pl.col('error_status')).iter_rows(named=True)):
+    #    logging.info(f"metadata collected - {row['hash']}")
+
+    # write metadata back to the database
+    utils.media_db_update(media=media)
+
+
+def rerun_metadata_ratings(hashes: list, delay: int = 1):
+    """
+    - reruns all metadata ratings through metadata ratings API
+    - does commit errors to db, but does not otherwise update status
+    - is locked to environment running from, not parameterizable like other
+        functions here
+
+    :param hashes: hash list of items to be reran
+    :param delay: number of seconds to wait between API calls
+    """
+    # standard library imports
+    import json
+    import logging
+    import os
+    import re
+    import time
+
+    # third-party imports
+    from dotenv import load_dotenv
+    import polars as pl
+    import requests
+
+    # local/custom imports
+    import src.utils as utils
+    from src.data_models import MediaDataFrame
+
+    # ------------------------------------------------------------------------------
+    # initialization and setup
+    # ------------------------------------------------------------------------------
+
+    # Load environment variables from .env file
+    load_dotenv()
+
+    # logger config
+    logger = logging.getLogger(__name__)
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
+
+    # load api env vars
+    ratings_api_base_url = os.getenv('MOVIE_RATINGS_API_BASE_URL')
+    ratings_api_key = os.getenv('MOVIE_RATINGS_API_KEY')
+
+    def collect_ratings(media_item: dict) -> dict:
+        """
+        get ratings specific details for each media item, e.g. rt_score, metascore
+
+        :param media_item: dict containing one for of media.df
+        :return: dict of items with metadata added
+        """
+        # media_item = media.df.row(5, named=True)
+
+        response = {}
+
+        # Define the parameters for the OMDb API request
+        if media_item['imdb_id'] is not None:
+            params = {
+                'i': media_item["imdb_id"],
+                'apikey': ratings_api_key
+            }
+            logging.debug(f"collecting ratings for: {media_item['hash']} - imdb_id - {media_item['imdb_id']}")
+        elif media_item['release_year'] is not None:
+            params = {
+                't': media_item["media_title"],
+                'y': media_item["release_year"],
+                'apikey': ratings_api_key
+            }
+            logging.debug(f"collecting ratings for: {media_item['hash']} - '{media_item['media_title']}' - {media_item['release_year']}")
+        else:
+            params = {
+                't': media_item["media_title"],
+                'apikey': ratings_api_key
+            }
+            logging.debug(f"collecting ratings for: {media_item['hash']} - '{media_item['media_title']}'")
+
+        response = requests.get(ratings_api_base_url, params=params)
+        status_code = response.status_code
+
+        if response.status_code != 200:
+            logging.error(f"media ratings API returned status code: {response.status_code}")
+            media_item['error_status'] = True
+            media_item['error_condition'] = f"media ratings API status code: {response.status_code}"
+            return media_item
+
+        data = json.loads(response.content)
+
+        # check if the response was successful, and if so move on
+        if status_code == 200 and data["Response"] == "True":
+            # Extract the metadata from the response
+            if data:
+                # items to collect for movies and tv shows
+                if data.get('Metascore', None) != "N/A":
+                    media_item['metascore'] = data.get('Metascore')
+                if data.get('imdbRating', None) != "N/A":
+                    media_item['imdb_rating'] = float(re.sub(r"\D", "", data.get('imdbRating')))
+                if data.get('imdbVotes', None) != "N/A":
+                    media_item['imdb_votes'] = int(re.sub(r"\D", "", data.get('imdbVotes')))
+                media_item['imdb_id'] = data.get('imdbID', None)
+                # items to collect only for movies
+                if media_item['media_type'] == 'movie':
+                    if "Ratings" in data:
+                        # determine if Rotten tomato exists in json
+                        for rating in data.get("Ratings", []):
+                            if rating["Source"] == "Rotten Tomatoes":
+                                media_item['rt_score'] = int(rating["Value"].rstrip('%'))
+                # items to collect only for tv shows
+
+        # return the updated media_item
+        return media_item
+
+    # -------------------------------------------------------------------------
+    # primary function execution
+    # -------------------------------------------------------------------------
+
+    # read in existing data
+    media = utils.get_media_by_hash(hashes)
+
+    # if no media to parse, return
+    if media is None:
+        return
 
     # get media rating metadata
     updated_rows = []
 
     for idx, row in enumerate(media.df.iter_rows(named=True)):
-        # pause at increments of 50 items to avoid rate limiting
-        if (idx + 1) % 50 == 0:
-            logging.debug(
-                f"completed metadata rating batch {(idx + 1) // 50}")
-            time.sleep(1)
-        if not row['error_status'] and row['rejection_status'] != 'rejected':
+        # pause between elements to avoid rate limiting
+        time.sleep(delay)
+        if not row['error_status'] and row['tmdb_id'] is not None:
             updated_row = collect_ratings(row)
-            updated_rows.append(updated_row)
         else:
-            updated_rows.append(row)
-
+            updated_row = row
+        updated_rows.append(updated_row)
 
     media.update(pl.DataFrame(updated_rows))
 
-    # log succssefully collected items
+    # log successfully collected items
     for idx, row in enumerate(media.df.filter(~pl.col('error_status')).iter_rows(named=True)):
-        logging.info(f"metadata collected - {row['hash']}")
+       logging.info(f"metadata collected - {row['hash']}")
 
     # write metadata back to the database
     utils.media_db_update(media=media)
@@ -887,21 +1044,20 @@ def rerun_metadata(hashes: list):
 # make error handling function calls
 # ------------------------------------------------------------------------------
 
-def main():
-    hashes = get_all_hashes('dev')
+hashes = get_all_hashes('prod')
 
-    re_parse_hashes(hashes)
+batch_size = 100
+delay = 0
 
-    for i in range((len(hashes) + 49) // 50):
-        hash_floor = 50 * i
-        hash_ceiling = min(50 * (i + 1), len(hashes))
-        batch = hashes[hash_floor:hash_ceiling]
-        rerun_metadata(batch)
-        logging.info(f"batch {i} complete")
-        time.sleep(5)
+for i in range((len(hashes) + (batch_size-1)) // batch_size):
+    hash_floor = batch_size * i
+    hash_ceiling = min(batch_size * (i + 1), len(hashes))
+    batch = hashes[hash_floor:hash_ceiling]
+    rerun_metadata_ratings(batch, delay)
+    logging.info(f"batch {i} of size {len(batch)} rows complete")
+    # batch level sleep timer
+    time.sleep(0)
 
-if __name__ == "__main__":
-    main()
 
 # ------------------------------------------------------------------------------
 # end of error_handling.py

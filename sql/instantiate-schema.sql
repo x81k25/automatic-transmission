@@ -195,7 +195,7 @@ COMMENT ON COLUMN media.uploader IS 'uploading entity of the media item';
 COMMENT ON COLUMN media.imdb_id IS 'IMDB identifier for media item';
 COMMENT ON COLUMN media.tmdb_id IS 'identifier for themoviedb.org API';
 COMMENT ON COLUMN media.genre IS 'array of genres associated with the movie';
-COMMENT ON COLUMN media.language IS 'array of languages available';
+COMMENT ON COLUMN media.language IS 'array of languages available encoded in ISO 639 format';
 COMMENT ON COLUMN media.rt_score IS 'Rotten Tomatoes score';
 COMMENT ON COLUMN media.metascore IS 'MetaCritic score';
 COMMENT ON COLUMN media.imdb_rating IS 'IMDB rating out of 10';
