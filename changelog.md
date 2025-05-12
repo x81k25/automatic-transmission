@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.7]
+- fundamentally altered how 05_filter 
+  - will now use filter-parameters.yaml to filter for media metadata filters
+    - e.g. video resolution, codes, etc.
+  - will use the reel-driver API to filter for media metadata
+    - e.g. rt_score, metascore, etc.
+    - will use the env var ACCEPTANCE_THRESHOLD to determine acceptance/rejection base off of a normalized prediction score return by reel-driver API
+
 ## [1.2.6]
 - added TMDB, and specifically TMDB search to the metadata collection pipeline
   - the metadata collection now has 3 phases
