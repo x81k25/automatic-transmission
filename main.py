@@ -40,7 +40,6 @@ def full_pipeline(debug: bool):
     full pipeline for downloading contents
     :param debug: param indicating whether to run in debug mode
     """
-
     logger = setup_logging(debug=debug)
 
     core.rss_ingest()
