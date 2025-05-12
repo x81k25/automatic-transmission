@@ -139,7 +139,7 @@ def predict_item(media_item: dict) -> dict:
             media_item['rejection_status'] = 'accepted'
         else:
             media_item['rejection_status'] = 'rejected'
-            media_item['rejection_reason'] = f"probability {probability.round(3)} below threshold {acceptance_threshold}" 
+            media_item['rejection_reason'] = f"probability {probability:.3f} below threshold {acceptance_threshold}"
 
         # Return the updated media_item
         return media_item
@@ -255,6 +255,8 @@ def predict_items(unfiltered_media: pl.DataFrame) -> pl.DataFrame:
 def filter_media():
     """
     full pipeline for filtering all media after metadata has been collected
+
+    :debug: media.update(media.df[3])
     """
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status='metadata_collected')
