@@ -42,7 +42,6 @@ def rss_feed_ingest(
 
     # print terminal message
     logging.debug("ingesting from: " + str(feed.channel.title))
-    logging.debug(f"feed: {str(feed)[:60]}...")
 
     # extract entires
     entries = feed['entries']
