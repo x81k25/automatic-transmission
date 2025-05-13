@@ -2,3 +2,4 @@
 ## temporary string replacement applied at the beginning of 03_parse for all operations
 pre_processing_replacements:
   - ["www.Torrenting.com -", ""]
+  - ["www.UIndex.org    -    ", ""]

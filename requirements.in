@@ -1,0 +1,15 @@
+feedparser
+numpy
+pandas
+paramiko
+polars
+polars[timezone]
+psycopg2-binary
+pyarrow
+pytest
+pytest-cov
+python-dotenv
+pyyaml
+requests
+sqlalchemy
+transmission-rpc

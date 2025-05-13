@@ -2,184 +2,246 @@
 
 A personal media automation system that ingests torrent files via RSS feeds, downloads them through transmission-daemon, and organizes the content into a proper media library structure compatible with Plex and other media server applications.
 
-## overview
+## Overview
 
 automatic transmission provides an end-to-end pipeline for downloading and organizing media content:
 
 1. ingests torrent files from RSS feeds
-2. downloads media through transmission-daemon
+2. collects media information from existing transmission downloads
 3. parses and categorizes the media files
-4. collects metadata for organization
-5. filters media based on configured parameters
+4. collects metadata from multiple APIs for organization and filtering
+5. filters media based on configured parameters and prediction scores
 6. initiates and monitors downloads
 7. transfers completed downloads to appropriate library locations
 8. performs cleanup operations
+9. handles hung downloads and maintains the database
 
-the system supports three media types:
+The system supports three media types:
 - movies
-- TV shows
-- TV seasons
+- TV shows (individual episodes)
+- TV seasons (complete seasons)
 
-## prerequisites
+## Prerequisites
 
-- python 3.12
+- Python 3.12
 - PostgreSQL database
 - Transmission daemon running on the local network
+- API credentials for metadata services (TMDB, OMDb)
+- Connection to the reel-driver API for media recommendation scoring (optional)
 
-## repository structure:
+## Repository Structure
 
 ```
 automatic-transmission/
 ├── config/                   # Configuration files
-│   ├── filter-parameters.json
+│   ├── filter-parameters.yaml
 │   └── string-special-conditions.yaml
 ├── sql/                      # SQL scripts for database setup
 ├── src/                      # source code
 │   ├── core/                 # core pipeline modules
 │   │   ├── __init__.py
-│   │   ├── 01_rss_ingest.py
-│   │   ├── 02_collect.py
-│   │   ├── 03_parse.py
-│   │   ├── 04_metadata_collection.py
-│   │   ├── 05_filter.py
-│   │   ├── 06_initiate.py
-│   │   ├── 07_download_check.py
-│   │   ├── 08_transfer.py
-│   │   └── 09_cleanup.py
+│   │   ├── _01_rss_ingest.py
+│   │   ├── _02_collect.py
+│   │   ├── _03_parse.py
+│   │   ├── _04_metadata_collection.py
+│   │   ├── _05_filter.py
+│   │   ├── _06_initiate.py
+│   │   ├── _07_download_check.py
+│   │   ├── _08_transfer.py
+│   │   └── _09_cleanup.py
+│   ├── data_models/          # data models for validation/transformation
+│   │   ├── __init__.py
+│   │   └── media_data_frame.py
+│   ├── error_handling/       # ad-hoc pipeline maintenance  
+│   │   └── error_handling.py
 │   └── utils/                # utility modules
 │       ├── __init__.py
-│       ├── error_handling.py
 │       ├── local_file_operations.py
 │       ├── parse_element.py
 │       ├── rpcf.py
 │       └── sqlf.py
 ├── test/                     # test scripts and resources
-├── venv/                     # virtual environment (gitignored)
+├── .venv/                    # virtual environment (gitignored)
 ├── .env                      # environment variables
 ├── .gitignore
-├── changelog.md              # contains not all major/minor version changes
+├── changelog.md              # contains all major/minor version changes
 ├── main.py                   # main execution script
 ├── pytest.ini
 ├── readme.md                 # this file
 └── requirements.txt          # python dependencies
 ```
 
-## installation
+## Core Data Model
 
-1. clone this repository:
+The project centers around the `MediaDataFrame` class, which serves as a rigid schema-enforcing wrapper around a polars DataFrame. This class:
+
+- Mirrors the structure of the consolidated PostgreSQL `media` table
+- Performs input validation before database operations
+- Handles timestamp conversion and type enforcement
+- Standardizes data operations throughout the pipeline
+
+## Installation
+
+1. Clone this repository:
    ```
    git clone https://github.com/yourusername/automatic-transmission.git
    cd automatic-transmission
    ```
 
-2. install the required Python dependencies:
+2. Create a virtual environment and activate it:
+   ```
+   python -m venv .venv
+   # On Windows
+   .venv\Scripts\activate
+   # On Unix or MacOS
+   source .venv/bin/activate
+   ```
+
+3. Install dependencies using uv (recommended):
+   ```
+   # Install uv if you don't have it
+   pip install uv
+   
+   # Install dependencies from requirements.txt
+   uv pip install -r requirements.txt
+   ```
+
+   Alternatively, you can use pip:
    ```
    pip install -r requirements.txt
    ```
 
-3. set up the PostgreSQL database using the scripts in the `/sql` directory. The PostgreSQL scripts below contain placeholder values denoted by `<placeholder>` that will need to filled in with your specifications.
-      
+4. Adding new packages:
+   ```
+   # Add new package to requirements.in
+   echo "new-package" >> requirements.in
+   
+   # Compile requirements.in to requirements.txt
+   uv pip compile requirements.in -o requirements.txt
+   
+   # Install the updated requirements
+   uv pip install -r requirements.txt
+   ```
+
+5. Set up the PostgreSQL database using the scripts in the `/sql` directory:
    ```
    psql -U your_username -d your_database -f sql/instantiate-schema.sql
-   psql -U your_username -d your_database -f sql/back-up-create.sql
-   psql -U your_username -d your_database -f sql/back-up-push.sql
    ```
 
-4. configure your environment variables by copying and filling out the `.env` template:
-   ```
-   cp templates/.env .env
-   ```
+6. Configure your environment variables by creating a `.env` file with the required parameters (see Configuration section below).
 
-## configuration
+7. Optional: Set up connection to the reel-driver API if you want to use ML-based media recommendation scoring.
 
-A `.env` will need to created with all of the following parameters for your specific configuration. My configuration is currently set-up to with YTS for movies and episodefeed for TV.
+## Configuration
+
+Create a `.env` file with the following parameters customized for your setup:
 
 ```
 # Transmission credentials
-SERVER_IP='your_server_ip'
-TRANSMISSION_USERNAME='your_transmission_username'
-TRANSMISSION_PASSWORD='your_transmission_password'
+TRANSMISSION_USERNAME=your_transmission_username
+TRANSMISSION_PASSWORD=your_transmission_password
+TRANSMISSION_PORT=your_transmission_port
 
 # PostgreSQL credentials
-PG_ENDPOINT='your_postgres_endpoint'
-PG_PORT='your_postgres_port'
-PG_DATABASE='your_database_name'
-PG_SCHEMA='your_schema_name'
-PG_USERNAME='your_postgres_username'
-PG_PASSWORD='your_postgres_password'
+PG_ENDPOINT=your_postgres_endpoint
+PG_PORT=your_postgres_port
+PG_DATABASE=your_database_name
+PG_USERNAME=your_postgres_username
+PG_PASSWORD=your_postgres_password
+PG_SCHEMA=your_schema_name
 
-# media metadata API credentials
-OMDB_BASE_URL='https://www.omdbapi.com/'
-OMDB_API_KEY='your_omdb_api_key'
+# Media metadata API credentials (TMDB and OMDb)
+# Movie APIs
+MOVIE_SEARCH_API_BASE_URL=https://api.themoviedb.org/3/search/movie
+MOVIE_DETAILS_API_BASE_URL=https://api.themoviedb.org/3/movie
+MOVIE_RATINGS_API_BASE_URL=https://www.omdbapi.com/
+MOVIE_SEARCH_API_KEY=your_tmdb_api_key
+MOVIE_DETAILS_API_KEY=your_tmdb_api_key
+MOVIE_RATINGS_API_KEY=your_omdb_api_key
 
-# RSS feed URLs
-# Generate movie RSS feed from: https://yts.torrentbay.st/rss-guide
-MOVIE_RSS_URL='your_movie_rss_url'
-# Generate TV show RSS feed from: https://showrss.info/
-TV_SHOW_RSS_URL='your_tv_show_rss_url'
+# TV Show APIs
+TV_SEARCH_API_BASE_URL=https://api.themoviedb.org/3/search/tv
+TV_DETAILS_API_BASE_URL=https://api.themoviedb.org/3/tv
+TV_RATINGS_API_BASE_URL=https://www.omdbapi.com/
+TV_SEARCH_API_KEY=your_tmdb_api_key
+TV_DETAILS_API_KEY=your_tmdb_api_key
+TV_RATINGS_API_KEY=your_omdb_api_key
 
-# directory paths
-DOWNLOAD_DIR='path_to_download_directory'
-MOVIE_DIR='path_to_movie_library'
-TV_SHOW_DIR='path_to_tv_show_library'
+# Reel-driver API for ML-based recommendation scoring
+REEL_DRIVER_HOST=your_reel_driver_host
+REEL_DRIVER_POST=your_reel_driver_port
+REEL_DRIVER_THRESHOLD=0.75
 
-# time in seconds to wait until media items are removed from transmission after completion
-CLEANUP_DELAY=<integer number of seconds>
+# RSS feeds configuration
+# RSS_SOURCES and RSS_URLS must be in same order, comma-separated
+RSS_SOURCES=yts.mx,episodefeed.com
+RSS_URLS=your_movie_rss_url,your_tv_show_rss_url
+
+# Directory paths
+DOWNLOAD_DIR=path_to_download_directory
+MOVIE_DIR=path_to_movie_library
+TV_SHOW_DIR=path_to_tv_show_library
+
+# Cleanup delay settings (in seconds)
+TRANSFERRED_ITEM_CLEANUP_DELAY=3600
+HUNG_ITEM_CLEANUP_DELAY=86400
 ```
 
-additional configuration files:
-- `config/filter-parameters.json`: configure media filtering parameters
-- `config/string-special-conditions.yaml`: define special string handling conditions for edge case filenames
+Additional configuration files:
+- `config/filter-parameters.yaml`: Configure media filtering parameters
+- `config/string-special-conditions.yaml`: Define special string handling conditions for edge case filenames
 
-## usage
+## Usage
 
-execute the pipelines using the command line interface:
+Execute the complete pipeline using the command line interface:
 
-### for movies:
 ```
-python main.py movie_pipeline
-```
-
-### for TV shows:
-```
-python main.py tv_show_pipeline
+python main.py
 ```
 
-### for TV seasons:
+### Debug Mode
+Add the `--debug` flag to enable verbose logging:
 ```
-python main.py tv_season_pipeline
-```
-
-### debug mode
-add the `--debug` flag to enable verbose logging:
-```
-python main.py movie_pipeline --debug
+python main.py --debug
 ```
 
-## core modules
+## Pipeline Process
 
-the application follows a sequential pipeline process:
+The application follows a sequential pipeline process:
 
-1. `01_rss_ingest.py`: ingests torrent files from RSS feeds
-2. `02_collect.py`: collects media information
-3. `03_parse.py`: parses media details
-4. `04_metadata_collection.py`: retrieves and stores metadata for the media
-5. `05_filter.py`: filters media based on configured parameters
-6. `06_initiate.py`: initiates the download process
-7. `07_download_check.py`: monitors download progress
-8. `08_transfer.py`: transfers completed downloads to the media library
-9. `09_cleanup.py`: performs cleanup operations
+1. `_01_rss_ingest.py`: Ingests torrent files from configured RSS feeds
+2. `_02_collect.py`: Collects media information from existing transmission downloads
+3. `_03_parse.py`: Parses media details from filenames and metadata
+4. `_04_metadata_collection.py`: Retrieves and stores metadata from TMDB and OMDb APIs
+5. `_05_filter.py`: Filters media based on configured parameters and reel-driver API predictions
+6. `_06_initiate.py`: Initiates the download process for accepted media
+7. `_07_download_check.py`: Monitors download progress and status
+8. `_08_transfer.py`: Transfers completed downloads to the appropriate media library locations
+9. `_09_cleanup.py`: Performs cleanup operations for transferred media and handles hung downloads
 
-## utility modules
+## Error Handling and Maintenance
 
-various utility modules in the `utils` directory provide supporting functions:
-- `error_handling.py`: contains scripts to run to perform ad-hoc pipeline maintenance
-- `local_file_operations.py`: handles local file operations
-- `parse_element.py`: parses XML/RSS elements
-- `rpcf.py`: remote procedure calls
-- `sql.py`: database operations
- 
+The `src/error_handling` module provides utilities for ad-hoc pipeline maintenance:
 
-## license
+- Recycling items stuck in the downloading state
+- Marking items as complete to bypass pipeline stages
+- Re-ingesting items for reprocessing
+- Rejecting hung downloads
+- Re-parsing and reprocessing metadata for specified items
 
-this project is licensed under the MIT License
+## Utilities
+
+Various utility modules in the `utils` directory provide supporting functions:
+
+- `local_file_operations.py`: Handles file system operations for media transfer
+- `parse_element.py`: Parses XML/RSS elements and extracts metadata from filenames
+- `rpcf.py`: Handles interaction with the Transmission RPC API
+- `sqlf.py`: Manages database operations with PostgreSQL
+
+## Documentation
+
+Additional documentation is available in the project's wiki. Refer to the wiki for more detailed information about the pipeline processes, troubleshooting, and advanced configurations.
+
+## License
+
+This project is licensed under the MIT License.
