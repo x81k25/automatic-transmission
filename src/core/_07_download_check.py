@@ -110,7 +110,7 @@ def check_downloads():
     if not set(media.df['pipeline_status']).intersection(['downloaded', 'ingested']):
         return
 
-    # extract filename of compelted downloads
+    # extract filename of completed downloads
     updated_rows = []
     for row in media.df.iter_rows(named=True):
         if row['pipeline_status'] == "downloaded":

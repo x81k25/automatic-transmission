@@ -190,7 +190,7 @@ def cleanup_media():
     perform final clean-up operations for torrents once all other steps have
         been verified completed successfully
     """
-    # remove items that have been succesfully transferred
+    # remove items that have been successfully transferred
     cleanup_transferred_media()
 
     # remove items that have exceeded max allowed time in daemon

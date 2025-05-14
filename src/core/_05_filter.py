@@ -19,11 +19,29 @@ from src.data_models import MediaDataFrame
 # logger config
 logger = logging.getLogger(__name__)
 
+# if not inherited set parameters here
+if __name__ == "__main__" or not logger.handlers:
+    # Set up standalone logging for testing
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
+    # Prevent propagation to avoid duplicate logs
+    logger.propagate = False
+
 # get reel-driver env vars
 load_dotenv(override=True)
+
+# pipeline env vars
+batch_size = os.getenv('BATCH_SIZE')
+acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
+
+# reel_driver_env vars
 api_host = os.getenv('REEL_DRIVER_HOST')
 api_port = os.getenv('REEL_DRIVER_POST')
-acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
 
 # get filter params
 with open('./config/filter-parameters.yaml', 'r') as file:
@@ -249,7 +267,7 @@ def predict_items(unfiltered_media: pl.DataFrame) -> pl.DataFrame:
 
 
 # ------------------------------------------------------------------------------
-# full initiation pipeline
+# full filtration pipeline
 # ------------------------------------------------------------------------------
 
 def filter_media():
@@ -257,6 +275,7 @@ def filter_media():
     full pipeline for filtering all media after metadata has been collected
 
     :debug: media.update(media.df[3])
+    :debug: batch = 0
     """
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status='metadata_collected')
@@ -264,7 +283,7 @@ def filter_media():
     if media is None:
         return
 
-    # filter based off of file parameters
+    # filter based off of file parameters for all elements
     updated_rows = []
     for idx, row in enumerate(media.df.iter_rows(named=True)):
         updated_row = filter_by_file_metadata(media_item=row)
@@ -278,41 +297,103 @@ def filter_media():
     # if no items to be filtered by media metadata, proceed
     if unfiltered_media.height == 0:
         pass
-    # filters 1 item
+
+    # filter 1 item
     elif unfiltered_media.height == 1:
         media.update(
             media.df.update(
-                pl.DataFrame([predict_item(next(unfiltered_media.iter_rows(named=True)))]),
+                pl.DataFrame(
+                    [predict_item(next(unfiltered_media.iter_rows(named=True)))]
+                ),
                 on='hash'
             )
         )
-    # filters multiple items
-    else:
-        filtered_media = predict_items(unfiltered_media)
-        media.update(media.df.update(filtered_media, on='hash'))
 
-    # log accepted and rejected entries
-    for row in media.df.iter_rows(named=True):
-        if row['rejection_status'] == 'rejected':
-            logging.info(f"rejected - {row['hash']} - {row['rejection_reason']}")
-        elif row['rejection_status'] == 'accepted':
-            logging.info(f"queued - {row['hash']}")
+        # log accepted and rejected entries
+        for row in media.df.iter_rows(named=True):
+            if row['rejection_status'] == 'rejected':
+                logging.info(f"rejected - {row['hash']} - {row['rejection_reason']}")
+            elif row['rejection_status'] == 'accepted':
+                logging.info(f"queued - {row['hash']}")
 
-    # update pipeline_status
-    media.update(media.df.with_columns(
-        pipeline_status=pl.when(
-            pl.col('error_status') == True)
-                .then(pl.col('pipeline_status'))
-            .otherwise(
-                pl.when(pl.col('rejection_status') == 'rejected')
-                    .then(pl.lit('rejected'))
-                .otherwise(pl.lit('queued'))
+        # update pipeline_status
+        media.update(media.df.with_columns(
+            pipeline_status=pl.when(
+                pl.col('error_status') == True)
+                    .then(pl.col('pipeline_status'))
+                .otherwise(
+                    pl.when(pl.col('rejection_status') == 'rejected')
+                        .then(pl.lit('rejected'))
+                    .otherwise(pl.lit('queued'))
+                )
             )
         )
-    )
 
-    # update media data
-    utils.media_db_update(media=media)
+        #write single row to database
+        utils.media_db_update(media=media)
+
+    # filters multiple items
+    else:
+        # break into batches if > 50 elements in order to avoid entire queue
+        #  failure due to 1 item
+        number_of_batches = (media.df.height + 49) // 50  # Ceiling division by 50
+
+        for batch in range(number_of_batches):
+            logging.debug(f"starting reel-driver prediction batch {batch+1}/{number_of_batches}")
+
+            # set batch indices
+            batch_start_index = batch * 50
+            batch_end_index = min((batch + 1) * 50, media.df.height)
+
+            # create media batch as proper MediaDataFrame to perform data validation
+            media_batch = MediaDataFrame(media.df[batch_start_index:batch_end_index])
+            unfiltered_batch = media_batch.df.filter(~pl.col('rejection_status').is_in(['override', 'rejected'])).clone()
+
+            try:
+                # attempt to hit the prediction batch API
+                filtered_media = predict_items(unfiltered_batch)
+                media_batch.update(media_batch.df.update(filtered_media, on='hash'))
+
+                # update pipeline_status
+                media_batch.update(media_batch.df.with_columns(
+                    pipeline_status=pl.when(
+                        pl.col('error_status') == True)
+                            .then(pl.col('pipeline_status'))
+                        .otherwise(
+                            pl.when(pl.col('rejection_status') == 'rejected')
+                                .then(pl.lit('rejected'))
+                            .otherwise(pl.lit('queued'))
+                        )
+                    )
+                )
+
+                # log accepted and rejected entries
+                for row in media_batch.df.iter_rows(named=True):
+                    if row['rejection_status'] == 'rejected':
+                        logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
+                    else:
+                        logging.info(f"{row['rejection_status']} - {row['hash']}")
+
+                logging.debug(f"completed reel-driver prediction batch {batch+1}/{number_of_batches}")
+
+            except Exception as e:
+                # log errors to individual elements
+                media_batch.update(
+                    media_batch.df.with_columns(
+                        error_status = pl.lit(True),
+                        error_condition = pl.lit(f"{e}")
+                    )
+                )
+
+                logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
+
+            try:
+                # attempt to write metadata back to the database; with or without errors
+                utils.media_db_update(media=media_batch)
+            except Exception as e:
+                logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
+                logging.error(f"metadata collection batch error could not be stored in database")
+
 
 # ------------------------------------------------------------------------------
 # end of _05_filter.py
