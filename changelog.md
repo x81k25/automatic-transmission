@@ -5,6 +5,8 @@
   - will be used throughout services for any element that will benefit from it
 - add modulator env var for cleanup delay
   - will impose a soft modulation on clean delay times
+- add REEL_DRIVER_PREFIX
+  - will now host multiple API on the same port, and the prefix ensures proper routing
 
 ## [1.2.7]
 - fundamentally altered how 05_filter 
