@@ -213,6 +213,7 @@ def get_media_from_db(pipeline_status: str) -> MediaDataFrame | None:
         FROM media
         WHERE pipeline_status = :pipeline_status
         AND error_status = FALSE
+        ORDER BY hash
     """)
 
     params = {
