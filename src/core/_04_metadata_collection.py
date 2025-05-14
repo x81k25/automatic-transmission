@@ -68,8 +68,9 @@ def media_search(media_item: dict) -> dict:
 
     :param media_item: dict containing one for of media.df
     :return: dict of items with metadata added
+
+    :debug: media_item = media.df.row(0, named=True)
     """
-    #media_item = media.df.row(0, named=True)
     # make API call for media search
     response = {}
 
@@ -88,6 +89,10 @@ def media_search(media_item: dict) -> dict:
             'query': media_item["media_title"],
             'api_key': tv_search_api_key
         }
+
+        # add year if available
+        if media_item['release_year'] is not None:
+            params['year'] = media_item['release_year']
         logging.debug(f"searching for: {media_item['hash']} as '{params['query']}'")
 
         # Make a request to the media API
@@ -141,7 +146,7 @@ def collect_details(media_item: dict) -> dict:
     :param media_item: dict containing one for of media.df
     :return: dict of items with metadata added
     """
-    #media_item = media.df.row(15, named=True)
+    #media_item = media.df.row(0, named=True)
     response = {}
 
     # prepare and send response
@@ -278,7 +283,7 @@ def collect_metadata():
     """
     Collect metadata for all movies or tv shows that have been ingested
 
-    :debug: batch = 0
+    :debug: batch=0
     """
     # read in existing data
     media = utils.get_media_from_db(pipeline_status='parsed')
