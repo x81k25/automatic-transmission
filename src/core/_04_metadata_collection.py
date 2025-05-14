@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import time
+from logging import exception
 
 # third-party imports
 from dotenv import load_dotenv
@@ -11,15 +12,12 @@ import polars as pl
 import requests
 
 # local/custom imports
-import src.utils as utils
 from src.data_models import MediaDataFrame
+import src.utils as utils
 
 # ------------------------------------------------------------------------------
 # initialization and setup
 # ------------------------------------------------------------------------------
-
-# Load environment variables from .env file
-load_dotenv()
 
 # logger config
 logger = logging.getLogger(__name__)
@@ -36,6 +34,12 @@ if __name__ == "__main__" or not logger.handlers:
     logging.getLogger("paramiko").setLevel(logging.INFO)
     # Prevent propagation to avoid duplicate logs
     logger.propagate = False
+
+# Load environment variables from .env file
+load_dotenv(override=True)
+
+# pipeline env vars
+batch_size = os.getenv('BATCH_SIZE')
 
 # load api env vars
 movie_search_api_base_url = os.getenv('MOVIE_SEARCH_API_BASE_URL')
@@ -137,7 +141,7 @@ def collect_details(media_item: dict) -> dict:
     :param media_item: dict containing one for of media.df
     :return: dict of items with metadata added
     """
-    #media_item = media.df.row(0, named=True)
+    #media_item = media.df.row(15, named=True)
     response = {}
 
     # prepare and send response
@@ -273,6 +277,8 @@ def collect_ratings(media_item: dict) -> dict:
 def collect_metadata():
     """
     Collect metadata for all movies or tv shows that have been ingested
+
+    :debug: batch = 0
     """
     # read in existing data
     media = utils.get_media_from_db(pipeline_status='parsed')
@@ -281,69 +287,86 @@ def collect_metadata():
     if media is None:
         return
 
-    # search for media, and if not available reject
-    updated_rows = []
+    # batch up operations to avoid API rate limiting
+    number_of_batches = (media.df.height + 49) // 50  # Ceiling division by 50
 
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
-        # pause at increments of 50 items to avoid rate limiting
-        if (idx+1) % 50 == 0:
-            logging.debug(f"completed metadata search batch {(idx+1)//50}")
-            time.sleep(1)
-        updated_row = media_search(row)
-        updated_rows.append(updated_row)
+    for batch in range(number_of_batches):
+        logging.debug(f"starting metadata collection batch {batch+1}/{number_of_batches}")
 
-    media = MediaDataFrame(updated_rows)
+        # set batch indices
+        batch_start_index = batch * 50
+        batch_end_index = min((batch + 1) * 50, media.df.height)
 
-    # get additional media details
-    updated_rows = []
+        # create media batch as proper MediaDataFrame to perform data validation
+        media_batch = MediaDataFrame(media.df[batch_start_index:batch_end_index])
 
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
-        # pause at increments of 50 items to avoid rate limiting
-        if (idx+1) % 50 == 0:
-            logging.debug(f"completed metadata details batch {(idx+1)//50}")
-            time.sleep(1)
-        if not row['error_status'] and row['rejection_status'] != 'rejected':
-            updated_row = collect_details(row)
-            updated_rows.append(updated_row)
-        else:
-            updated_rows.append(row)
+        try:
+            # search for media, and if not available reject
+            updated_rows = []
 
-    media.update(pl.DataFrame(updated_rows))
+            for idx, row in enumerate(media_batch.df.iter_rows(named=True)):
+                updated_row = media_search(row)
+                updated_rows.append(updated_row)
 
-    # get media rating metadata
-    updated_rows = []
+            media_batch.update(pl.DataFrame(updated_rows))
 
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
-        # pause at increments of 50 items to avoid rate limiting
-        if (idx + 1) % 50 == 0:
-            logging.debug(
-                f"completed metadata rating batch {(idx + 1) // 50}")
-            time.sleep(1)
-        if not row['error_status'] and row['rejection_status'] != 'rejected':
-            updated_row = collect_ratings(row)
-            updated_rows.append(updated_row)
-        else:
-            updated_rows.append(row)
+            # get additional media details
+            updated_rows = []
 
+            for idx, row in enumerate(media_batch.df.iter_rows(named=True)):
+                if not row['error_status'] and row['rejection_status'] != 'rejected':
+                    updated_row = collect_details(row)
+                    updated_rows.append(updated_row)
+                else:
+                    updated_rows.append(row)
 
-    media.update(pl.DataFrame(updated_rows))
+            media_batch.update(pl.DataFrame(updated_rows))
 
-    # if metadata successfully collected update status
-    media.update(
-        media.df.with_columns(
-            pipeline_status = pl.when(
-                (~pl.col('error_status')) & (pl.col('rejection_status') != 'rejected')
-            ).then(pl.lit('metadata_collected'))
-            .otherwise(pl.col('pipeline_status'))
-        )
-    )
+            # get media rating metadata
+            updated_rows = []
 
-    # log succssefully collected items
-    for idx, row in enumerate((media.df.filter(pl.col('pipeline_status') == 'metadata_collected')).iter_rows(named=True)):
-        logging.info(f"metadata collected - {row['hash']}")
+            for idx, row in enumerate(media_batch.df.iter_rows(named=True)):
+                if not row['error_status'] and row['rejection_status'] != 'rejected':
+                    updated_row = collect_ratings(row)
+                    updated_rows.append(updated_row)
+                else:
+                    updated_rows.append(row)
 
-    # write metadata back to the database
-    utils.media_db_update(media=media)
+            media_batch.update(pl.DataFrame(updated_rows))
+
+            # if metadata successfully collected update status
+            media_batch.update(
+                media_batch.df.with_columns(
+                    pipeline_status = pl.when(
+                        (~pl.col('error_status')) & (pl.col('rejection_status') != 'rejected')
+                    ).then(pl.lit('metadata_collected'))
+                    .otherwise(pl.col('pipeline_status'))
+                )
+            )
+
+            # log successfully collected items
+            for idx, row in enumerate((media_batch.df.filter(pl.col('pipeline_status') == 'metadata_collected')).iter_rows(named=True)):
+                logging.info(f"metadata collected - {row['hash']}")
+
+            logging.debug(f"completed metadata collection batch {batch+1}/{number_of_batches}")
+
+        except Exception as e:
+            # log errors to individual elements
+            media_batch.update(
+                media_batch.df.with_columns(
+                    error_status = pl.lit(True),
+                    error_condition = pl.lit(f"{e}")
+                )
+            )
+
+            logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
+
+        try:
+            # attempt to write metadata back to the database; with or without errors
+            utils.media_db_update(media=media_batch)
+        except Exception as e:
+            logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
+            logging.error(f"metadata collection batch error could not be stored in database")
 
 
 # ------------------------------------------------------------------------------

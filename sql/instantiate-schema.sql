@@ -161,6 +161,63 @@ CREATE TRIGGER set_media_created_at
     FOR EACH ROW
     EXECUTE FUNCTION set_created_at_column();
 
+-- ingestion clear trigger
+DROP TRIGGER IF EXISTS reset_fields_on_ingestion ON media;
+
+CREATE OR REPLACE FUNCTION reset_on_ingestion()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (NEW.pipeline_status = 'ingested' AND OLD.pipeline_status != 'ingested') THEN
+        NEW.rejection_status = 'unfiltered';
+        NEW.rejection_reason = NULL;
+        NEW.error_status = FALSE;
+        NEW.error_condition = NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER reset_fields_on_ingestion
+    BEFORE UPDATE ON media
+    FOR EACH ROW
+    EXECUTE FUNCTION reset_on_ingestion();
+
+-- error_condition clear trigger
+DROP TRIGGER IF EXISTS clear_error_condition ON media;
+
+CREATE OR REPLACE FUNCTION reset_error_condition()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (NEW.error_status = FALSE AND OLD.error_status = TRUE) THEN
+        NEW.error_condition = NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER clear_error_condition
+    BEFORE UPDATE ON media
+    FOR EACH ROW
+    EXECUTE FUNCTION reset_error_condition();
+
+-- rejection_status clear trigger
+DROP TRIGGER IF EXISTS clear_rejection_reason ON media;
+
+CREATE OR REPLACE FUNCTION reset_rejection_reason()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (NEW.rejection_status != 'rejected' AND OLD.rejection_status = 'rejected') THEN
+        NEW.rejection_reason = NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER clear_rejection_reason
+    BEFORE UPDATE ON media
+    FOR EACH ROW
+    EXECUTE FUNCTION reset_rejection_reason();
+
 --------------------------------------------------------------------------------
 -- comments
 --------------------------------------------------------------------------------

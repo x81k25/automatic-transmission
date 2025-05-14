@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.8]
+- added batch size env var
+  - will be used throughout services for any element that will benefit from it
+
 ## [1.2.7]
 - fundamentally altered how 05_filter 
   - will now use filter-parameters.yaml to filter for media metadata filters
