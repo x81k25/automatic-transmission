@@ -42,6 +42,7 @@ acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
 # reel_driver_env vars
 api_host = os.getenv('REEL_DRIVER_HOST')
 api_port = os.getenv('REEL_DRIVER_POST')
+api_prefix = os.getenv('REEL_DRIVER_PREFIX')
 
 # get filter params
 with open('./config/filter-parameters.yaml', 'r') as file:
@@ -125,7 +126,7 @@ def predict_item(media_item: dict) -> dict:
 
     # if movie then run prediction API
     # construct API URL
-    api_url = f"http://{api_host}:{api_port}/api/predict"
+    api_url = f"http://{api_host}:{api_port}/{api_prefix}/api/predict"
 
     payload = {
         "hash": media_item.get('hash'),
@@ -198,7 +199,7 @@ def predict_items(unfiltered_media: pl.DataFrame) -> pl.DataFrame:
         return  unfiltered_media
 
     # Construct API URL
-    api_url = f"http://{api_host}:{api_port}/api/predict_batch"
+    api_url = f"http://{api_host}:{api_port}/{api_prefix}/api/predict_batch"
 
     payload = {
         'items':
@@ -381,7 +382,7 @@ def filter_media():
                 media_batch.update(
                     media_batch.df.with_columns(
                         error_status = pl.lit(True),
-                        error_condition = pl.lit(f"{e}")
+                        error_condition = pl.lit(f"batch error - {e}")
                     )
                 )
 

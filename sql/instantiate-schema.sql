@@ -168,7 +168,9 @@ CREATE OR REPLACE FUNCTION reset_on_ingestion()
 RETURNS TRIGGER AS $$
 BEGIN
     IF (NEW.pipeline_status = 'ingested' AND OLD.pipeline_status != 'ingested') THEN
-        NEW.rejection_status = 'unfiltered';
+        IF (OLD.rejection_status != 'override') THEN
+            NEW.rejection_status = 'unfiltered';
+        END IF;
         NEW.rejection_reason = NULL;
         NEW.error_status = FALSE;
         NEW.error_condition = NULL;
@@ -188,7 +190,7 @@ DROP TRIGGER IF EXISTS clear_error_condition ON media;
 CREATE OR REPLACE FUNCTION reset_error_condition()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF (NEW.error_status = FALSE AND OLD.error_status = TRUE) THEN
+    IF (NEW.error_status = FALSE) THEN
         NEW.error_condition = NULL;
     END IF;
     RETURN NEW;
@@ -206,7 +208,7 @@ DROP TRIGGER IF EXISTS clear_rejection_reason ON media;
 CREATE OR REPLACE FUNCTION reset_rejection_reason()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF (NEW.rejection_status != 'rejected' AND OLD.rejection_status = 'rejected') THEN
+    IF (NEW.rejection_status != 'rejected') THEN
         NEW.rejection_reason = NULL;
     END IF;
     RETURN NEW;
