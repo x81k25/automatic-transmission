@@ -3,6 +3,8 @@
 ## [1.2.8]
 - added batch size env var
   - will be used throughout services for any element that will benefit from it
+- add modulator env var for cleanup delay
+  - will impose a soft modulation on clean delay times
 
 ## [1.2.7]
 - fundamentally altered how 05_filter 
