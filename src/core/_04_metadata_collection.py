@@ -288,7 +288,7 @@ def collect_metadata():
         return
 
     # batch up operations to avoid API rate limiting
-    number_of_batches = (media.df.height + 49) // 50  # Ceiling division by 50
+    number_of_batches = (media.df.height + 49) // 50
 
     for batch in range(number_of_batches):
         logging.debug(f"starting metadata collection batch {batch+1}/{number_of_batches}")
@@ -355,7 +355,7 @@ def collect_metadata():
             media_batch.update(
                 media_batch.df.with_columns(
                     error_status = pl.lit(True),
-                    error_condition = pl.lit(f"{e}")
+                    error_condition = pl.lit(f"batch error - {e}")
                 )
             )
 

@@ -109,7 +109,7 @@ def initiate_media_download():
             media_batch.update(
                 media_batch.df.with_columns(
                     error_status = pl.lit(True),
-                    error_condition = pl.lit(f"{e}")
+                    error_condition = pl.lit(f"batch error - {e}")
                 )
             )
 

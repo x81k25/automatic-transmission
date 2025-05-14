@@ -54,11 +54,12 @@ def get_torrent_info(hash: str):
     return torrent
 
 
-def return_current_torrents(port: int = transmission_port):
+def return_current_torrents(port: int = transmission_port) -> dict | None:
     """
     hit transmission rpc and return all current torrents
 
-    :return: DataFrame containing all relevant torrent information if torrents exist, None if no torrents
+    :param port: transmission daemon port
+    :return: dict containing all relevant torrent information if torrents exist, None if no torrents
     """
     # Get transmission client
     client = get_transmission_client(port)
@@ -93,6 +94,26 @@ def return_current_torrents(port: int = transmission_port):
         torrent_data.update(torrent_datum)
 
     return torrent_data
+
+
+def return_current_item_count(port: int = transmission_port) -> int:
+    """
+    hit transmission rpc and return count of active items
+
+    :return: DataFrame containing all relevant torrent information if torrents exist, None if no torrents
+
+    :param port: transmission daemon port
+    :debug: port=30091
+    """
+    # Get transmission client
+    client = get_transmission_client(port)
+
+    # Get all torrents
+    torrents = client.get_torrents()
+
+    # If no torrents, return None
+    return len(torrents)
+
 
 # ------------------------------------------------------------------------------
 # functions to add/remove torrents
