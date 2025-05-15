@@ -14,6 +14,19 @@ import src.utils as utils
 # logger config
 logger = logging.getLogger(__name__)
 
+# if not inherited set parameters here
+if __name__ == "__main__" or not logger.handlers:
+    # Set up standalone logging for testing
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
+    # Prevent propagation to avoid duplicate logs
+    logger.propagate = False
+
 # ------------------------------------------------------------------------------
 # functions to operate on individual media items
 # ------------------------------------------------------------------------------
@@ -40,7 +53,7 @@ def media_item_download_complete(hash: str) -> str:
         return "error"
     except Exception as e:
         logging.error(f"{hash} encountered {e}")
-        logging.info(f"restarting: {hash}")
+        logging.info(f"re-ingesting: {hash}")
         return "error"
 
 
@@ -107,8 +120,16 @@ def check_downloads():
     ).drop('download_complete'))
 
     # if no items complete or with error, return
-    if not set(media.df['pipeline_status']).intersection(['downloaded', 'ingested']):
+    if media.df.filter((pl.col('pipeline_status') == 'downloaded') | (pl.col('error_status'))).height == 0:
         return
+
+    # update media to contain only items complete or in error state
+    media.update(
+        media.df.filter(
+            (pl.col('pipeline_status') == 'downloaded') |
+            (pl.col('error_status'))
+        )
+    )
 
     # extract filename of completed downloads
     updated_rows = []
