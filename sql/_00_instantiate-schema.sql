@@ -145,22 +145,6 @@ CREATE TRIGGER update_media_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- created_on trigger
-DROP TRIGGER IF EXISTS set_created_at_column ON media;
-
-CREATE OR REPLACE FUNCTION set_created_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.created_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC';
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER set_media_created_at
-    BEFORE INSERT ON media
-    FOR EACH ROW
-    EXECUTE FUNCTION set_created_at_column();
-
 -- ingestion clear trigger
 DROP TRIGGER IF EXISTS reset_fields_on_ingestion ON media;
 

@@ -56,7 +56,8 @@ env/
 ENV/
 env.bak/
 venv.bak/
-environments.yaml
+.environments.yaml
+.environments.yaml
 
 # Coverage reports
 htmlcov/
