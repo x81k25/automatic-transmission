@@ -23,6 +23,18 @@ SET search_path TO atp;
 -- requires the following enums from _00_instantiate-schema.sql
 -- - media_type
 
+-- Create the label enum type
+DO $$
+BEGIN
+    DROP TYPE IF EXISTS label_type;
+    CREATE TYPE label_type AS ENUM (
+        'would_watch',
+        'would_not_watch'
+    );
+EXCEPTION
+    WHEN others THEN NULL;
+END $$;
+
 --------------------------------------------------------------------------------
 -- table creation statement
 --------------------------------------------------------------------------------
@@ -32,7 +44,7 @@ CREATE TABLE training (
     imdb_id VARCHAR(10) PRIMARY KEY CHECK (imdb_id ~ '^tt[0-9]{7,8}$'),
     tmdb_id INTEGER UNIQUE CHECK (tmdb_id > 0),
     -- label columns
-    label SMALLINT CHECK (label IN (0, 1)),
+    label label_type NOT NULL,
     -- media identifying information
     media_type media_type NOT NULL,
     media_title VARCHAR(255) NOT NULL,
@@ -92,7 +104,7 @@ COMMENT ON TABLE training IS 'stores training data to be ingested by reel-driver
 COMMENT ON COLUMN training.imdb_id IS 'IMDB identifier for media item, and the primary key for this column';
 COMMENT ON COLUMN training.tmdb_id IS 'identifier for themoviedb.org API';
 -- label columns
-COMMENT ON COLUMN training.label IS 'training label for model';
+COMMENT ON COLUMN training.label IS 'training label enum value for model ingestion';
 -- media identifying information
 COMMENT ON COLUMN training.media_type IS 'either movie, tv_shows, or tv_season';
 COMMENT ON COLUMN training.media_title IS 'either movie or tv show title';

@@ -77,3 +77,4 @@ coverage.xml
 automatic-transmission.log
 config/string-special-conditions.yaml
 .error_handling/
+dbt/
