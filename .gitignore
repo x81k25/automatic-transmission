@@ -56,7 +56,8 @@ env/
 ENV/
 env.bak/
 venv.bak/
-environments.yaml
+.environments.yaml
+.environments.yaml
 
 # Coverage reports
 htmlcov/
@@ -76,3 +77,4 @@ coverage.xml
 automatic-transmission.log
 config/string-special-conditions.yaml
 .error_handling/
+dbt/

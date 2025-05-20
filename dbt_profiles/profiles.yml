@@ -1,0 +1,14 @@
+atp_dbt:
+  outputs:
+    dev:
+      dbname: postgres
+      host: 192.168.50.2
+      pass: DB5jK2G7g8XZupdf6zFnWLsbTN
+      port: 31434
+      schema: atp
+      threads: 4
+      type: postgres
+      user: x81-test
+  target: dev
+config:
+  send_anonymous_usage_stats: false
