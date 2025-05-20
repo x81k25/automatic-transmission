@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2.8]
+## [1.2.9]
 - improved 02_collect to produce fewer unclassified media_types
 - improved 05_filter to be handle override items
 
