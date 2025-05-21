@@ -3,8 +3,6 @@ import json
 import logging
 import os
 import re
-import time
-from logging import exception
 
 # third-party imports
 from dotenv import load_dotenv
@@ -69,7 +67,7 @@ def media_search(media_item: dict) -> dict:
     :param media_item: dict containing one for of media.df
     :return: dict of items with metadata added
 
-    :debug: media_item = media.df.row(0, named=True)
+    :debug: media_item = media.df.row(88, named=True)
     """
     # make API call for media search
     response = {}
@@ -77,11 +75,16 @@ def media_search(media_item: dict) -> dict:
     if media_item['media_type'] == 'movie':
         params = {
             'query': media_item["media_title"],
-            'year': media_item["release_year"],
             'api_key': movie_search_api_key
         }
+
+        # add year if available
+        if media_item['release_year'] is not None:
+            params['year'] = media_item["release_year"]
+
         logging.debug(f"searching for: {media_item['hash']} as '{params['query']}' - '{params['year']}'")
 
+        # make a request to the API
         response = requests.get(movie_search_api_base_url, params=params)
 
     elif media_item['media_type'] in ['tv_show', 'tv_season']:
@@ -93,6 +96,7 @@ def media_search(media_item: dict) -> dict:
         # add year if available
         if media_item['release_year'] is not None:
             params['year'] = media_item['release_year']
+
         logging.debug(f"searching for: {media_item['hash']} as '{params['query']}'")
 
         # Make a request to the media API
@@ -153,13 +157,11 @@ def collect_details(media_item: dict) -> dict:
     if media_item['media_type'] == 'movie':
         params = {'api_key': movie_details_api_key}
         url = f"{movie_details_api_base_url}/{media_item['tmdb_id']}"
-
         logging.debug(f"collecting metadata details for: {media_item['hash']}")
         response = requests.get(url, params=params)
     elif media_item['media_type'] in ['tv_show', 'tv_season']:
         params = {'api_key': tv_details_api_key}
         url = f"{tv_details_api_base_url}/{media_item['tmdb_id']}"
-
         logging.debug(f"collecting metadata details for: {media_item['hash']}")
         response = requests.get(url, params=params)
 
@@ -173,38 +175,92 @@ def collect_details(media_item: dict) -> dict:
     # if no issue load results
     data = json.loads(response.content)
 
-    # metadata items common to all media types
-    genres = []
-    for genre in data.get('genres'):
-        genres.append(genre['name'])
+    # collect id fields
+    if 'imdb_id' in data:
+        media_item['imdb_id'] = data['imdb_id']
 
-    media_item['genre'] = genres
-
-    languages = []
-    languages.append(data.get('original_language'))
-    for language in data.get('spoken_languages'):
-        languages.append(language['iso_639_1'])
-    languages=list(set(languages))
-
-    media_item['language'] = languages
-
-    # media type specific fields to collect
+    # collect time information
+    year_pattern = r'(19|20)\d{2}'
     if media_item['media_type'] == 'movie':
-        media_item['imdb_id'] = data.get('imdb_id')
+        release_year = re.search(year_pattern, data.get('release_date'))[0]
+        media_item['release_year'] = int(release_year)
     elif media_item['media_type'] in ['tv_show', 'tv_season']:
-        year_pattern = r'(19|20)\d{2}'
         release_year = re.search(year_pattern, data.get('first_air_date'))[0]
         media_item['release_year'] = int(release_year)
 
-    # potential fields to include at a later data
-    #created_by
-    #networks
-    #origin_country
-    #languages
-    #overview
-    #popularity
-    #production_companies
-    #production_countries
+    # collect quantiative fields
+    if 'budget' in data:
+        media_item['budget'] = data['budget']
+    # collect revenue
+    if 'revenue' in data:
+        media_item['revenue'] = data['revenue']
+    # collect runtime
+    if 'runtime' in data:
+        media_item['runtime'] = data['runtime']
+
+    # collect country and production information
+    # collect origin country
+    if 'origin_country' in data:
+        origin_country = []
+        for country in data['origin_country']:
+            origin_country.append(country)
+        media_item['origin_country'] = origin_country
+
+    # collect production companies
+    if 'production_companies' in data:
+        production_companies = []
+        for company in data['production_companies']:
+            production_companies.append(company['name'])
+        media_item['production_companies'] = production_companies
+
+    # collect production countries
+    if 'production_countries' in data:
+        production_countries = []
+        for country in data['production_countries']:
+            production_countries.append(country['iso_3166_1'])
+
+    # collect production status
+    if 'status' in data:
+        media_item['production_status'] = data['status']
+
+    # collect language information
+    # collect original language
+    if 'original_language' in data:
+        media_item['original_language'] = data['original_language']
+
+    # collect spoken languages
+    if 'spoken_languages' in data:
+        spoken_languages = []
+        for language in data.get('spoken_languages'):
+            spoken_languages.append(language['iso_639_1'])
+        media_item['spoken_languages'] = spoken_languages
+
+    # collect other stings fields
+    # collect genres
+    if 'genres' in data:
+        genres = []
+        for genre in data.get('genres'):
+            genres.append(genre['name'])
+        media_item['genre'] = genres
+
+    # collect original title
+    if 'original_title' in data:
+        media_item['original_media_title'] = data['original_title']
+
+    # collect long strings
+    # collect media overview
+    if 'overview' in data:
+        media_item['overview'] = data['overview']
+
+    # collect tagline
+    if 'tagline' in data:
+        media_item['tagline'] = data['tagline']
+
+    # collect TMDB ratgins
+    if 'vote_average' in data:
+        media_item['tmdb_rating'] = data['vote_average']
+    if 'vote_count' in data:
+        media_item['tmdb_votes'] = data['vote_count']
 
     return media_item
 
@@ -222,21 +278,37 @@ def collect_ratings(media_item: dict) -> dict:
 
     # Define the parameters for the OMDb API request
     if media_item['media_type'] == 'movie':
-        params = {
-            't': media_item["media_title"],
-            'y': media_item["release_year"],
-            'apikey': movie_ratings_api_key
-        }
+        # if available query by imdb_id
+        if media_item['imdb_id'] is not None:
+            params = {
+                'i': media_item["imdb_id"],
+                'apikey': movie_ratings_api_key
+            }
+        else:
+            params = {
+                't': media_item["media_title"],
+                'apikey': movie_ratings_api_key
+            }
+            if media_item['release_year'] is not None:
+                params['y'] = media_item["release_year"],
 
         logging.debug(f"collecting ratings for: {media_item['hash']}")
         response = requests.get(movie_ratings_api_base_url, params=params)
 
     elif media_item['media_type'] in ['tv_show', 'tv_season']:
-        params = {
-            't': media_item["media_title"],
-            'y': media_item["release_year"],
-            'apikey': tv_ratings_api_key
-        }
+        # if available query by imdb_id
+        if media_item['imdb_id'] is not None:
+            params = {
+                'i': media_item["imdb_id"],
+                'apikey': movie_ratings_api_key
+            }
+        else:
+            params = {
+                't': media_item["media_title"],
+                'apikey': movie_ratings_api_key
+            }
+            if media_item['release_year'] is not None:
+                params['y'] = media_item["release_year"],
 
         logging.debug(f"collecting ratings for: {media_item['hash']}")
         response = requests.get(tv_ratings_api_base_url, params=params)
