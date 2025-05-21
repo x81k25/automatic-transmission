@@ -73,10 +73,30 @@ class MediaDataFrame:
         'rss_source': pl.Categorical,
         'uploader': pl.Utf8,
         # metadata pertaining to the media item
+        # - identifier fields
         'imdb_id': pl.Utf8,
         'tmdb_id': pl.Int64,
+        # - quantitative fields
+        'budget': pl.Int64,
+        'revenue': pl.Int64,
+        'runtime': pl.Int64,
+        # - country and production information
+        'origin_country': pl.List(pl.Utf8),
+        'production_companies': pl.List(pl.Utf8),
+        'production_countries': pl.List(pl.Utf8),
+        'production_status': pl.Utf8,
+        # - language information
+        'original_language': pl.Utf8,
+        'spoken_languages': pl.List(pl.Utf8),
+        # - other string fields
         'genre': pl.List(pl.Utf8),
-        'language': pl.List(pl.Utf8),
+        'original_media_title': pl.Utf8,
+        # - long string fields
+        'tagline': pl.Utf8,
+        'overview': pl.Utf8,
+        # - ratings info
+        'tmdb_rating': pl.Float64,
+        'tmdb_votes': pl.Int64,
         'rt_score': pl.Int64,
         'metascore': pl.Int64,
         'imdb_rating': pl.Float64,

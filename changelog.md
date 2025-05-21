@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.9]
+- improved 02_collect to produce fewer unclassified media_types
+- improved 05_filter to be handle override items
+- updated MediaDataFrame class to handle new columns for training data
+- updated 04_metadata_collection to collect new training data features
+
 ## [1.2.8]
 - added batch size env var
   - will be used throughout services for any element that will benefit from it

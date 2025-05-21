@@ -132,7 +132,7 @@ def predict_item(media_item: dict) -> dict:
         "hash": media_item.get('hash'),
         "release_year": media_item.get('release_year'),
         "genre": media_item.get('genre'),
-        "language": media_item.get('language'),
+        "language": media_item.get('spoken_languages'),
         "metascore": media_item.get('metascore'),
         "rt_score": media_item.get('rt_score'),
         "imdb_rating": media_item.get('imdb_rating'),
@@ -174,10 +174,10 @@ def predict_item(media_item: dict) -> dict:
 
 def predict_items(unfiltered_media: pl.DataFrame) -> pl.DataFrame:
     """
-    hits the reel-driver batch prediction, appends the probabilitiy to the
+    hits the reel-driver batch prediction, appends the probability to the
         input df, and then returns the df
 
-    :param unfiltered_media: polars dataframe containing all itmes to be
+    :param unfiltered_media: polars dataframe containing all items to be
         predicted
     :return: polars df with the probability appended
     """
@@ -207,7 +207,7 @@ def predict_items(unfiltered_media: pl.DataFrame) -> pl.DataFrame:
                 "hash",
                 "release_year",
                 "genre",
-                "language",
+                "spoken_languages",
                 "metascore",
                 "rt_score",
                 "imdb_rating",
@@ -292,33 +292,61 @@ def filter_media():
 
     media = MediaDataFrame(updated_rows)
 
-    # create df of items to filter based off of media metadata
-    unfiltered_media = media.df.filter(~pl.col('rejection_status').is_in(['override', 'rejected'])).clone()
+    # separate media items based off of those that need to pass through
+    #   reel-driver and those that do not
+    reel_media = MediaDataFrame(
+        media.df
+        .filter(media_type = 'movie')
+        .filter(~pl.col('rejection_status').is_in(['override', 'rejected']))
+    )
 
-    # if no items to be filtered by media metadata, proceed
-    if unfiltered_media.height == 0:
-        pass
+    un_reel_media = MediaDataFrame(
+        media.df.filter(~pl.col('hash').is_in(list(reel_media.df['hash'])))
+    )
+
+    # commit items which do not require reel-driver to db and log
+    if un_reel_media.df.height > 0:
+        # update status accordingly
+        un_reel_media.update(un_reel_media.df.with_columns(
+            pipeline_status=pl.when(
+                pl.col('error_status') == True)
+                    .then(pl.col('pipeline_status'))
+                .otherwise(
+                    pl.when(pl.col('rejection_status') == 'rejected')
+                        .then(pl.lit('rejected'))
+                    .otherwise(pl.lit('queued'))
+                )
+            )
+        )
+
+        utils.media_db_update(media=un_reel_media)
+        for row in un_reel_media.df.iter_rows(named=True):
+            if row['rejection_status'] == 'rejected':
+                logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
+            elif not row['error_status']:
+                logging.info(f"queued - {row['hash']}")
+
+    # if no items passed to reel_driver, return
+    if reel_media.df.height == 0:
+        return
 
     # filter 1 item
-    elif unfiltered_media.height == 1:
-        media.update(
-            media.df.update(
-                pl.DataFrame(
-                    [predict_item(next(unfiltered_media.iter_rows(named=True)))]
-                ),
-                on='hash'
+    elif reel_media.df.height == 1:
+        reel_media.update(
+            pl.DataFrame(
+                [predict_item(next(reel_media.df.iter_rows(named=True)))]
             )
         )
 
         # log accepted and rejected entries
-        for row in media.df.iter_rows(named=True):
+        for row in reel_media.df.iter_rows(named=True):
             if row['rejection_status'] == 'rejected':
                 logging.info(f"rejected - {row['hash']} - {row['rejection_reason']}")
             elif row['rejection_status'] == 'accepted':
                 logging.info(f"queued - {row['hash']}")
 
         # update pipeline_status
-        media.update(media.df.with_columns(
+        reel_media.update(reel_media.df.with_columns(
             pipeline_status=pl.when(
                 pl.col('error_status') == True)
                     .then(pl.col('pipeline_status'))
@@ -331,32 +359,30 @@ def filter_media():
         )
 
         #write single row to database
-        utils.media_db_update(media=media)
+        utils.media_db_update(media=reel_media)
 
-    # filters multiple items
+    # batch filter multiple items
     else:
         # break into batches if > 50 elements in order to avoid entire queue
         #  failure due to 1 item
-        number_of_batches = (media.df.height + 49) // 50  # Ceiling division by 50
+        number_of_batches = (reel_media.df.height + 49) // 50  # Ceiling division by 50
 
         for batch in range(number_of_batches):
             logging.debug(f"starting reel-driver prediction batch {batch+1}/{number_of_batches}")
 
             # set batch indices
             batch_start_index = batch * 50
-            batch_end_index = min((batch + 1) * 50, media.df.height)
+            batch_end_index = min((batch + 1) * 50, reel_media.df.height)
 
             # create media batch as proper MediaDataFrame to perform data validation
-            media_batch = MediaDataFrame(media.df[batch_start_index:batch_end_index])
-            unfiltered_batch = media_batch.df.filter(~pl.col('rejection_status').is_in(['override', 'rejected'])).clone()
+            reel_media_batch = MediaDataFrame(reel_media.df[batch_start_index:batch_end_index].clone())
 
             try:
                 # attempt to hit the prediction batch API
-                filtered_media = predict_items(unfiltered_batch)
-                media_batch.update(media_batch.df.update(filtered_media, on='hash'))
+                reel_media_batch.update(predict_items(reel_media_batch.df))
 
                 # update pipeline_status
-                media_batch.update(media_batch.df.with_columns(
+                reel_media_batch.update(reel_media_batch.df.with_columns(
                     pipeline_status=pl.when(
                         pl.col('error_status') == True)
                             .then(pl.col('pipeline_status'))
@@ -369,7 +395,7 @@ def filter_media():
                 )
 
                 # log accepted and rejected entries
-                for row in media_batch.df.iter_rows(named=True):
+                for row in reel_media_batch.df.iter_rows(named=True):
                     if row['rejection_status'] == 'rejected':
                         logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
                     else:
@@ -379,8 +405,8 @@ def filter_media():
 
             except Exception as e:
                 # log errors to individual elements
-                media_batch.update(
-                    media_batch.df.with_columns(
+                reel_media_batch.update(
+                    reel_media_batch.df.with_columns(
                         error_status = pl.lit(True),
                         error_condition = pl.lit(f"batch error - {e}")
                     )
@@ -390,7 +416,7 @@ def filter_media():
 
             try:
                 # attempt to write metadata back to the database; with or without errors
-                utils.media_db_update(media=media_batch)
+                utils.media_db_update(media=reel_media_batch)
             except Exception as e:
                 logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
                 logging.error(f"metadata collection batch error could not be stored in database")
