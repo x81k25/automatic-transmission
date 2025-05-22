@@ -5,6 +5,8 @@
 - improved 05_filter to be handle override items
 - updated MediaDataFrame class to handle new columns for training data
 - updated 04_metadata_collection to collect new training data features
+- fixed error in 07_download_check that caused torrents not found in 
+- suppressed `'bpchar'` warning from SQLAlchemy due to lack of library familiarity with `CHAR` PostgreSQL data type  
 
 ## [1.2.8]
 - added batch size env var
