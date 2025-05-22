@@ -3,12 +3,14 @@ import logging
 import os
 import sys
 from typing import List, Optional
+import warnings
 
 # third-party imports
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, Engine, Table, MetaData, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import URL
+from sqlalchemy.exc import SAWarning
 
 # internal imports
 from src.data_models import MediaDataFrame
@@ -448,6 +450,13 @@ def media_db_update(media: MediaDataFrame) -> None:
     media (MediaDataFrame): MediaDataFrame containing media records to update
     """
     logging.debug(f"Starting database update for {len(media.df)} records")
+
+    # warnings causeed by loading elements to the PostgreSQL CHAR type
+    warnings.filterwarnings(
+        'ignore',
+        message="Did not recognize type 'bpchar'",
+        category=SAWarning
+    )
 
     engine = create_db_engine()
 
