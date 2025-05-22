@@ -49,7 +49,6 @@ def media_item_download_complete(hash: str) -> str:
 
     except KeyError as e:
         logging.error(f"{hash} not found within transmission")
-        logging.info(f"restarting: {hash}")
         return "error"
     except Exception as e:
         logging.error(f"{hash} encountered {e}")
@@ -94,41 +93,32 @@ def check_downloads():
     if media is None:
         return
 
-    # determine if downloaded, and if so change pipeline_status
-    # if error occurs during torrent retrieval, torrent will be restarted
+    # determine if downloaded
     media.update(media.df.with_columns(
         download_complete=pl.col('hash').map_elements(
             media_item_download_complete, return_dtype=pl.Utf8)
-    ).with_columns(
+    ))
+
+    # change pipeline_status based off of download status and error_status
+    #     if error condition is present re-ingest item
+    #     due to db trigger, setting pipeline_status = 'ingested' will reset
+    #     error_condition, error_status, rejection_status, rejection_reason
+    media.update(media.df.with_columns(
         pipeline_status=pl.when(pl.col("download_complete") == "true")
             .then(pl.lit("downloaded"))
             .when(pl.col("download_complete") == "error")
             .then(pl.lit('ingested'))
-            .otherwise(pl.col('pipeline_status')),
-        error_status=pl.when(pl.col("download_complete") == "error")
-            .then(pl.lit(False))
-            .otherwise(pl.col("error_status")),
-        error_condition=pl.when(pl.col("download_complete") == "error")
-            .then(pl.lit(None))
-            .otherwise(pl.col('error_condition')),
-        rejection_status=pl.when(pl.col("download_complete") == "error")
-            .then(pl.lit("unfiltered"))
-            .otherwise(pl.col("rejection_status")),
-        rejection_reason=pl.when(pl.col("download_complete") == "error")
-            .then(pl.lit(None))
-            .otherwise(pl.col('rejection_reason'))
+            .otherwise(pl.col('pipeline_status'))
     ).drop('download_complete'))
 
     # if no items complete or with error, return
-    if media.df.filter((pl.col('pipeline_status') == 'downloaded') | (pl.col('error_status'))).height == 0:
+    if media.df.filter(pl.col('pipeline_status').is_in(['downloaded', 'ingested'])).height == 0:
         return
 
     # update media to contain only items complete or in error state
     media.update(
         media.df.filter(
-            (pl.col('pipeline_status') == 'downloaded') |
-            (pl.col('error_status'))
-        )
+            pl.col('pipeline_status').is_in(['downloaded', 'ingested']))
     )
 
     # extract filename of completed downloads
@@ -149,6 +139,8 @@ def check_downloads():
             logging.error(f"{row['original_title']}: {row['error_condition']}")
         elif row['pipeline_status'] == "downloaded":
             logging.info(f"downloaded: {row['original_title']}")
+        elif row['pipeline_status'] == "ingested":
+            logging.info(f"re-ingesting: {row['hash']}")
 
     # update db
     utils.media_db_update(media=media)
