@@ -145,6 +145,24 @@ class MediaDataFrame:
                     f"Could not create MediaDataFrame from data: {e}")
 
 
+    def _ensure_unique_hashes(self, df: pl.DataFrame) -> pl.DataFrame:
+       """Check for duplicate hashes and raise error if found."""
+       if df.height == 0:
+           return df
+
+       # Find duplicate hashes
+       duplicates = df.filter(pl.col('hash').is_duplicated())
+
+       if duplicates.height > 0:
+           print("Duplicate hashes found:")
+           for row in duplicates.iter_rows(named=True):
+               print(f"Hash: {row['hash']}, Title: {row.get('original_title', 'N/A')}, Type: {row.get('media_type', 'N/A')}")
+
+           raise ValueError(f"Found {duplicates.height} duplicate hash(es) in MediaDataFrame")
+
+       return df
+
+
     def _validate_and_prepare(self, df: pl.DataFrame) -> None:
         """
         Validate that DataFrame conforms to the required schema and prepare it.
@@ -206,6 +224,9 @@ class MediaDataFrame:
 
         # Apply all expressions at once
         df = df.with_columns(timestamp_exprs)
+
+        # Ensure unique hashes
+        df = self._ensure_unique_hashes(df)
 
         # Set the underlying DataFrame
         self._df = df

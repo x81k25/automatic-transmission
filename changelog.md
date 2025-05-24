@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.10]
+- configured 05_filter.py to operate with latest version of reel-driver
+- detected error in episodefeed RSS feed and added check for duplicate hash values in 01_rss_ingest
+
 ## [1.2.9]
 - improved 02_collect to produce fewer unclassified media_types
 - improved 05_filter to be handle override items
