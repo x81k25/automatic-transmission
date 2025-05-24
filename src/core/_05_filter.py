@@ -36,7 +36,7 @@ if __name__ == "__main__" or not logger.handlers:
 load_dotenv(override=True)
 
 # pipeline env vars
-batch_size = os.getenv('BATCH_SIZE')
+batch_size = int(os.getenv('BATCH_SIZE'))
 acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
 
 # reel_driver_env vars
@@ -58,9 +58,9 @@ def filter_by_file_metadata(media_item: dict) -> dict:
 
     :param media_item:
     :return: dict containing the updated filtered data
-    """
-    #filter_type = 'movie'
 
+    :debug: filter_type = 'movie'
+    """
     # pass if override status was set
     if media_item['rejection_status'] == 'override':
         return media_item
@@ -76,18 +76,18 @@ def filter_by_file_metadata(media_item: dict) -> dict:
                     media_item['rejection_reason'] = f'{key} is null'
                     break
             if isinstance(media_item[key], str):
-                if media_item[key] not in sieve[key]["allowed_values"]:
+                if "allowed_values" in sieve[key] and media_item[key] not in sieve[key]["allowed_values"]:
                     media_item['rejection_reason'] = f'{key} {media_item[key]} is not in allowed_values'
                     break
             elif isinstance(media_item[key], (int, float)):
-                if media_item[key] < sieve[key]["min"]:
+                if "min" in sieve[key] and media_item[key] < sieve[key]["min"]:
                     media_item['rejection_reason'] = f'{key} {media_item[key]} is below min'
                     break
-                elif media_item[key] > sieve[key]["max"]:
+                elif "max" in sieve[key] and media_item[key] > sieve[key]["max"]:
                     media_item['rejection_reason'] = f'{key} {media_item[key]} is above max'
                     break
             elif isinstance(media_item[key], list):
-                if not any([x in sieve[key]["allowed_values"] for x in media_item[key]]):
+                if "allowed_values" in sieve[key] and not any([x in sieve[key]["allowed_values"] for x in media_item[key]]):
                     media_item['rejection_reason'] = f'{key} {media_item[key]} does not include {sieve[key]["allowed_values"]}'
                     break
 
@@ -129,14 +129,25 @@ def predict_item(media_item: dict) -> dict:
     api_url = f"http://{api_host}:{api_port}/{api_prefix}/api/predict"
 
     payload = {
-        "hash": media_item.get('hash'),
-        "release_year": media_item.get('release_year'),
-        "genre": media_item.get('genre'),
-        "language": media_item.get('spoken_languages'),
-        "metascore": media_item.get('metascore'),
-        "rt_score": media_item.get('rt_score'),
-        "imdb_rating": media_item.get('imdb_rating'),
-        "imdb_votes": media_item.get('imdb_votes')
+        'imdb_id': media_item.get('imdb_id'),
+        'release_year': media_item.get('release_year'),
+        'genre': media_item.get('genre'),
+        'spoken_languages': media_item.get('spoken_languages'),
+        'original_language': media_item.get('original_language'),
+        'origin_country': media_item.get('origin_country'),
+        'production_countries': media_item.get('production_countries'),
+        'production_status': media_item.get('production_status'),
+        'metascore': media_item.get('metascore'),
+        'rt_score': media_item.get('rt_score'),
+        'imdb_rating': media_item.get('imdb_rating'),
+        'imdb_votes': media_item.get('imdb_votes'),
+        'tmdb_rating': media_item.get('tmdb_rating'),
+        'tmdb_votes': media_item.get('tmdb_votes'),
+        'budget': media_item.get('budget'),
+        'revenue': media_item.get('revenue'),
+        'runtime': media_item.get('runtime'),
+        'tagline': media_item.get('tagline'),
+        'overview': media_item.get('overview')
     }
 
     try:
@@ -204,14 +215,25 @@ def predict_items(unfiltered_media: pl.DataFrame) -> pl.DataFrame:
     payload = {
         'items':
             items_to_filter.select([
-                "hash",
-                "release_year",
-                "genre",
-                "spoken_languages",
-                "metascore",
-                "rt_score",
-                "imdb_rating",
-                "imdb_votes"
+                 'imdb_id',
+                  'release_year',
+                  'genre',
+                  'spoken_languages',
+                  'original_language',
+                  'origin_country',
+                  'production_countries',
+                  'production_status',
+                  'metascore',
+                  'rt_score',
+                  'imdb_rating',
+                  'imdb_votes',
+                  'tmdb_rating',
+                  'tmdb_votes',
+                  'budget',
+                  'revenue',
+                  'runtime',
+                  'tagline',
+                  'overview'
             ]).to_dicts()
     }
 
@@ -233,12 +255,15 @@ def predict_items(unfiltered_media: pl.DataFrame) -> pl.DataFrame:
         else:
             # Get prediction result
             prediction_result = pl.DataFrame(response.json()['results']).select(
-                'hash',
+                'imdb_id',
                 'probability'
             )
-    
+
+            # deduplicate prediction results, keeping first occurrence
+            prediction_result = prediction_result.unique(subset=['imdb_id'], keep='first')
+
             # combine prediction into unfiltered media table
-            unfiltered_media = unfiltered_media.join(prediction_result, on='hash', how='left')
+            unfiltered_media = unfiltered_media.join(prediction_result, on='imdb_id', how='left')
 
             # filter media based off of predictions
             filtered_media = unfiltered_media.with_columns(
@@ -365,14 +390,14 @@ def filter_media():
     else:
         # break into batches if > 50 elements in order to avoid entire queue
         #  failure due to 1 item
-        number_of_batches = (reel_media.df.height + 49) // 50  # Ceiling division by 50
+        number_of_batches = (reel_media.df.height + (batch_size-1)) // batch_size  # Ceiling division by 50
 
         for batch in range(number_of_batches):
             logging.debug(f"starting reel-driver prediction batch {batch+1}/{number_of_batches}")
 
             # set batch indices
-            batch_start_index = batch * 50
-            batch_end_index = min((batch + 1) * 50, reel_media.df.height)
+            batch_start_index = batch * batch_size
+            batch_end_index = min((batch + 1) * batch_size, reel_media.df.height)
 
             # create media batch as proper MediaDataFrame to perform data validation
             reel_media_batch = MediaDataFrame(reel_media.df[batch_start_index:batch_end_index].clone())
