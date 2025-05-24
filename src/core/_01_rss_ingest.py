@@ -108,9 +108,17 @@ def rss_ingest():
     # format each entry for conversion to MediaDataFrame
     formatted_entries = [format_entries(entry=entry) for entry in all_entries]
 
+    # remove duplicates by hash, keeping first occurrence
+    seen_hashes = set()
+    unique_entries = []
+    for entry in formatted_entries:
+        if entry['hash'] not in seen_hashes:
+            seen_hashes.add(entry['hash'])
+            unique_entries.append(entry)
+
     # convert to MediaDataFrame object
-    # conversion to MediaDataFrame object will handle element verification
-    media = MediaDataFrame(formatted_entries)
+    #     conversion to MediaDataFrame object will handle element verification
+    media = MediaDataFrame(unique_entries)
 
     # determine which feed entries are new entries
     new_hashes = utils.compare_hashes_to_db(hashes=media.df['hash'].to_list())

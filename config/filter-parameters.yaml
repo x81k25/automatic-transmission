@@ -3,3 +3,5 @@ movie:
     nullable: false
     allowed_values:
       - 1080p
+  imdb_id:
+    nullable: false
