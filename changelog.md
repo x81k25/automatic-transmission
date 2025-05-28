@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.2.11]
+- broke file filtering and media item filtering into two distinct scripts
+  - this changed the numbering schema for the scripts, and script number below this update may be misaligned with current codebase
+- added check in 05_metadata collection to determine if metadata was already collected
+  - added env var, which determines if the metadata should be recollected due to being stale
+- added check in 06_media_filtration to determine if the rejection_status has already been determined
+- added step in 06_media_filtration that will loop through items individually if a batch prediction fails
+- added extensive handling of edge cases within 06_media_filtration
+- moved sql and dbt files to a distinct repo -> `schema-owners-manual`
+- moved debug param to env vars instead of command line
+
 ## [1.2.10]
 - configured 05_filter.py to operate with latest version of reel-driver
 - detected error in episodefeed RSS feed and added check for duplicate hash values in 01_rss_ingest

@@ -6,45 +6,15 @@ import logging
 import src.core as core
 
 # ------------------------------------------------------------------------------
-# setup
-# ------------------------------------------------------------------------------
-
-def setup_logging(debug: bool = False):
-    if not debug:
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-        logging.getLogger("paramiko").setLevel(logging.WARNING)
-    else:
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-        logging.getLogger("paramiko").setLevel(logging.INFO)
-    
-    # Return logger for convenience
-    return logging.getLogger(__name__)
-
-
-# ------------------------------------------------------------------------------
 # end-to-end pipeline for downloading all media
 # ------------------------------------------------------------------------------
 
 def full_pipeline(debug: bool):
-    """
-    full pipeline for downloading contents
-    :param debug: param indicating whether to run in debug mode
-    """
-    logger = setup_logging(debug=debug)
-
+    """full pipeline for downloading contents"""
     core.rss_ingest()
     core.collect_media()
     core.parse_media()
+    core.filter_files()
     core.collect_metadata()
     core.filter_media()
     core.initiate_media_download()

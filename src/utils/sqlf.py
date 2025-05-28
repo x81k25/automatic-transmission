@@ -7,6 +7,7 @@ import warnings
 
 # third-party imports
 from dotenv import load_dotenv
+import polars as pl
 from sqlalchemy import create_engine, text, Engine, Table, MetaData, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import URL
@@ -218,9 +219,7 @@ def get_media_from_db(pipeline_status: str) -> MediaDataFrame | None:
         ORDER BY hash
     """)
 
-    params = {
-        'pipeline_status': pipeline_status
-    }
+    params = {'pipeline_status': pipeline_status}
 
     with engine.connect() as conn:
         # Execute the query
@@ -262,9 +261,7 @@ def get_media_by_hash(hashes: list) -> MediaDataFrame | None:
         AND error_status = FALSE
     """)
 
-    params = {
-        'hashes': tuple(hashes)
-    }
+    params = {'hashes': tuple(hashes)}
 
     with engine.connect() as conn:
         # Execute the query
@@ -284,6 +281,95 @@ def get_media_by_hash(hashes: list) -> MediaDataFrame | None:
 
     # Convert to polars DataFrame and wrap in MediaDataFrame
     return MediaDataFrame(data)
+
+
+def get_media_metadata(tmdb_ids: list) -> pl.DataFrame | None:
+    """
+    gets media metadata that already existing in the database training table
+
+    :param tmdb_ids: list of strings in the form of The Movie Database ID's
+    :return: polars DataFrame contains returned data
+    """
+    # assign engine
+    engine = create_db_engine()
+
+    # build query
+    query = text(f"""
+        SELECT *
+        FROM training
+        WHERE tmdb_id IN :tmdb_ids
+    """)
+
+    params = {'tmdb_ids': tuple(tmdb_ids)}
+
+    with engine.connect() as conn:
+        # Execute the query
+        result = conn.execute(query, params)
+
+        # Get column names from the result
+        columns = result.keys()
+
+        # Fetch all rows
+        rows = result.fetchall()
+
+        if not rows:
+            return None
+
+        # Convert to dict for polars
+        data = [dict(zip(columns, row)) for row in rows]
+
+    # return only relevant rows
+    media_metadata = pl.DataFrame(data).drop(
+        'label',
+        'season',
+        'episode',
+        'created_at',
+        'updated_at'
+    )
+
+    # Convert to polars DataFrame and wrap in MediaDataFrame
+    return media_metadata
+
+
+def get_training_labels(imdb_ids: list) -> pl.DataFrame | None:
+    """
+    gets media metadata that already existing in the database training table
+
+    :param imdb_ids: list of strings in the form of IMDB ID's
+    :return: DataFrame containing the training label and imdb_id
+    """
+    # assign engine
+    engine = create_db_engine()
+
+    # build query
+    query = text(f"""
+        SELECT
+            imdb_id, 
+            label
+        FROM training
+        WHERE imdb_id IN :imdb_ids
+    """)
+
+    params = {'imdb_ids': tuple(imdb_ids)}
+
+    with engine.connect() as conn:
+        # Execute the query
+        result = conn.execute(query, params)
+
+        # Get column names from the result
+        columns = result.keys()
+
+        # Fetch all rows
+        rows = result.fetchall()
+
+        if not rows:
+            return None
+
+        # Convert to dict for polars
+        data = [dict(zip(columns, row)) for row in rows]
+
+    # Convert to polars DataFrame and wrap in MediaDataFrame
+    return pl.DataFrame(data)
 
 
 # ------------------------------------------------------------------------------

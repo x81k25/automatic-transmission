@@ -17,11 +17,27 @@ from src.data_models import MediaDataFrame
 # load environment variables
 # ------------------------------------------------------------------------------
 
-# load env vars
-load_dotenv()
+# get reel-driver env vars
+load_dotenv(override=True)
 
-# logging config
-logger = logging.getLogger(__name__)
+log_level = os.getenv('LOG_LEVEL', default="INFO")
+
+if log_level == "INFO":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+elif log_level == "DEBUG":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
 
 # ------------------------------------------------------------------------------
 # rss ingest helper functions
@@ -140,10 +156,10 @@ def rss_ingest():
         )
 
         # write new items to the database
-        utils.insert_items_to_db(media=media)
+        utils.insert_items_to_db(media=media.to_schema())
 
         for row in media.df.iter_rows(named=True):
-            logging.info(f"ingested: {row['original_title']}")
+            logging.info(f"ingested - {row['hash']}")
 
 # ------------------------------------------------------------------------------
 # end of _01_rss_ingest.py

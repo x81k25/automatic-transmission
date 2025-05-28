@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 import polars as pl
-from typing import List, Dict, Any, Optional, ClassVar, Type
+from typing import Any, Optional
 
 # ------------------------------------------------------------------------------
 # enum classes
@@ -13,19 +13,20 @@ class PipelineStatus(str, Enum):
     INGESTED = 'ingested'
     PAUSED = 'paused'
     PARSED = 'parsed'
+    FILE_ACCEPTED = 'file_accepted'
     METADATA_COLLECTED = 'metadata_collected'
-    REJECTED = 'rejected'
-    QUEUED = 'queued'
+    MEDIA_ACCEPTED = 'media_accepted'
     DOWNLOADING = 'downloading'
     DOWNLOADED = 'downloaded'
     TRANSFERRED = 'transferred'
     COMPLETE = 'complete'
+    REJECTED = 'rejected'
 
 
 class RejectionStatus(str, Enum):
     UNFILTERED = 'unfiltered'
     ACCEPTED = 'accepted'
-    FAILED = 'failed'
+    REJECTED = 'rejected'
     OVERRIDE = 'override'
 
 
@@ -33,6 +34,7 @@ class MediaType(str, Enum):
     MOVIE = 'movie'
     TV_SHOW = 'tv_show'
     TV_SEASON = 'tv_season'
+    UNKNOWN = 'unknown'
 
 
 class RssSource(str, Enum):
@@ -126,8 +128,7 @@ class MediaDataFrame:
         """
         Initialize with data that can be converted to a polars DataFrame.
 
-        Args:
-            data: Data to convert to DataFrame
+        :param data: Data to convert to DataFrame
         """
         if data is None:
             # Create empty DataFrame with proper schema
@@ -172,6 +173,9 @@ class MediaDataFrame:
                    col not in df.columns]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
+
+        # Ensure unique hashes
+        df = self._ensure_unique_hashes(df)
 
         # Get current timestamp once to ensure consistency
         current_timestamp = datetime.now(timezone.utc)
@@ -225,17 +229,94 @@ class MediaDataFrame:
         # Apply all expressions at once
         df = df.with_columns(timestamp_exprs)
 
-        # Ensure unique hashes
-        df = self._ensure_unique_hashes(df)
-
         # Set the underlying DataFrame
         self._df = df
+
+
+    def to_schema(self) -> 'MediaDataFrame':
+       """
+       return MediaDataFrame with only schema columns, validating types; this
+           will primarily be leverage to prevent errors when committing
+           database updates
+       """
+       try:
+           # Filter to only schema columns - polars will raise if any are missing
+           filtered_df = self._df.select(list(self.schema.keys()))
+       except pl.ColumnNotFoundError as e:
+           raise ValueError(f"Missing required schema columns: {str(e)}")
+
+       # Check type compatibility and collect issues
+       issues = []
+       for col_name, expected_type in self.schema.items():
+           actual_type = filtered_df[col_name].dtype
+
+           # Check if types are compatible using polars type hierarchy
+           try:
+               # Create a dummy series with expected type to test compatibility
+               pl.Series([None], dtype=expected_type).cast(actual_type)
+               pl.Series([None], dtype=actual_type).cast(expected_type)
+           except (pl.ComputeError, pl.InvalidOperationError):
+               issues.append(
+                   f"Column '{col_name}': expected {expected_type}-compatible type, got {actual_type}"
+               )
+
+       # Raise comprehensive error if any issues found
+       if issues:
+           issue_list = "\n- ".join([""] + issues)
+           raise ValueError(f"Schema validation failed with {len(issues)} issue{'s' if len(issues) > 1 else ''}:{issue_list}")
+
+       # Return new MediaDataFrame instance with filtered data
+       return MediaDataFrame(filtered_df)
 
 
     def update(self, df: pl.DataFrame):
         """Update internal DataFrame directly."""
         self._validate_and_prepare(df)
         self._df = df
+
+
+    def append(self, new_df: pl.DataFrame) -> None:
+        """
+        Append new rows to the existing DataFrame.
+
+        :param new_df: DataFrame with new rows to append
+        """
+        if new_df.height == 0:
+            return  # Nothing to append
+
+        # Check required columns in new data
+        missing = [col for col in self.required_columns if col not in new_df.columns]
+        if missing:
+            raise ValueError(f"Missing required columns in new data: {missing}")
+
+        # Create null rows with proper schema
+        null_data = {col_name: [None] * new_df.height for col_name in self.schema.keys()}
+        empty_rows = pl.DataFrame(null_data, schema=self.schema)
+
+        # Update with actual data from new_df, casting to match existing types
+        update_exprs = []
+        for col in new_df.columns:
+            if col in self.schema:
+                # Cast to the exact dtype from existing DataFrame
+                existing_dtype = self._df[col].dtype
+                update_exprs.append(new_df[col].cast(existing_dtype).alias(col))
+
+        structured_df = empty_rows.with_columns(update_exprs)
+
+        # Use vstack to combine
+        combined_df = self._df.vstack(structured_df)
+        self._validate_and_prepare(combined_df)
+
+
+    def filter(self, *predicates) -> 'MediaDataFrame':
+        """
+        filter the MediaDataFrame using polars filter syntax
+
+        :param *predicates: one or more filter expressions (same as polars DataFrame.filter)
+        :return: MediaDataFrame: New filtered MediaDataFrame instance
+        """
+        filtered_df = self._df.filter(*predicates)
+        return MediaDataFrame(filtered_df)
 
 
     @property

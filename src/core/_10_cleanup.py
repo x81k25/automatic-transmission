@@ -14,12 +14,20 @@ import src.utils as utils
 # config
 # ------------------------------------------------------------------------------
 
-# logger config
-logger = logging.getLogger(__name__)
+# get reel-driver env vars
+load_dotenv(override=True)
 
-# if not inherited set parameters here
-if __name__ == "__main__" or not logger.handlers:
-    # Set up standalone logging for testing
+log_level = os.getenv('LOG_LEVEL', default="INFO")
+
+if log_level == "INFO":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+elif log_level == "DEBUG":
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
@@ -27,12 +35,8 @@ if __name__ == "__main__" or not logger.handlers:
     )
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
-    # Prevent propagation to avoid duplicate logs
-    logger.propagate = False
 
-# load and validate pipeline env vars
-load_dotenv(override=True)
-
+# get pipeline env vars
 target_active_items = float(os.getenv('TARGET_ACTIVE_ITEMS'))
 if target_active_items < 0:
     raise ValueError(f"TARGET_ACTIVE_ITEMS value of {target_active_items} is less than 0 and no permitted")
@@ -133,7 +137,7 @@ def cleanup_transferred_media(modulated_transferred_item_cleanup_delay: float):
     )
 
     # update status of successfully cleaned items
-    utils.media_db_update(media=media)
+    utils.media_db_update(media=media.to_schema())
 
 
 def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
@@ -211,7 +215,7 @@ def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
     )
 
     # update status of successfully cleaned items
-    utils.media_db_update(media=media)
+    utils.media_db_update(media=media.to_schema())
 
 
 # ------------------------------------------------------------------------------
