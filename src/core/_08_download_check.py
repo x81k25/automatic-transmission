@@ -1,7 +1,9 @@
 # standard library imports
 import logging
+import os
 
 # third-party imports
+from dotenv import load_dotenv
 import polars as pl
 
 # local/custom imports
@@ -11,12 +13,20 @@ import src.utils as utils
 # config
 # ------------------------------------------------------------------------------
 
-# logger config
-logger = logging.getLogger(__name__)
+# load env vars
+load_dotenv(override=True)
 
-# if not inherited set parameters here
-if __name__ == "__main__" or not logger.handlers:
-    # Set up standalone logging for testing
+log_level = os.getenv('LOG_LEVEL', default="INFO")
+
+if log_level == "INFO":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+elif log_level == "DEBUG":
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
@@ -24,8 +34,6 @@ if __name__ == "__main__" or not logger.handlers:
     )
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
-    # Prevent propagation to avoid duplicate logs
-    logger.propagate = False
 
 # ------------------------------------------------------------------------------
 # functions to operate on individual media items
@@ -48,10 +56,10 @@ def media_item_download_complete(hash: str) -> str:
             return "false"
 
     except KeyError as e:
-        logging.error(f"{hash} not found within transmission")
+        logging.error(f"{hash} - not found within transmission")
         return "error"
     except Exception as e:
-        logging.error(f"{hash} encountered {e}")
+        logging.error(f"{hash} - {e}")
         logging.info(f"re-ingesting: {hash}")
         return "error"
 
@@ -136,15 +144,15 @@ def check_downloads():
     # report errors if present
     for row in media.df.iter_rows(named=True):
         if row['error_status']:
-            logging.error(f"{row['original_title']}: {row['error_condition']}")
+            logging.error(f"{row['hash']} - {row['error_condition']}")
         elif row['pipeline_status'] == "downloaded":
-            logging.info(f"downloaded: {row['original_title']}")
+            logging.info(f"downloaded - {row['hash']}")
         elif row['pipeline_status'] == "ingested":
-            logging.info(f"re-ingesting: {row['hash']}")
+            logging.info(f"re-ingesting - {row['hash']}")
 
     # update db
-    utils.media_db_update(media=media)
+    utils.media_db_update(media=media.to_schema())
 
 # ------------------------------------------------------------------------------
-# end of _07_download_check.py
+# end of _08_download_check.py
 # ------------------------------------------------------------------------------

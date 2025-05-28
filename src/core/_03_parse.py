@@ -1,28 +1,33 @@
 # standard library imports
 import logging
+import os
 
 # third-party imports
 from dotenv import load_dotenv
-import polars as pl
 import yaml
 
 # local/custom imports
-from src.data_models import MediaDataFrame
+from src.data_models import *
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
 # config
 # ------------------------------------------------------------------------------
 
-# load environment variables
+# load env vars
 load_dotenv(override=True)
 
-# logger config
-logger = logging.getLogger(__name__)
+log_level = os.getenv('LOG_LEVEL', default="INFO")
 
-# if not inherited set parameters here
-if __name__ == "__main__" or not logger.handlers:
-    # Set up standalone logging for testing
+if log_level == "INFO":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+elif log_level == "DEBUG":
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
@@ -30,8 +35,6 @@ if __name__ == "__main__" or not logger.handlers:
     )
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
-    # Prevent propagation to avoid duplicate logs
-    logger.propagate = False
 
 # read in string special conditions
 with open('./config/string-special-conditions.yaml', 'r') as file:
@@ -239,7 +242,7 @@ def parse_media():
     full ingest pipeline for either movies or tv shows
     """
     # read in existing data based on ingest_type
-    media = utils.get_media_from_db(pipeline_status='ingested')
+    media = utils.get_media_from_db(pipeline_status=PipelineStatus.INGESTED)
 
     # if no new data, return
     if media is None:
@@ -260,12 +263,12 @@ def parse_media():
     # update status of successfully parsed items
     media.update(media.df.with_columns(
         pipeline_status=pl.when(~pl.col('error_status'))
-            .then(pl.lit('parsed'))
+            .then(pl.lit(PipelineStatus.PARSED))
             .otherwise(pl.col('pipeline_status'))
     ))
 
     # write parsed data back to the database
-    utils.media_db_update(media=media)
+    utils.media_db_update(media=media.to_schema())
 
 # ------------------------------------------------------------------------------
 # end of _03_parse.py

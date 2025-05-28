@@ -7,19 +7,27 @@ import polars as pl
 from dotenv import load_dotenv
 
 # local/custom imports
-from src.data_models import MediaDataFrame
+from src.data_models import *
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
 # initialization and setup
 # ------------------------------------------------------------------------------
 
-# logger config
-logger = logging.getLogger(__name__)
+# load env vars
+load_dotenv(override=True)
 
-# if not inherited set parameters here
-if __name__ == "__main__" or not logger.handlers:
-    # Set up standalone logging for testing
+log_level = os.getenv('LOG_LEVEL', default="INFO")
+
+if log_level == "INFO":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+elif log_level == "DEBUG":
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
@@ -27,11 +35,6 @@ if __name__ == "__main__" or not logger.handlers:
     )
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
-    # Prevent propagation to avoid duplicate logs
-    logger.propagate = False
-
-# Load environment variables from .env file
-load_dotenv(override=True)
 
 # pipeline env vars
 batch_size = os.getenv('BATCH_SIZE')
@@ -52,10 +55,10 @@ def initiate_media_item(media_item: dict) -> dict:
     # attempt to initiate each item
     try:
         utils.add_media_item(media_item['hash'])
-        logging.info(f"downloading: {media_item['original_title']}")
-        media_item['pipeline_status'] = 'downloading'
+        logging.info(f"downloading - {media_item['hash']}")
+        media_item['pipeline_status'] = PipelineStatus.DOWNLOADING
     except Exception as e:
-        logging.error(f"failed to download: {media_item['original_title']}")
+        logging.error(f"failed to download - {media_item['hash']}")
         logging.error(f"initiate_item error: {e}")
 
         media_item['error_status'] = True
@@ -75,7 +78,7 @@ def initiate_media_download():
     :debug: batch=0
     """
     # read in existing data based
-    media = utils.get_media_from_db(pipeline_status='queued')
+    media = utils.get_media_from_db(pipeline_status=PipelineStatus.MEDIA_ACCEPTED)
 
     # if no items to initiate, then return
     if media is None:
@@ -117,12 +120,12 @@ def initiate_media_download():
 
         try:
             # attempt to write metadata back to the database; with or without errors
-            utils.media_db_update(media=media_batch)
+            utils.media_db_update(media=media_batch.to_schema())
         except Exception as e:
             logging.error(f"initiation batch {batch+1}/{number_of_batches} failed - {e}")
             logging.error(f"initiation batch error could not be stored in database")
 
 
 # ------------------------------------------------------------------------------
-# end of _06_initiate.py
+# end of _07_initiate.py
 # ------------------------------------------------------------------------------

@@ -15,8 +15,27 @@ import src.utils as utils
 # load environment variables
 # ------------------------------------------------------------------------------
 
-# Load environment variables from .env file
-load_dotenv()
+# load env vars
+load_dotenv(override=True)
+
+log_level = os.getenv('LOG_LEVEL', default="INFO")
+
+if log_level == "INFO":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+elif log_level == "DEBUG":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
 
 # set pipeline vars
 batch_size = os.getenv('BATCH_SIZE')
@@ -125,9 +144,9 @@ def transfer_media():
             # output error if present
             for row in media_batch.df.iter_rows(named=True):
                 if row['error_status']:
-                    logging.error(f"{row['hash']}: {row['error_condition']}")
+                    logging.error(f"{row['hash']} - {row['error_condition']}")
                 else:
-                    logging.info(f"transferred: {row['original_title']}")
+                    logging.info(f"transferred - {row['hash']}")
 
         except Exception as e:
             # log errors to individual elements
@@ -142,12 +161,12 @@ def transfer_media():
 
         try:
             # attempt to write metadata back to the database; with or without errors
-            utils.media_db_update(media=media_batch)
+            utils.media_db_update(media=media_batch.to_schema())
         except Exception as e:
             logging.error(f"transfer batch {batch+1}/{number_of_batches} failed - {e}")
             logging.error(f"transfer batch error could not be stored in database")
 
 
 # ------------------------------------------------------------------------------
-# end of _08_transfer.py
+# end of _09_transfer.py
 # ------------------------------------------------------------------------------
