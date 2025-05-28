@@ -36,7 +36,6 @@ automatic-transmission/
 ├── config/                   # Configuration files
 │   ├── filter-parameters.yaml
 │   └── string-special-conditions.yaml
-├── sql/                      # SQL scripts for database setup
 ├── src/                      # source code
 │   ├── core/                 # core pipeline modules
 │   │   ├── __init__.py
@@ -123,10 +122,9 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
    uv pip install -r requirements.txt
    ```
 
-5. Set up the PostgreSQL database using the scripts in the `/sql` directory:
-   ```
-   psql -U your_username -d your_database -f sql/instantiate-schema.sql
-   ```
+5. Set up the PostgreSQL database objects 
+- 
+- see repo `schema-owners-maunal` for documentation covering the creating of objects necessary for this project 
 
 6. Configure your environment variables by creating a `.env` file with the required parameters (see Configuration section below).
 
@@ -218,16 +216,6 @@ The application follows a sequential pipeline process:
 7. `_07_download_check.py`: Monitors download progress and status
 8. `_08_transfer.py`: Transfers completed downloads to the appropriate media library locations
 9. `_09_cleanup.py`: Performs cleanup operations for transferred media and handles hung downloads
-
-## Error Handling and Maintenance
-
-The `src/error_handling` module provides utilities for ad-hoc pipeline maintenance:
-
-- Recycling items stuck in the downloading state
-- Marking items as complete to bypass pipeline stages
-- Re-ingesting items for reprocessing
-- Rejecting hung downloads
-- Re-parsing and reprocessing metadata for specified items
 
 ## Utilities
 

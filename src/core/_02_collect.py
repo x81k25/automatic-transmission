@@ -1,23 +1,39 @@
 # standard library imports
 import logging
+import os
 
 # third-party imports
 from dotenv import load_dotenv
-import polars as pl
 
 # local/custom imports
-from src.data_models import MediaDataFrame
+from src.data_models import *
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
 # load environment variables and
 # ------------------------------------------------------------------------------
 
-# Load environment variables from .env file
-load_dotenv()
+# get reel-driver env vars
+load_dotenv(override=True)
 
-# logger config
-logger = logging.getLogger(__name__)
+log_level = os.getenv('LOG_LEVEL', default="INFO")
+
+if log_level == "INFO":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+elif log_level == "DEBUG":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.INFO)
 
 # ------------------------------------------------------------------------------
 # collect main function
@@ -53,19 +69,31 @@ def collect_media():
     new_or_rejected_dict = {k: current_media_dict[k] for k in new_or_rejected_hashes if k in current_media_dict}
 
     # create MediaDataFrame for ingestion and validation
+    media = MediaDataFrame()
+
     try:
         logging.debug("creating collected MediaDataFrame")
-        media = MediaDataFrame(
+        media.append(
             pl.DataFrame({
                 'hash': new_or_rejected_dict.keys(),
                 'original_title': [inner_values['name'] for inner_values in new_or_rejected_dict.values()]
             }).with_columns(
                 media_type=pl.col("original_title")
                     .map_elements(utils.classify_media_type, return_dtype=pl.Utf8),
-                pipeline_status=pl.lit('ingested'),
-                rejection_status = pl.lit('override'),
-                error_status=False,
-                created_at=None
+                pipeline_status=pl.lit(PipelineStatus.INGESTED),
+                rejection_status = pl.lit(RejectionStatus.OVERRIDE)
+            ).with_columns(
+                error_condition = pl.when(pl.col('media_type').is_null())
+                    .then(pl.lit("media_type is unknown"))
+                .otherwise(pl.lit(None))
+            ).with_columns(
+                media_type = pl.when(pl.col('error_condition') == "media_type is unknown")
+                    .then(pl.lit(MediaType.UNKNOWN))
+                .otherwise(pl.col('media_type'))
+            ).with_columns(
+                error_status = pl.when(~pl.col('error_condition').is_null())
+                    .then(pl.lit(True))
+                .otherwise(pl.lit(False))
             )
         )
     except Exception as e:
@@ -77,17 +105,21 @@ def collect_media():
     new_mask = media.df['hash'].is_in(new_hashes)
     if new_mask.any():
         new_media = MediaDataFrame(media.df.filter(new_mask))
-        utils.insert_items_to_db(media=new_media)
+        utils.insert_items_to_db(media=new_media.to_schema())
 
     # insert previously rejected items if any
     rejected_mask = media.df['hash'].is_in(rejected_hashes)
     if rejected_mask.any():
         rejected_media = MediaDataFrame(media.df.filter(rejected_mask))
-        utils.media_db_update(rejected_media)
+        utils.media_db_update(media=rejected_media.to_schema())
 
     # log collected items
     for row in media.df.iter_rows(named=True):
-        logging.info(f"collected {row['media_type']}: {row['original_title']}")
+        if row['error_status']:
+            logging.error(f"{row['hash']} - {row['error_condition']}")
+        else:
+            logging.info(f"collected - {row['hash']}")
+
 
 # ------------------------------------------------------------------------------
 # end of _02_collect.py

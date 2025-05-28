@@ -6,23 +6,30 @@ import re
 
 # third-party imports
 from dotenv import load_dotenv
-import polars as pl
 import requests
 
 # local/custom imports
-from src.data_models import MediaDataFrame
+from src.data_models import *
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
 # initialization and setup
 # ------------------------------------------------------------------------------
 
-# logger config
-logger = logging.getLogger(__name__)
+# load env vars
+load_dotenv(override=True)
 
-# if not inherited set parameters here
-if __name__ == "__main__" or not logger.handlers:
-    # Set up standalone logging for testing
+log_level = os.getenv('LOG_LEVEL', default="INFO")
+
+if log_level == "INFO":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+elif log_level == "DEBUG":
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
@@ -30,14 +37,10 @@ if __name__ == "__main__" or not logger.handlers:
     )
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
-    # Prevent propagation to avoid duplicate logs
-    logger.propagate = False
-
-# Load environment variables from .env file
-load_dotenv(override=True)
 
 # pipeline env vars
-batch_size = os.getenv('BATCH_SIZE')
+stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
+batch_size = int(os.getenv('BATCH_SIZE'))
 
 # load api env vars
 movie_search_api_base_url = os.getenv('MOVIE_SEARCH_API_BASE_URL')
@@ -149,6 +152,8 @@ def collect_details(media_item: dict) -> dict:
 
     :param media_item: dict containing one for of media.df
     :return: dict of items with metadata added
+
+    :debug: media_item = row
     """
     #media_item = media.df.row(0, named=True)
     response = {}
@@ -180,10 +185,18 @@ def collect_details(media_item: dict) -> dict:
         media_item['imdb_id'] = data['imdb_id']
 
     # collect time information
+    # if release_year cannot be set, reject item
     year_pattern = r'(19|20)\d{2}'
     if media_item['media_type'] == 'movie':
-        release_year = re.search(year_pattern, data.get('release_date'))[0]
-        media_item['release_year'] = int(release_year)
+        if 'release_date' in data and data['release_date'] != '':
+            release_year = re.search(year_pattern, data.get('release_date'))[0]
+            media_item['release_year'] = int(release_year)
+        elif bool(re.search(year_pattern, str(media_item['release_year']))):
+            pass
+        else:
+            media_item['rejection_reason'] = f"release_year could not be extracted from tmdb details API"
+            media_item['rejection_status'] = 'rejected'
+            return media_item
     elif media_item['media_type'] in ['tv_show', 'tv_season']:
         release_year = re.search(year_pattern, data.get('first_air_date'))[0]
         media_item['release_year'] = int(release_year)
@@ -272,8 +285,6 @@ def collect_ratings(media_item: dict) -> dict:
     :param media_item: dict containing one for of media.df
     :return: dict of items with metadata added
     """
-    # media_item = media.df.row(5, named=True)
-
     response = {}
 
     # Define the parameters for the OMDb API request
@@ -358,21 +369,21 @@ def collect_metadata():
     :debug: batch=0
     """
     # read in existing data
-    media = utils.get_media_from_db(pipeline_status='parsed')
+    media = utils.get_media_from_db(pipeline_status='file_accepted')
 
     # if no media to parse, return
     if media is None:
         return
 
     # batch up operations to avoid API rate limiting
-    number_of_batches = (media.df.height + 49) // 50
+    number_of_batches = (media.df.height + (batch_size-1)) // batch_size
 
     for batch in range(number_of_batches):
         logging.debug(f"starting metadata collection batch {batch+1}/{number_of_batches}")
 
         # set batch indices
-        batch_start_index = batch * 50
-        batch_end_index = min((batch + 1) * 50, media.df.height)
+        batch_start_index = batch * batch_size
+        batch_end_index = min((batch + 1) * batch_size, media.df.height)
 
         # create media batch as proper MediaDataFrame to perform data validation
         media_batch = MediaDataFrame(media.df[batch_start_index:batch_end_index])
@@ -386,6 +397,41 @@ def collect_metadata():
                 updated_rows.append(updated_row)
 
             media_batch.update(pl.DataFrame(updated_rows))
+
+            # determine if metadata is already collected
+            media_batch_metadata = utils.get_media_metadata(list(set(media_batch.df['tmdb_id'])))
+
+            # if any values already collected
+            if media_batch_metadata is not None:
+                # if metadata is already collected and not stale, use previously collected data
+                media_already_collected = MediaDataFrame(
+                    media_batch.df.filter(pl.col('tmdb_id').is_in(media_batch_metadata['tmdb_id'].to_list()))
+                    .update(
+                        media_batch_metadata,
+                        on='tmdb_id'
+                    ).with_columns(
+                        pipeline_status = pl.lit(PipelineStatus.METADATA_COLLECTED)
+                    )
+                )
+
+                # commit elements with already defined metadata to database
+                for row in media_already_collected.df.iter_rows(named=True):
+                    logging.debug(f"{row['hash']} - using cached details and ratings")
+
+                utils.media_db_update(media_already_collected)
+
+                # log
+                for row in media_already_collected.df.iter_rows(named=True):
+                    logging.info(f"{row['pipeline_status']} - {row['hash']}")
+
+                # filter for items which still need metadata collection
+                media_batch.update(
+                    media_batch.df.filter(~pl.col('hash').is_in(media_already_collected.df['hash'].to_list()))
+                )
+
+            # if all items already collected, move on to next batch
+            if media_batch.df.height == 0:
+                continue
 
             # get additional media details
             updated_rows = []
@@ -440,10 +486,10 @@ def collect_metadata():
 
         try:
             # attempt to write metadata back to the database; with or without errors
-            utils.media_db_update(media=media_batch)
+            utils.media_db_update(media=media_batch.to_schema())
         except Exception as e:
             logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
-            logging.error(f"metadata collection batch error could not be stored in database")
+            logging.error(f"metadata collection batch error - could not be stored in database")
 
 
 # ------------------------------------------------------------------------------
