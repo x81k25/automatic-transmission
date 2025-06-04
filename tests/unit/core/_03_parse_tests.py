@@ -1,6 +1,7 @@
 import pytest
 import yaml
 import os
+from pathlib import Path
 
 class TestYamlLoading:
     """Test YAML file loading for _03_parse functions."""
@@ -8,8 +9,9 @@ class TestYamlLoading:
     def test_yaml_file_loading(self):
         """Test that string-special-conditions.yaml can be loaded properly."""
 
-        # Use the confirmed working path
-        yaml_path = '../../config/string-special-conditions.yaml'
+        # Get project root dynamically for cross-platform compatibility
+        project_root = Path(__file__).parent.parent.parent.parent
+        yaml_path = project_root / 'config' / 'string-special-conditions.yaml'
 
         with open(yaml_path, 'r') as file:
             yaml_content = yaml.safe_load(file)
@@ -22,7 +24,11 @@ class TestYamlLoading:
     def test_yaml_content_structure(self):
         """Test that YAML contains expected replacement patterns."""
 
-        with open('../../config/string-special-conditions.yaml', 'r') as file:
+        # Get project root dynamically
+        project_root = Path(__file__).parent.parent.parent.parent
+        yaml_path = project_root / 'config' / 'string-special-conditions.yaml'
+
+        with open(yaml_path, 'r') as file:
             special_conditions = yaml.safe_load(file)
 
         # Verify structure matches what parse_media_items expects
