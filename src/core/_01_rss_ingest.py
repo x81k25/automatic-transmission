@@ -1,5 +1,4 @@
 # standard library imports
-from datetime import datetime, timezone
 import logging
 import os
 
@@ -68,6 +67,7 @@ def rss_feed_ingest(
 
     return feed['entries']
 
+
 def format_entries(entry: FeedParserDict) -> dict:
     """
     converts raw rss entries into dicts suitable for ingestion into a MediaDataFrame
@@ -94,6 +94,16 @@ def format_entries(entry: FeedParserDict) -> dict:
 
     return formatted_entry
 
+
+def log_status(media: MediaDataFrame) -> None:
+    """
+    logs acceptance/rejection of the media filtration process
+
+    :param media: MediaDataFrame contain process values to be printed
+    :return: None
+    """
+    for row in media.df.iter_rows(named=True):
+        logging.info(f"ingested - {row['hash']}")
 
 # ------------------------------------------------------------------------------
 # full ingest for either element type
@@ -133,33 +143,19 @@ def rss_ingest():
             unique_entries.append(entry)
 
     # convert to MediaDataFrame object
-    #     conversion to MediaDataFrame object will handle element verification
+    #     conversion to MediaDataFrame object will handle element verification,
+    #     and define default values for status fields
     media = MediaDataFrame(unique_entries)
 
     # determine which feed entries are new entries
     new_hashes = utils.compare_hashes_to_db(hashes=media.df['hash'].to_list())
+    media.update(media.df.filter(pl.col('hash').is_in(new_hashes)))
 
-    if len(new_hashes) > 0:
-        # filter for new_hashes, update status, remove dups, set initial values for statuses
-
-        # add rejection status to meet not nullable constratin
-        media.update(
-            media.df.filter(pl.col('hash').is_in(new_hashes))
-            .group_by('hash')
-            .agg(pl.all().first())  # Take first row for each unique hash
-            .with_columns(
-                pipeline_status=pl.lit('ingested'),
-                error_status=pl.lit(False),
-                rejection_status=pl.lit('unfiltered'),
-                updated_at=pl.lit(datetime.now(timezone.utc))
-            )
-        )
-
+    if media.df.height > 0:
         # write new items to the database
         utils.insert_items_to_db(media=media.to_schema())
+        log_status(media)
 
-        for row in media.df.iter_rows(named=True):
-            logging.info(f"ingested - {row['hash']}")
 
 # ------------------------------------------------------------------------------
 # end of _01_rss_ingest.py

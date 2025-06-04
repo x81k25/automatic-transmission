@@ -74,7 +74,7 @@ def classify_media_type(raw_title:str) -> str | None:
     elif re.search(movie_pattern, raw_title):
         return "movie"
     else:
-        return None
+        return "unknown"
 
 
 def extract_title(raw_title: str, media_type: str) -> str | None:

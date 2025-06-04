@@ -149,7 +149,7 @@ def classify_media_type_cases():
         {
             "description": "Unclassifiable content returns None",
             "title": "Random Document File Name Without Patterns",
-            "expected": None
+            "expected": "unknown"
         },
         {
             "description": "Movie with 1900s year",
@@ -160,6 +160,16 @@ def classify_media_type_cases():
             "description": "TV show with multi-digit season and episode",
             "title": "Doctor Who S12E10 The Timeless Children 1080p",
             "expected": "tv_show"
+        },
+        {
+            "description": "empty string",
+            "title": "",
+            "expected": "unknown"
+        },
+        {
+            "description": "random text",
+            "title": "a34r98[jae5g9;8jzegrt;98ja35g4",
+            "expected": "unknown"
         }
     ]
 

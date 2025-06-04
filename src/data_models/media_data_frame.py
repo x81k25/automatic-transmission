@@ -1,11 +1,10 @@
-from datetime import datetime, timezone
 from enum import Enum
 import polars as pl
 from typing import Any, Optional
 
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # enum classes
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 pl.enable_string_cache()
 
@@ -42,9 +41,9 @@ class RssSource(str, Enum):
     EPISODE_FEED = 'episodefeed.com'
 
 
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # unified media dataframe class
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 class MediaDataFrame:
     """Unified rigid polars DataFrame for all media types matching SQL schemas."""
@@ -108,21 +107,23 @@ class MediaDataFrame:
         'video_codec': pl.Utf8,
         'upload_type': pl.Utf8,
         'audio_codec': pl.Utf8,
-        # timestamps
-        'created_at': pl.Datetime,
-        'updated_at': pl.Datetime,
     }
 
-    # Common required columns
+    # common required columns
     required_columns = [
         'hash',
         'original_title',
         'media_type',
-        'pipeline_status',
-        'error_status',
-        'rejection_status'
     ]
 
+    # columns for which a default value will be applied if null
+    default_values = {
+        'pipeline_status': PipelineStatus.INGESTED,
+        'rejection_status': RejectionStatus.UNFILTERED,
+        'rejection_reason': None,
+        'error_status': False,
+        'error_condition': None
+    }
 
     def __init__(self, data: Optional[Any] = None):
         """
@@ -145,6 +146,35 @@ class MediaDataFrame:
                 raise ValueError(
                     f"Could not create MediaDataFrame from data: {e}")
 
+    # -------------------------------------------------------------------------
+    # validation functions
+    # -------------------------------------------------------------------------
+
+    def _validate_and_prepare(self, df: pl.DataFrame) -> None:
+        """
+        Validate that DataFrame conforms to the required schema and prepare it.
+        """
+        # Check required columns
+        missing = [col for col in self.required_columns if
+                   col not in df.columns]
+        if missing:
+            raise ValueError(f"Missing required columns: {missing}")
+
+        # Ensure unique hashes
+        df = self._ensure_unique_hashes(df)
+
+        # assign default values, if needed
+        df = self._assign_default_values(df)
+
+        # flip rejection flags
+        df = self._flip_rejection_flags(df)
+
+        # flip error flags
+        df = self._flip_error_flags(df)
+
+        # Set the underlying DataFrame
+        self._df = df
+
 
     def _ensure_unique_hashes(self, df: pl.DataFrame) -> pl.DataFrame:
        """Check for duplicate hashes and raise error if found."""
@@ -164,110 +194,88 @@ class MediaDataFrame:
        return df
 
 
-    def _validate_and_prepare(self, df: pl.DataFrame) -> None:
+    def _assign_default_values(self, df: pl.DataFrame) -> pl.DataFrame:
         """
-        Validate that DataFrame conforms to the required schema and prepare it.
+        use default values dictionary to assign default values to features
+            which should have them
+
+        :param df: DataFrame to check for default values
+        :return: DataFrame with default values assigned
         """
-        # Check required columns
-        missing = [col for col in self.required_columns if
-                   col not in df.columns]
-        if missing:
-            raise ValueError(f"Missing required columns: {missing}")
+        if df.height == 0:
+            return df
 
-        # Ensure unique hashes
-        df = self._ensure_unique_hashes(df)
+        # add column if missing entirely
+        missing_cols = [key for key in self.default_values.keys() if key not in df.columns]
+        if missing_cols:
+            df = df.with_columns([pl.lit(None).alias(col) for col in missing_cols])
 
-        # Get current timestamp once to ensure consistency
-        current_timestamp = datetime.now(timezone.utc)
+        # one column existence is guaranteed, assign default value where needed
+        expressions = [
+            pl.when(pl.col(key).is_null())
+                .then(pl.lit(value))
+                .otherwise(pl.col(key))
+                .alias(key)
+            for key, value in self.default_values.items()
+        ]
 
-        # For both timestamp columns, conditionally add or update
-        timestamp_exprs = []
+        df = df.with_columns(expressions)
 
-        # Handle created_at
-        if 'created_at' in df.columns:
-            # First check if the column has any non-null values
-            if df['created_at'].null_count() < len(df):
-                timestamp_exprs.append(
-                    pl.when(pl.col('created_at').is_null())
-                    .then(pl.lit(current_timestamp))
-                    .otherwise(
-                        # Only apply timezone conversion to non-null values
-                        pl.when(pl.col('created_at').is_not_null())
-                        .then(pl.col('created_at').dt.replace_time_zone('UTC'))
-                        .otherwise(pl.lit(current_timestamp))
-                    )
-                    .alias('created_at')
-                )
-            else:
-                # All values are null, just use current timestamp
-                timestamp_exprs.append(
-                    pl.lit(current_timestamp).alias('created_at'))
-        else:
-            timestamp_exprs.append(
-                pl.lit(current_timestamp).alias('created_at'))
-
-        # Handle updated_at - same logic
-        if 'updated_at' in df.columns:
-            if df['updated_at'].null_count() < len(df):
-                timestamp_exprs.append(
-                    pl.when(pl.col('updated_at').is_null())
-                    .then(pl.lit(current_timestamp))
-                    .otherwise(
-                        pl.when(pl.col('updated_at').is_not_null())
-                        .then(pl.col('updated_at').dt.replace_time_zone('UTC'))
-                        .otherwise(pl.lit(current_timestamp))
-                    )
-                    .alias('updated_at')
-                )
-            else:
-                timestamp_exprs.append(
-                    pl.lit(current_timestamp).alias('updated_at'))
-        else:
-            timestamp_exprs.append(
-                pl.lit(current_timestamp).alias('updated_at'))
-
-        # Apply all expressions at once
-        df = df.with_columns(timestamp_exprs)
-
-        # Set the underlying DataFrame
-        self._df = df
+        return df
 
 
-    def to_schema(self) -> 'MediaDataFrame':
-       """
-       return MediaDataFrame with only schema columns, validating types; this
-           will primarily be leverage to prevent errors when committing
-           database updates
-       """
-       try:
-           # Filter to only schema columns - polars will raise if any are missing
-           filtered_df = self._df.select(list(self.schema.keys()))
-       except pl.ColumnNotFoundError as e:
-           raise ValueError(f"Missing required schema columns: {str(e)}")
+    def _flip_rejection_flags(self, df):
+        """
+        applies logic to properly assign the rejection_status based off
+            the existing rejection_status and the presence or absence of
+            a rejection_reason
 
-       # Check type compatibility and collect issues
-       issues = []
-       for col_name, expected_type in self.schema.items():
-           actual_type = filtered_df[col_name].dtype
+        :param df: DataFrame containing the proper rejection_reasons value,
+            before the update is applied to rejection_status
+        :return: DataFrame with correct values for rejection_status and
+            rejection_reason
+        """
+        if df.height == 0:
+            return df
 
-           # Check if types are compatible using polars type hierarchy
-           try:
-               # Create a dummy series with expected type to test compatibility
-               pl.Series([None], dtype=expected_type).cast(actual_type)
-               pl.Series([None], dtype=actual_type).cast(expected_type)
-           except (pl.ComputeError, pl.InvalidOperationError):
-               issues.append(
-                   f"Column '{col_name}': expected {expected_type}-compatible type, got {actual_type}"
-               )
+        df = df.with_columns(
+            rejection_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
+                .then(pl.lit(RejectionStatus.OVERRIDE))
+            .otherwise(
+                pl.when(~pl.col('rejection_reason').is_null())
+                    .then(pl.lit(RejectionStatus.REJECTED))
+                .otherwise(pl.col('rejection_status'))
+            )
+        )
 
-       # Raise comprehensive error if any issues found
-       if issues:
-           issue_list = "\n- ".join([""] + issues)
-           raise ValueError(f"Schema validation failed with {len(issues)} issue{'s' if len(issues) > 1 else ''}:{issue_list}")
+        return df
 
-       # Return new MediaDataFrame instance with filtered data
-       return MediaDataFrame(filtered_df)
 
+    def _flip_error_flags(self, df):
+        """
+        applies logic to properly assign the error_status based off
+            the presence or absence of an error_condition
+
+        :param df: DataFrame containing the proper error_condition value,
+            before the update is applied to error_status
+        :return: DataFrame with correct values for error_condition and
+            error_status
+        """
+        if df.height == 0:
+            return df
+
+        df = df.with_columns(
+            error_status = pl.when(pl.col('error_condition').is_null())
+                .then(pl.lit(False))
+            .otherwise(pl.lit(True))
+        )
+
+        return df
+
+
+    # -------------------------------------------------------------------------
+    # mirrored vanilla polars functions
+    # -------------------------------------------------------------------------
 
     def update(self, df: pl.DataFrame):
         """Update internal DataFrame directly."""
@@ -319,10 +327,61 @@ class MediaDataFrame:
         return MediaDataFrame(filtered_df)
 
 
+    # -------------------------------------------------------------------------
+    # other class functions
+    # -------------------------------------------------------------------------
+
     @property
     def df(self) -> pl.DataFrame:
         """Access the underlying polars DataFrame."""
         return self._df
+
+
+    def to_schema(self) -> 'MediaDataFrame':
+        """
+        return MediaDataFrame with only schema columns, validating types; this
+           will primarily be leverage to prevent errors when committing
+           database updates
+        """
+        # Add missing columns with appropriate null values
+        existing_cols = set(self._df.columns)
+        missing_cols = [col for col in self.schema.keys() if col not in existing_cols]
+
+        df = self._df
+        if missing_cols:
+            null_exprs = [pl.lit(None, dtype=dtype).alias(col)
+                         for col, dtype in self.schema.items()
+                         if col in missing_cols]
+            df = df.with_columns(null_exprs)  # Actually add the columns
+
+        try:
+            filtered_df = df.select(list(self.schema.keys()))  # Use df, not self._df
+        except pl.ColumnNotFoundError as e:
+            raise ValueError(f"Missing required schema columns: {str(e)}")
+
+        # Check type compatibility and collect issues
+        issues = []
+        for col_name, expected_type in self.schema.items():
+            actual_type = filtered_df[col_name].dtype
+
+            # Check if types are compatible using polars type hierarchy
+            try:
+                # Create a dummy series with expected type to test compatibility
+                pl.Series([None], dtype=expected_type).cast(actual_type)
+                pl.Series([None], dtype=actual_type).cast(expected_type)
+            except (pl.ComputeError, pl.InvalidOperationError):
+                issues.append(
+                    f"Column '{col_name}': expected {expected_type}-compatible type, got {actual_type}"
+                )
+
+        # Raise comprehensive error if any issues found
+        if issues:
+            issue_list = "\n- ".join([""] + issues)
+            raise ValueError(f"Schema validation failed with {len(issues)} issue{'s' if len(issues) > 1 else ''}:{issue_list}")
+
+        # Return new MediaDataFrame instance with filtered data
+        return MediaDataFrame(filtered_df)
+
 
 # ------------------------------------------------------------------------------
 # end of data_models.py

@@ -159,7 +159,7 @@ def compare_hashes_to_db(
         raise Exception(f"compare_hashes error: {str(e)}")
 
 
-def return_rejected_hashes(hashes: List[str]):
+def return_rejected_hashes(hashes: List[str]) -> List[str]:
     """
     Returns hashes from the input list that exist in the database and have rejection_status = 'rejected'.
 
