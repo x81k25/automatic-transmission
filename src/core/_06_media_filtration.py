@@ -46,10 +46,6 @@ api_host = os.getenv('REEL_DRIVER_HOST')
 api_port = os.getenv('REEL_DRIVER_PORT')
 api_prefix = os.getenv('REEL_DRIVER_PREFIX')
 
-# get filter params
-with open('./config/filter-parameters.yaml', 'r') as file:
-    filters = yaml.safe_load(file)
-
 # -----------------------------------------------------------------------------
 # support functions that operate on one media item at a time
 # -----------------------------------------------------------------------------

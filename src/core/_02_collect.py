@@ -58,15 +58,6 @@ def process_new_items(new_transmission_items: dict) -> MediaDataFrame:
         ).with_columns(
             error_condition = pl.when(pl.col('media_type') == MediaType.UNKNOWN)
                 .then(pl.lit("media_type is unknown"))
-                .otherwise(pl.lit(None)),
-            media_title = pl.when(pl.col('media_type') != MediaType.UNKNOWN)
-                .then(
-                    pl.struct(['original_title', 'media_type'])
-                        .map_elements(
-                            lambda x: utils.extract_title(x['original_title'], x['media_type']),
-                            return_dtype=pl.Utf8
-                    )
-                )
                 .otherwise(pl.lit(None))
         )
     )

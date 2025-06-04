@@ -36,10 +36,6 @@ elif log_level == "DEBUG":
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
 
-# read in string special conditions
-with open('./config/string-special-conditions.yaml', 'r') as file:
-    special_conditions = yaml.safe_load(file)
-
 # ------------------------------------------------------------------------------
 # title parse helper functions
 # ------------------------------------------------------------------------------
@@ -50,6 +46,10 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
     :param media: MediaDataFrame contain all elements to be parsed
     :returns: DataFrame with parsed elements
     """
+    # read in string special conditions
+    with open('./config/string-special-conditions.yaml', 'r') as file:
+        special_conditions = yaml.safe_load(file)
+
     # Create a copy of the input DataFrame
     parsed_media = media.df.clone()
 

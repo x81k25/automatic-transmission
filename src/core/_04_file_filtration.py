@@ -37,10 +37,6 @@ elif log_level == "DEBUG":
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
 
-# get filter params
-with open('./config/filter-parameters.yaml', 'r') as file:
-    filters = yaml.safe_load(file)
-
 # ------------------------------------------------------------------------------
 # support functions
 # ------------------------------------------------------------------------------
@@ -54,6 +50,10 @@ def filter_by_file_metadata(media_item: dict) -> dict:
 
     :debug: filter_type = 'movie'
     """
+    # get filter params
+    with open('./config/filter-parameters.yaml', 'r') as file:
+        filters = yaml.safe_load(file)
+
     # pass if override status was set
     if media_item['rejection_status'] == 'override':
         return media_item
