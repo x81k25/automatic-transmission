@@ -38,10 +38,6 @@ elif log_level == "DEBUG":
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
 
-# pipeline env vars
-stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
-batch_size = int(os.getenv('BATCH_SIZE'))
-
 # load api env vars
 movie_search_api_base_url = os.getenv('MOVIE_SEARCH_API_BASE_URL')
 movie_details_api_base_url = os.getenv('MOVIE_DETAILS_API_BASE_URL')
@@ -368,6 +364,10 @@ def collect_metadata():
 
     :debug: batch=0
     """
+    # pipeline env vars
+    stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
+    batch_size = int(os.getenv('BATCH_SIZE'))
+
     # read in existing data
     media = utils.get_media_from_db(pipeline_status='file_accepted')
 

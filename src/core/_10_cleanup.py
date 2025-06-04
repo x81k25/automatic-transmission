@@ -36,19 +36,6 @@ elif log_level == "DEBUG":
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
 
-# get pipeline env vars
-target_active_items = float(os.getenv('TARGET_ACTIVE_ITEMS'))
-if target_active_items < 0:
-    raise ValueError(f"TARGET_ACTIVE_ITEMS value of {target_active_items} is less than 0 and no permitted")
-
-transferred_item_cleanup_delay = float(os.getenv('TRANSFERRED_ITEM_CLEANUP_DELAY'))
-if transferred_item_cleanup_delay < 0:
-    raise ValueError(f"TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and no permitted")
-
-hung_item_cleanup_delay = float(os.getenv('HUNG_ITEM_CLEANUP_DELAY'))
-if transferred_item_cleanup_delay < 0:
-    raise ValueError(f"HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and no permitted")
-
 # ------------------------------------------------------------------------------
 # support functions
 # ------------------------------------------------------------------------------
@@ -59,6 +46,11 @@ def get_delay_multiple() -> float:
 
     :return: multiple by which to modulate delay values
     """
+    # get pipeline env vars
+    target_active_items = float(os.getenv('TARGET_ACTIVE_ITEMS'))
+    if target_active_items < 0:
+        raise ValueError(f"TARGET_ACTIVE_ITEMS value of {target_active_items} is less than 0 and no permitted")
+
     # if TARGET_ACTIVE_ITEMS is 0, do not modulate
     if target_active_items == 0:
         return 1
@@ -227,6 +219,14 @@ def cleanup_media():
     perform final clean-up operations for torrents once all other steps have
         been verified completed successfully
     """
+    transferred_item_cleanup_delay = float(os.getenv('TRANSFERRED_ITEM_CLEANUP_DELAY'))
+    if transferred_item_cleanup_delay < 0:
+        raise ValueError(f"TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and no permitted")
+
+    hung_item_cleanup_delay = float(os.getenv('HUNG_ITEM_CLEANUP_DELAY'))
+    if transferred_item_cleanup_delay < 0:
+        raise ValueError(f"HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and no permitted")
+
     # get delay multiple
     delay_multiple =  get_delay_multiple()
 

@@ -37,10 +37,6 @@ elif log_level == "DEBUG":
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("paramiko").setLevel(logging.INFO)
 
-# pipeline env vars
-batch_size = int(os.getenv('BATCH_SIZE'))
-acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
-
 # reel_driver_env vars
 api_host = os.getenv('REEL_DRIVER_HOST')
 api_port = os.getenv('REEL_DRIVER_PORT')
@@ -358,6 +354,10 @@ def filter_media():
     :debug: media.update(media.df[3])
     :debug: batch = 0
     """
+    # pipeline env vars
+    batch_size = int(os.getenv('BATCH_SIZE'))
+    acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
+
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status=PipelineStatus.METADATA_COLLECTED)
 

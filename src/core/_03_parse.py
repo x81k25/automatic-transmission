@@ -142,9 +142,6 @@ def validate_parsed_media(media: MediaDataFrame) -> pl.DataFrame:
     # verify mandatory fields for all media types
     for field in mandatory_fields['all_media']:
         verified_media = verified_media.with_columns(
-            error_status = pl.when(pl.col(field).is_null())
-                .then(pl.lit(True))
-                .otherwise(pl.col('error_status')),
             error_condition = pl.when(pl.col(field).is_null())
                 .then(
                     pl.when(pl.col('error_condition').is_null())
@@ -163,11 +160,6 @@ def validate_parsed_media(media: MediaDataFrame) -> pl.DataFrame:
         for field in mandatory_fields['movie']:
             null_mask = pl.col(field).is_null()
             verified_media = verified_media.with_columns(
-                error_status=pl.when(movie_mask).then(
-                    pl.when(null_mask)
-                        .then(pl.lit(True))
-                        .otherwise(pl.col("error_status")),
-                ).otherwise('error_status'),
                 error_condition=pl.when(movie_mask).then(
                     pl.when(null_mask)
                         .then(
@@ -187,11 +179,6 @@ def validate_parsed_media(media: MediaDataFrame) -> pl.DataFrame:
         for field in mandatory_fields['tv_show']:
             null_mask = pl.col(field).is_null()
             verified_media = verified_media.with_columns(
-                error_status=pl.when(tv_show_mask).then(
-                    pl.when(null_mask)
-                        .then(pl.lit(True))
-                        .otherwise(pl.col("error_status"))
-                ).otherwise('error_status'),
                 error_condition=pl.when(tv_show_mask).then(
                     pl.when(null_mask)
                         .then(
@@ -211,11 +198,6 @@ def validate_parsed_media(media: MediaDataFrame) -> pl.DataFrame:
         for field in mandatory_fields['tv_season']:
             null_mask = pl.col(field).is_null()
             verified_media = verified_media.with_columns(
-                error_status=pl.when(tv_season_mask).then(
-                    pl.when(null_mask)
-                        .then(pl.lit(True))
-                        .otherwise(pl.col("error_status"))
-                ).otherwise('error_status'),
                 error_condition=pl.when(tv_season_mask).then(
                     pl.when(null_mask)
                         .then(
