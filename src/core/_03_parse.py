@@ -215,6 +215,40 @@ def validate_parsed_media(media: MediaDataFrame) -> pl.DataFrame:
     return verified_media
 
 
+def update_status(media: MediaDataFrame) -> MediaDataFrame:
+    """
+    updates status flags based off of conditions
+
+    :param media: MediaDataFrame with old status flags
+    :return: updated MediaDataFrame with correct status flags
+    """
+    # if by error no probability was ever assigned, assign it now
+    media_with_updated_status = media
+
+    # update status of successfully parsed items
+    media.update(media.df.with_columns(
+        pipeline_status=pl.when(~pl.col('error_status'))
+            .then(pl.lit(PipelineStatus.PARSED))
+            .otherwise(pl.col('pipeline_status'))
+    ))
+
+    return media_with_updated_status
+
+
+def log_status(media: MediaDataFrame) -> None:
+    """
+    logs current stats of all media items
+
+    :param media: MediaDataFrame contain process values to be printed
+    :return: None
+    """
+    for row in media.df.iter_rows(named=True):
+        if row['error_status']:
+            logging.error(f"{row['hash']} - {row['error_condition']}")
+        else:
+            logging.info(f"{row['pipeline_status']} - {row['hash']}")
+
+
 # ------------------------------------------------------------------------------
 # full title parse pipeline
 # ------------------------------------------------------------------------------
@@ -230,27 +264,15 @@ def parse_media():
     if media is None:
         return
 
-    # iterate through all new movies, parse data from the title and add to new dataframe
-    media.update(parse_media_items(media=media))
-
-    # validate all essential fields are present
+    # parse and validate media items
+    media.update(parse_media_items(media))
     media.update(validate_parsed_media(media))
 
-    for row in media.df.iter_rows(named=True):
-        if row['error_status']:
-            logging.error(f"{row['hash']} - {row['error_condition']}")
-        else:
-            logging.info(f"parsed - {row['hash']}")
-
-    # update status of successfully parsed items
-    media.update(media.df.with_columns(
-        pipeline_status=pl.when(~pl.col('error_status'))
-            .then(pl.lit(PipelineStatus.PARSED))
-            .otherwise(pl.col('pipeline_status'))
-    ))
-
-    # write parsed data back to the database
+    # write to db and update status
+    media = update_status(media)
     utils.media_db_update(media=media.to_schema())
+    log_status(media)
+
 
 # ------------------------------------------------------------------------------
 # end of _03_parse.py
