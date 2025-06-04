@@ -59,7 +59,7 @@ def rss_feed_ingest(
     # print terminal message
     logging.debug("ingesting from: " + str(feed.channel.title))
 
-    # extract entires
+    # extract entries
     entries = feed['entries']
 
     # append rss_source

@@ -14,21 +14,6 @@ with open('config/string-special-conditions.yaml', 'r') as file:
 	special_conditions = yaml.safe_load(file)
 
 ################################################################################
-# validation operations
-################################################################################
-
-def validate_dict(entry_dict:dict):
-	"""
-	Validate that all entries are not None, empty strings, empty lists, etc.
-	:param entry_dict: any input dict
-	:raises: ValueError if any entry is None, empty string, empty list, etc.
-	"""
-	if not all(
-		entry_dict.values()):  # Checks for None, empty strings, empty lists, etc.
-		raise ValueError(f"Invalid entry data: {entry_dict}")
-
-
-################################################################################
 # hash value operations
 ################################################################################
 
