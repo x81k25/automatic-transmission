@@ -74,19 +74,18 @@ def filter_by_file_metadata(media_item: dict) -> dict:
     return media_item
 
 
-def update_status(media: MediaDataFrame) -> pl.DataFrame:
+def update_status(media: MediaDataFrame) -> MediaDataFrame:
     """
     updates status flags based off of conditions
 
     :param media: MediaDataFrame with old status flags
-    :return: updated polars DataFrame with correct status flags
+    :return: updated MediaDataFrame with correct status flags
     """
     # if by error no probability was ever assigned, assign it now
     media_with_updated_status = media.df.clone()
 
     # update status accordingly
-    media_with_updated_status.update(
-        media_with_updated_status.with_columns(
+    media_with_updated_status = media_with_updated_status.with_columns(
             rejection_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
                 .then(pl.lit(RejectionStatus.OVERRIDE))
             .when(pl.col('rejection_status') == RejectionStatus.REJECTED)
@@ -99,11 +98,8 @@ def update_status(media: MediaDataFrame) -> pl.DataFrame:
                 .then(pl.lit(PipelineStatus.FILE_ACCEPTED))
             .otherwise(pl.lit(PipelineStatus.REJECTED))
         )
-    )
 
-    print(media_with_updated_status['rejection_status'])
-
-    return media_with_updated_status
+    return MediaDataFrame(media_with_updated_status)
 
 
 def log_status(media: MediaDataFrame) -> None:
@@ -115,7 +111,9 @@ def log_status(media: MediaDataFrame) -> None:
     """
     # log entries based on rejection status
     for idx, row in enumerate(media.df.iter_rows(named=True)):
-        if row['pipeline_status'] == 'rejected':
+        if row['rejection_status'] == RejectionStatus.OVERRIDE:
+            logging.info(f"{row['rejection_status']} - {row['hash']}")
+        elif row['pipeline_status'] == PipelineStatus.REJECTED:
             logging.info(f"{row['pipeline_status']} - {row['hash']} - {row['rejection_reason']}")
         else:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
@@ -165,7 +163,7 @@ def filter_files():
         return
 
     # update status
-    media.update(update_status(media))
+    media = update_status(media)
 
     # commit to db
     utils.media_db_update(media=media.to_schema())
