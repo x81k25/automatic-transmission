@@ -93,7 +93,7 @@ def log_status(media: MediaDataFrame) -> None:
     # log entries based on rejection status
     for idx, row in enumerate(media.df.iter_rows(named=True)):
         if row['pipeline_status'] == PipelineStatus.INGESTED:
-            logging.error(f"re-ingesting - {row['hash']} - {row['download_complete']}")
+            logging.error(f"re-ingesting - {row['hash']}")
         elif row['rejection_status'] == RejectionStatus.REJECTED:
             logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
         else:
