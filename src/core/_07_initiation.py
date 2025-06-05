@@ -1,7 +1,6 @@
 # standard library imports
 import logging
 import os
-import polars as pl
 
 # third party imports
 from dotenv import load_dotenv
@@ -14,27 +13,11 @@ import src.utils as utils
 # initialization and setup
 # ------------------------------------------------------------------------------
 
+# log config
+utils.setup_logging()
+
 # load env vars
 load_dotenv(override=True)
-
-log_level = os.getenv('LOG_LEVEL', default="INFO")
-
-if log_level == "INFO":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
-elif log_level == "DEBUG":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.INFO)
 
 # pipeline env vars
 batch_size = os.getenv('BATCH_SIZE')
@@ -55,17 +38,49 @@ def initiate_media_item(media_item: dict) -> dict:
     # attempt to initiate each item
     try:
         utils.add_media_item(media_item['hash'])
-        logging.info(f"downloading - {media_item['hash']}")
-        media_item['pipeline_status'] = PipelineStatus.DOWNLOADING
     except Exception as e:
-        logging.error(f"failed to download - {media_item['hash']}")
-        logging.error(f"initiate_item error: {e}")
-
-        media_item['error_status'] = True
         media_item['error_condition'] = f"initiate_item error: {e}"
 
     return media_item
 
+
+def update_status(media: MediaDataFrame) -> MediaDataFrame:
+    """
+    updates status flags based off of conditions
+
+    :param media: MediaDataFrame with old status flags
+    :return: updated MediaDataFrame with correct status flags
+    """
+    media_with_updated_status = media.df.clone()
+
+    media_with_updated_status = media_with_updated_status.with_columns(
+        pipeline_status = pl.when(
+            (pl.col('rejection_status').is_in([RejectionStatus.ACCEPTED.value, RejectionStatus.OVERRIDE.value])) &
+            (pl.col('error_status') == False)
+        ).then(pl.lit(PipelineStatus.DOWNLOADING))
+        .when(pl.col('rejection_status') == RejectionStatus.REJECTED)
+            .then(pl.lit(PipelineStatus.REJECTED))
+        .otherwise(pl.col('pipeline_status'))
+    )
+
+    return MediaDataFrame(media_with_updated_status)
+
+
+def log_status(media: MediaDataFrame) -> None:
+    """
+    logs current stats of all media items
+
+    :param media: MediaDataFrame contain process values to be printed
+    :return: None
+    """
+    # log entries based on rejection status
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        if row['error_status']:
+            logging.error(f"{row['hash']} - {row['error_condition']}")
+        elif row['rejection_status'] == RejectionStatus.REJECTED:
+            logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
+        else:
+            logging.info(f"{row['pipeline_status']} - {row['hash']}")
 
 # ------------------------------------------------------------------------------
 # full initiation pipeline
@@ -107,6 +122,7 @@ def initiate_media_download():
             media_batch.update(pl.DataFrame(updated_rows))
 
             logging.debug(f"completed initiation batch {batch+1}/{number_of_batches}")
+
         except Exception as e:
             # log errors to individual elements
             media_batch.update(
@@ -118,13 +134,9 @@ def initiate_media_download():
 
             logging.error(f"initiation batch {batch+1}/{number_of_batches} failed - {e}")
 
-        try:
-            # attempt to write metadata back to the database; with or without errors
-            utils.media_db_update(media=media_batch.to_schema())
-        except Exception as e:
-            logging.error(f"initiation batch {batch+1}/{number_of_batches} failed - {e}")
-            logging.error(f"initiation batch error could not be stored in database")
-
+        media_batch = update_status(media_batch)
+        utils.media_db_update(media=media_batch.to_schema())
+        log_status(media_batch)
 
 # ------------------------------------------------------------------------------
 # end of _07_initiate.py
