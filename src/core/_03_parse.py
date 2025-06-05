@@ -1,6 +1,7 @@
 # standard library imports
 import logging
 import os
+from pathlib import Path
 
 # third-party imports
 from dotenv import load_dotenv
@@ -46,8 +47,14 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
     :param media: MediaDataFrame contain all elements to be parsed
     :returns: DataFrame with parsed elements
     """
-    # read in string special conditions
-    with open('./config/string-special-conditions.yaml', 'r') as file:
+    # For normal execution
+    try:
+        config_path = Path(__file__).parent.parent.parent / 'config' / 'string-special-conditions.yaml'
+    # For IDE/interactive execution
+    except NameError:
+        config_path = './config/string-special-conditions.yaml'
+
+    with open(config_path, 'r') as file:
         special_conditions = yaml.safe_load(file)
 
     # Create a copy of the input DataFrame

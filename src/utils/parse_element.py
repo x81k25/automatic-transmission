@@ -259,11 +259,12 @@ def extract_uploader(raw_title: str) -> str | None:
         'PSA',
         'YTS\.MX',
         'GGEZ',
-        'playWEB'
+        'playWEB',
+        'MeGusta'
     ]
 
     # Create pattern for uploaders with optional separators
-    uploader_pattern = r'(?:[-.\[\s]*)(' + '|'.join(uploaders) + r')(?:[-.\]\s]*)$'
+    uploader_pattern = r'(?:[-.\[\s]*)(' + '|'.join(uploaders) + r')(?:[-.\]\s]*)'
     pattern = re.compile(uploader_pattern, re.IGNORECASE)
 
     match = pattern.search(raw_title)
