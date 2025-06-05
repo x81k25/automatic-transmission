@@ -9,14 +9,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment: ${{ 
+      github.ref == 'refs/heads/main' && 'main' || 
+      github.ref == 'refs/heads/stg' && 'stg' || 
+      'dev'
+    }}
     env:
+      STALE_METADATA_THRESHOLD: ${{ vars.STALE_METADATA_THRESHOLD }}
       BATCH_SIZE: ${{ vars.BATCH_SIZE }}
       LOG_LEVEL: ${{ vars.LOG_LEVEL }}
-      STALE_METADATA_THRESHOLD: ${{ vars.STALE_METADATA_THRESHOLD }}
       REEL_DRIVER_THRESHOLD: ${{ vars.REEL_DRIVER_THRESHOLD }}
+      HUNG_ITEM_CLEANUP_DELAY: ${{ vars.HUNG_ITEM_CLEANUP_DELAY }}
       TARGET_ACTIVE_ITEMS: ${{ vars.TARGET_ACTIVE_ITEMS }}
       TRANSFERRED_ITEM_CLEANUP_DELAY: ${{ vars.TRANSFERRED_ITEM_CLEANUP_DELAY }}
-      HUNG_ITEM_CLEANUP_DELAY: ${{ vars.HUNG_ITEM_CLEANUP_DELAY }}
 
     steps:
     - uses: actions/checkout@v4
