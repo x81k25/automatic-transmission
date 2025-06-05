@@ -81,7 +81,6 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
     :param media: MediaDataFrame with old status flags
     :return: updated MediaDataFrame with correct status flags
     """
-    # if by error no probability was ever assigned, assign it now
     media_with_updated_status = media.df.clone()
 
     # update status accordingly
