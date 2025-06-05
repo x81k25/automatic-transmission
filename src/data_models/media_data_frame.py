@@ -10,7 +10,6 @@ pl.enable_string_cache()
 
 class PipelineStatus(str, Enum):
     INGESTED = 'ingested'
-    PAUSED = 'paused'
     PARSED = 'parsed'
     FILE_ACCEPTED = 'file_accepted'
     METADATA_COLLECTED = 'metadata_collected'
