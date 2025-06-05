@@ -26,15 +26,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Debug environment variables
-      run: |
-        echo "STALE_METADATA_THRESHOLD: '$STALE_METADATA_THRESHOLD'"
-        echo "BATCH_SIZE: '$BATCH_SIZE'"
-        echo "LOG_LEVEL: '$LOG_LEVEL'"
-        echo "REEL_DRIVER_THRESHOLD: '$REEL_DRIVER_THRESHOLD'"
-        echo "All env vars:"
-        env | grep -E "(STALE_|BATCH_|LOG_|REEL_|HUNG_|TARGET_|TRANSFERRED_)" | sort
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
