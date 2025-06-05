@@ -23,7 +23,7 @@ utils.setup_logging()
 load_dotenv(override=True)
 
 # pipeline env vars
-#stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
+stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
 batch_size = int(os.getenv('BATCH_SIZE'))
 
 # load api env vars
