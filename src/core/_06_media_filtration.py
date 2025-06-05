@@ -15,27 +15,11 @@ from src.data_models import *
 # read in static parameters
 # -----------------------------------------------------------------------------
 
-# get reel-driver env vars
+# log config
+utils.setup_logging()
+
+# load env vars
 load_dotenv(override=True)
-
-log_level = os.getenv('LOG_LEVEL', default="INFO")
-
-if log_level == "INFO":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
-elif log_level == "DEBUG":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.INFO)
 
 # pipeline env vars
 batch_size = int(os.getenv('BATCH_SIZE'))
@@ -45,10 +29,6 @@ acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
 api_host = os.getenv('REEL_DRIVER_HOST')
 api_port = os.getenv('REEL_DRIVER_PORT')
 api_prefix = os.getenv('REEL_DRIVER_PREFIX')
-
-# get filter params
-with open('./config/filter-parameters.yaml', 'r') as file:
-    filters = yaml.safe_load(file)
 
 # -----------------------------------------------------------------------------
 # support functions that operate on one media item at a time

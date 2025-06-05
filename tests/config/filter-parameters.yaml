@@ -1,0 +1,5 @@
+movie:
+  resolution:
+    nullable: false
+    allowed_values:
+      - 1080p

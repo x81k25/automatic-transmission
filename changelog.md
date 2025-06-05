@@ -1,5 +1,9 @@
 # Changelog
 
+## [5.6.4]
+- added unit testing throughout codebase
+- moved log config to utils functions
+
 ## [1.2.11]
 - broke file filtering and media item filtering into two distinct scripts
   - this changed the numbering schema for the scripts, and script number below this update may be misaligned with current codebase
