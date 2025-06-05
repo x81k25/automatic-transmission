@@ -260,7 +260,8 @@ def extract_uploader(raw_title: str) -> str | None:
         'YTS\.MX',
         'GGEZ',
         'playWEB',
-        'MeGusta'
+        'MeGusta',
+        'ELiTE'
     ]
 
     # Create pattern for uploaders with optional separators

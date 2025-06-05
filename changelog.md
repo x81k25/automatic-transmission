@@ -2,6 +2,7 @@
 
 ## [5.6.4]
 - added unit testing throughout codebase
+- moved log config to utils functions
 
 ## [1.2.11]
 - broke file filtering and media item filtering into two distinct scripts

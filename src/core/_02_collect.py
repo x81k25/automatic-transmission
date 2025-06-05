@@ -1,9 +1,5 @@
 # standard library imports
 import logging
-import os
-
-# third-party imports
-from dotenv import load_dotenv
 
 # local/custom imports
 from src.data_models import *
@@ -13,27 +9,8 @@ import src.utils as utils
 # load environment variables and
 # ------------------------------------------------------------------------------
 
-# get reel-driver env vars
-load_dotenv(override=True)
-
-log_level = os.getenv('LOG_LEVEL', default="INFO")
-
-if log_level == "INFO":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
-elif log_level == "DEBUG":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.INFO)
+# log config
+utils.setup_logging()
 
 # ------------------------------------------------------------------------------
 # supporting functions

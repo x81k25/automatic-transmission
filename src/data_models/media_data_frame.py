@@ -277,10 +277,10 @@ class MediaDataFrame:
     # mirrored vanilla polars functions
     # -------------------------------------------------------------------------
 
-    def update(self, df: pl.DataFrame):
-        """Update internal DataFrame directly."""
-        self._validate_and_prepare(df)
-        self._df = df
+    @property
+    def height(self) -> int:
+        """Get the number of rows in the DataFrame."""
+        return self._df.height
 
 
     def append(self, new_df: pl.DataFrame) -> None:
@@ -325,6 +325,11 @@ class MediaDataFrame:
         """
         filtered_df = self._df.filter(*predicates)
         return MediaDataFrame(filtered_df)
+
+
+    def update(self, df: pl.DataFrame):
+        """Update internal DataFrame directly."""
+        self._validate_and_prepare(df)
 
 
     # -------------------------------------------------------------------------

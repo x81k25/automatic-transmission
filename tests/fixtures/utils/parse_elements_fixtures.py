@@ -170,6 +170,11 @@ def classify_media_type_cases():
             "description": "random text",
             "title": "a34r98[jae5g9;8jzegrt;98ja35g4",
             "expected": "unknown"
+        },
+        {
+            "description": "season with now special characters",
+            "title": "The Last of Us S02 1080p x265-ELiTE EZTV",
+            "expected": "tv_season"
         }
     ]
 
