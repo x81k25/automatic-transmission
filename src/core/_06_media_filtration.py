@@ -124,7 +124,7 @@ def reject_media_without_imdb_id(media: MediaDataFrame) -> MediaDataFrame:
     return MediaDataFrame(media_without_imdb_id)
 
 
-def process_prefiltered_items(
+def process_prelabeled_items(
     media: MediaDataFrame,
     media_labels: pl.DataFrame
 ) -> MediaDataFrame:
@@ -137,11 +137,11 @@ def process_prefiltered_items(
     :return: updated MediaDataFrame with the status updated to correspond
         with the label
     """
-    media_prefiltered = media.df.clone()
+    media_prelabeled=media.df.clone()
 
     # join existing metadata with main DataFrame
-    media_prefiltered = (
-        media_prefiltered
+    media_prelabeled = (
+        media_prelabeled
         .filter(pl.col('imdb_id').is_in(media_labels['imdb_id'].to_list()))
         .join(
             media_labels,
@@ -151,7 +151,7 @@ def process_prefiltered_items(
     )
 
     # update rejection_reason if needed accordingly
-    media_prefiltered = media_prefiltered.with_columns(
+    media_prefiltered = media_prelabeled.with_columns(
         rejection_reason = pl.when(pl.col('label') == 'would_not_watch')
             .then(pl.lit('previously failed reel-driver'))
         .otherwise(pl.col('rejection_reason'))
@@ -231,11 +231,24 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
     :return: updated MediaDataFrame with all errors properly tagged
 
     :debug: media = media_batch
-    """
-    # perform updates on items with predictions if needed
+    media_with_updated_status = pl.DataFrame(
+             {
+                    "hash": "errorstatus123456789012345678901234567890123",
+                    "media_type": "movie",
+                    "media_title": "Error Movie",
+                    "release_year": 2020,
+                    "pipeline_status": "metadata_collected",
+                    "rejection_status": "accepted",
+                    "rejection_reason": None,
+                    "error_status": True
+                }
+    )
 
+
+    """
     media_with_updated_status = media.df.clone()
 
+    # perform updates on items with predictions
     if 'probability' in media_with_updated_status.columns:
         media_with_updated_status = media_with_updated_status.with_columns(
             rejection_reason = (
@@ -342,20 +355,20 @@ def filter_media():
         return
 
     # get values for media which has previously been filtered
-    existing_media_metadata = utils.get_training_labels(list(set(media.df['imdb_id'])))
+    media_labels = utils.get_training_labels(list(set(media.df['imdb_id'])))
 
     # if any labels have already been set
-    if existing_media_metadata is not None:
-        prefiltered_media = process_prefiltered_items(media, existing_media_metadata)
+    if media_labels is not None:
+        prelabeled_media = process_prelabeled_items(media, media_labels)
 
         # update status, commit to db, and log
-        prefiltered_media = update_status(prefiltered_media)
-        utils.media_db_update(media=prefiltered_media.to_schema())
-        log_status(prefiltered_media)
+        prelabeled_media = update_status(prelabeled_media)
+        utils.media_db_update(media=prelabeled_media.to_schema())
+        log_status(prelabeled_media)
 
         # remove from list of items to be filtered
         media.update(
-            media.df.join(prefiltered_media.df.select('hash'), on='hash', how='anti')
+            media.df.join(prelabeled_media.df.select('hash'), on='hash', how='anti')
         )
 
     # if no more items need filtration, return
