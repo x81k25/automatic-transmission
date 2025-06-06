@@ -9,13 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    environment: ${{
-      (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' ||
-      (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' ||
-      'dev'
-    }}
+    environment: ${{ (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' || (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' || (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' || (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' || 'dev' }}
     env:
       STALE_METADATA_THRESHOLD: ${{ vars.STALE_METADATA_THRESHOLD }}
       BATCH_SIZE: ${{ vars.BATCH_SIZE }}
