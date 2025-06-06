@@ -1,10 +1,8 @@
 # standard library imports
-from datetime import datetime, timezone
 import logging
 import os
 
 # third-party imports
-from dotenv import load_dotenv
 import feedparser
 import polars as pl
 from feedparser import FeedParserDict
@@ -17,27 +15,8 @@ from src.data_models import MediaDataFrame
 # load environment variables
 # ------------------------------------------------------------------------------
 
-# get reel-driver env vars
-load_dotenv(override=True)
-
-log_level = os.getenv('LOG_LEVEL', default="INFO")
-
-if log_level == "INFO":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
-elif log_level == "DEBUG":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.INFO)
+# log config
+utils.setup_logging()
 
 # ------------------------------------------------------------------------------
 # rss ingest helper functions
@@ -59,7 +38,7 @@ def rss_feed_ingest(
     # print terminal message
     logging.debug("ingesting from: " + str(feed.channel.title))
 
-    # extract entires
+    # extract entries
     entries = feed['entries']
 
     # append rss_source
@@ -67,6 +46,7 @@ def rss_feed_ingest(
         entry['rss_source'] = rss_source
 
     return feed['entries']
+
 
 def format_entries(entry: FeedParserDict) -> dict:
     """
@@ -94,6 +74,16 @@ def format_entries(entry: FeedParserDict) -> dict:
 
     return formatted_entry
 
+
+def log_status(media: MediaDataFrame) -> None:
+    """
+    logs acceptance/rejection of the media filtration process
+
+    :param media: MediaDataFrame contain process values to be printed
+    :return: None
+    """
+    for row in media.df.iter_rows(named=True):
+        logging.info(f"ingested - {row['hash']}")
 
 # ------------------------------------------------------------------------------
 # full ingest for either element type
@@ -133,33 +123,19 @@ def rss_ingest():
             unique_entries.append(entry)
 
     # convert to MediaDataFrame object
-    #     conversion to MediaDataFrame object will handle element verification
+    #     conversion to MediaDataFrame object will handle element verification,
+    #     and define default values for status fields
     media = MediaDataFrame(unique_entries)
 
     # determine which feed entries are new entries
     new_hashes = utils.compare_hashes_to_db(hashes=media.df['hash'].to_list())
+    media.update(media.df.filter(pl.col('hash').is_in(new_hashes)))
 
-    if len(new_hashes) > 0:
-        # filter for new_hashes, update status, remove dups, set initial values for statuses
-
-        # add rejection status to meet not nullable constratin
-        media.update(
-            media.df.filter(pl.col('hash').is_in(new_hashes))
-            .group_by('hash')
-            .agg(pl.all().first())  # Take first row for each unique hash
-            .with_columns(
-                pipeline_status=pl.lit('ingested'),
-                error_status=pl.lit(False),
-                rejection_status=pl.lit('unfiltered'),
-                updated_at=pl.lit(datetime.now(timezone.utc))
-            )
-        )
-
+    if media.df.height > 0:
         # write new items to the database
         utils.insert_items_to_db(media=media.to_schema())
+        log_status(media)
 
-        for row in media.df.iter_rows(named=True):
-            logging.info(f"ingested - {row['hash']}")
 
 # ------------------------------------------------------------------------------
 # end of _01_rss_ingest.py

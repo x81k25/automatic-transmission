@@ -1,44 +1,29 @@
 # standard library imports
 import logging
-import os
+from pathlib import Path
 
 # third-party imports
-from dotenv import load_dotenv
-import polars as pl
 import yaml
 
 # local/custom imports
 import src.utils as utils
-from src.data_models import MediaDataFrame
+from src.data_models import *
 
 # -----------------------------------------------------------------------------
 # read in static parameters
 # -----------------------------------------------------------------------------
 
-# load env vars
-load_dotenv(override=True)
-
-log_level = os.getenv('LOG_LEVEL', default="INFO")
-
-if log_level == "INFO":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
-elif log_level == "DEBUG":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.INFO)
+# log config
+utils.setup_logging()
 
 # get filter params
-with open('./config/filter-parameters.yaml', 'r') as file:
+# for normal execution
+try:
+    config_path = Path(__file__).parent.parent.parent / 'config' / 'filter-parameters.yaml'
+# for IDE/interactive execution
+except NameError:
+    config_path = './config/filter-parameters.yaml'
+with open(config_path, 'r') as file:
     filters = yaml.safe_load(file)
 
 # ------------------------------------------------------------------------------
@@ -52,12 +37,8 @@ def filter_by_file_metadata(media_item: dict) -> dict:
     :param media_item:
     :return: dict containing the updated filtered data
 
-    :debug: filter_type = 'movie'
+    :debug: media_item = media.df.filter(pl.col('hash') == '054ce77d971194b9b6ff403df0543cfa31328718').to_dicts()[0]
     """
-    # pass if override status was set
-    if media_item['rejection_status'] == 'override':
-        return media_item
-
     # search separate criteria for move or tv_show
     if media_item['media_type'] == 'movie':
         sieve = filters['movie']
@@ -92,6 +73,51 @@ def filter_by_file_metadata(media_item: dict) -> dict:
 
     return media_item
 
+
+def update_status(media: MediaDataFrame) -> MediaDataFrame:
+    """
+    updates status flags based off of conditions
+
+    :param media: MediaDataFrame with old status flags
+    :return: updated MediaDataFrame with correct status flags
+    """
+    media_with_updated_status = media.df.clone()
+
+    # update status accordingly
+    media_with_updated_status = media_with_updated_status.with_columns(
+            rejection_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
+                .then(pl.lit(RejectionStatus.OVERRIDE))
+            .when(pl.col('rejection_status') == RejectionStatus.REJECTED)
+                .then(pl.lit(RejectionStatus.REJECTED))
+            .otherwise(pl.lit(RejectionStatus.ACCEPTED))
+        ).with_columns(
+            pipeline_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
+                .then(pl.lit(PipelineStatus.FILE_ACCEPTED))
+            .when(pl.col('rejection_status') == RejectionStatus.ACCEPTED)
+                .then(pl.lit(PipelineStatus.FILE_ACCEPTED))
+            .otherwise(pl.lit(PipelineStatus.REJECTED))
+        )
+
+    return MediaDataFrame(media_with_updated_status)
+
+
+def log_status(media: MediaDataFrame) -> None:
+    """
+    logs current stats of all media items
+
+    :param media: MediaDataFrame contain process values to be printed
+    :return: None
+    """
+    # log entries based on rejection status
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        if row['rejection_status'] == RejectionStatus.OVERRIDE:
+            logging.info(f"{row['rejection_status']} - {row['hash']}")
+        elif row['pipeline_status'] == PipelineStatus.REJECTED:
+            logging.info(f"{row['pipeline_status']} - {row['hash']} - {row['rejection_reason']}")
+        else:
+            logging.info(f"{row['pipeline_status']} - {row['hash']}")
+
+
 # ------------------------------------------------------------------------------
 # main function
 # ------------------------------------------------------------------------------
@@ -116,13 +142,12 @@ def filter_files():
         except Exception as e:
             error_message = f"file filtration error - {row['hash']} - {e}"
             logging.error(error_message)
-            row['error_status'] = True
             row['error_condition'] = error_message
             updated_rows.append(row)
 
     media = MediaDataFrame(updated_rows)
 
-    # commit any items with errors to db, if any
+    # commit any items with errors to db, if any remove from working data set
     if media.df.filter(pl.col('error_status')).height > 0:
         utils.media_db_update(
             MediaDataFrame(
@@ -130,33 +155,20 @@ def filter_files():
             )
         )
 
-    # remove items with errors
     media.update(media.df.filter(~pl.col('error_status')))
 
-    # update status accordingly
-    media.update(
-        media.df.with_columns(
-            rejection_status = pl.when(
-                pl.col('rejection_reason').is_null())
-                    .then(pl.lit('accepted'))
-                .otherwise(pl.lit('rejected'))
-        ).with_columns(
-            pipeline_status = pl.when(
-                pl.col('rejection_status') == 'accepted')
-                    .then(pl.lit('file_accepted'))
-                .otherwise(pl.lit('rejected'))
-        )
-    )
+    # if no items without errors, return
+    if media.height == 0:
+        return
 
-    # log entries based on rejection status
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
-        if row['pipeline_status'] == 'rejected':
-            logging.info(f"{row['hash']} - {row['pipeline_status']} - {row['hash']} - {row['rejection_reason']}")
-        else:
-            logging.info(f"{row['hash']} - {row['pipeline_status']} - {row['hash']}")
+    # update status
+    media = update_status(media)
 
-    # update db
+    # commit to db
     utils.media_db_update(media=media.to_schema())
+
+    # log status
+    log_status(media)
 
 
 # ------------------------------------------------------------------------------

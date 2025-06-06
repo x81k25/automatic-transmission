@@ -14,33 +14,13 @@ import src.utils as utils
 # config
 # ------------------------------------------------------------------------------
 
-# get reel-driver env vars
+# log config
+utils.setup_logging()
+
+# load env vars
 load_dotenv(override=True)
 
-log_level = os.getenv('LOG_LEVEL', default="INFO")
-
-if log_level == "INFO":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
-elif log_level == "DEBUG":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.INFO)
-
 # get pipeline env vars
-target_active_items = float(os.getenv('TARGET_ACTIVE_ITEMS'))
-if target_active_items < 0:
-    raise ValueError(f"TARGET_ACTIVE_ITEMS value of {target_active_items} is less than 0 and no permitted")
-
 transferred_item_cleanup_delay = float(os.getenv('TRANSFERRED_ITEM_CLEANUP_DELAY'))
 if transferred_item_cleanup_delay < 0:
     raise ValueError(f"TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and no permitted")
@@ -59,6 +39,11 @@ def get_delay_multiple() -> float:
 
     :return: multiple by which to modulate delay values
     """
+    # get pipeline env vars
+    target_active_items = float(os.getenv('TARGET_ACTIVE_ITEMS'))
+    if target_active_items < 0:
+        raise ValueError(f"TARGET_ACTIVE_ITEMS value of {target_active_items} is less than 0 and no permitted")
+
     # if TARGET_ACTIVE_ITEMS is 0, do not modulate
     if target_active_items == 0:
         return 1
@@ -156,7 +141,10 @@ def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
 
     # get hashes from current items
     hashes = list(current_items.keys())
-    media = utils.get_media_by_hash(hashes)
+    media = utils.get_media_by_hash(
+        hashes = hashes,
+        with_timestamp=True
+    )
 
     # if nothing to clean, return
     if media is None:

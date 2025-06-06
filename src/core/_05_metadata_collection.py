@@ -12,31 +12,15 @@ import requests
 from src.data_models import *
 import src.utils as utils
 
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # initialization and setup
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# log config
+utils.setup_logging()
 
 # load env vars
 load_dotenv(override=True)
-
-log_level = os.getenv('LOG_LEVEL', default="INFO")
-
-if log_level == "INFO":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
-elif log_level == "DEBUG":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.INFO)
 
 # pipeline env vars
 stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
@@ -58,7 +42,7 @@ tv_details_api_key = os.getenv('TV_DETAILS_API_KEY')
 tv_ratings_api_key = os.getenv('TV_RATINGS_API_KEY')
 
 # ------------------------------------------------------------------------------
-# metadata collection helper functions
+# API collection and processing functions
 # ------------------------------------------------------------------------------
 
 def media_search(media_item: dict) -> dict:
@@ -108,17 +92,12 @@ def media_search(media_item: dict) -> dict:
     # verify successful API response and update status accordingly
     if response.status_code != 200:
         logging.error(f"media search API returned status code: {response.status_code}")
-        media_item['error_status'] = True
         media_item['error_condition'] = f"media search API returned status code: {response.status_code}"
         return media_item
 
     # verify that contents exist within the data object and update status accordingly
     if len(json.loads(response.content)['results']) == 0:
         logging.debug(f'no metadata could be found for: {media_item['hash']} as "{media_item['media_title']}"')
-        media_item['pipeline_status'] = 'rejected'
-        media_item['error_status'] = False
-        media_item['error_condition'] = None
-        media_item['rejection_status'] = 'rejected'
         media_item['rejection_reason'] = f"media search failed"
         return media_item
 
@@ -357,6 +336,80 @@ def collect_ratings(media_item: dict) -> dict:
     # return the updated media_item
     return media_item
 
+# ------------------------------------------------------------------------------
+# individual unit processing functions
+# ------------------------------------------------------------------------------
+
+def process_media_with_existing_metadata(
+    media: MediaDataFrame,
+    existing_metadata: pl.DataFrame
+) -> MediaDataFrame:
+    """
+    combines the existing metadata with on imdb_id with the current
+        MediaDataFrame
+
+    :param media: entire media set, or media batch set
+    :param existing_metadata: existing metadata indexed IMDB
+    :return: MediaDataFrame with metadata attached and ready for upload
+    """
+    media_with_metadata = media.df.clone()
+    metadata_to_join = existing_metadata.clone()
+
+    # if metadata is already collected and not stale, use previously collected data
+    media_with_metadata = (
+        media_with_metadata
+            .filter(pl.col('tmdb_id').is_in(metadata_to_join['tmdb_id'].to_list()))
+            .update(
+                metadata_to_join,
+                on='tmdb_id'
+            )
+    )
+
+    return MediaDataFrame(media_with_metadata)
+
+
+# ------------------------------------------------------------------------------
+# update and log status functions
+# ------------------------------------------------------------------------------
+
+def update_status(media: MediaDataFrame) -> MediaDataFrame:
+    """
+    updates status flags based off of conditions
+
+    :param media: MediaDataFrame with old status flags
+    :return: updated MediaDataFrame with correct status flags
+    """
+    media_with_updated_status = media.df.clone()
+
+    media_with_updated_status = media_with_updated_status.with_columns(
+        pipeline_status = pl.when(
+            (pl.col('rejection_status').is_in([RejectionStatus.ACCEPTED.value, RejectionStatus.OVERRIDE.value])) &
+            (pl.col('error_status') == False)
+        ).then(pl.lit(PipelineStatus.METADATA_COLLECTED))
+        .when(pl.col('rejection_status') == RejectionStatus.REJECTED)
+            .then(pl.lit(PipelineStatus.REJECTED))
+        .otherwise(pl.col('pipeline_status'))
+    )
+
+    return MediaDataFrame(media_with_updated_status)
+
+
+def log_status(media: MediaDataFrame) -> None:
+    """
+    logs current stats of all media items
+
+    :param media: MediaDataFrame contain process values to be printed
+    :return: None
+    """
+    # log entries based on rejection status
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        if row['error_status']:
+            logging.error(f"{row['hash']} - {row['error_condition']}")
+        elif row['rejection_status'] == RejectionStatus.REJECTED:
+            logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
+        else:
+            logging.info(f"{row['pipeline_status']} - {row['hash']}")
+
 
 # ------------------------------------------------------------------------------
 # full metadata collection pipeline
@@ -399,34 +452,22 @@ def collect_metadata():
             media_batch.update(pl.DataFrame(updated_rows))
 
             # determine if metadata is already collected
-            media_batch_metadata = utils.get_media_metadata(list(set(media_batch.df['tmdb_id'])))
+            existing_metadata = utils.get_media_metadata(list(set(media_batch.df['tmdb_id'])))
 
-            # if any values already collected
-            if media_batch_metadata is not None:
-                # if metadata is already collected and not stale, use previously collected data
-                media_already_collected = MediaDataFrame(
-                    media_batch.df.filter(pl.col('tmdb_id').is_in(media_batch_metadata['tmdb_id'].to_list()))
-                    .update(
-                        media_batch_metadata,
-                        on='tmdb_id'
-                    ).with_columns(
-                        pipeline_status = pl.lit(PipelineStatus.METADATA_COLLECTED)
-                    )
+            # if metadata already collected, apply to df and commit to db
+            if existing_metadata is not None:
+                media_batch_with_metadata = process_media_with_existing_metadata(
+                    media_batch,
+                    existing_metadata
                 )
 
-                # commit elements with already defined metadata to database
-                for row in media_already_collected.df.iter_rows(named=True):
-                    logging.debug(f"{row['hash']} - using cached details and ratings")
-
-                utils.media_db_update(media_already_collected)
-
-                # log
-                for row in media_already_collected.df.iter_rows(named=True):
-                    logging.info(f"{row['pipeline_status']} - {row['hash']}")
+                media_batch_with_metadata = update_status(media_batch_with_metadata)
+                utils.media_db_update(media_batch_with_metadata.to_schema())
+                log_status(media_batch_with_metadata)
 
                 # filter for items which still need metadata collection
                 media_batch.update(
-                    media_batch.df.filter(~pl.col('hash').is_in(media_already_collected.df['hash'].to_list()))
+                    media_batch.df.filter(~pl.col('hash').is_in(media_batch_with_metadata.df['hash'].to_list()))
                 )
 
             # if all items already collected, move on to next batch
@@ -457,39 +498,15 @@ def collect_metadata():
 
             media_batch.update(pl.DataFrame(updated_rows))
 
-            # if metadata successfully collected update status
-            media_batch.update(
-                media_batch.df.with_columns(
-                    pipeline_status = pl.when(
-                        (~pl.col('error_status')) & (pl.col('rejection_status') != 'rejected')
-                    ).then(pl.lit('metadata_collected'))
-                    .otherwise(pl.col('pipeline_status'))
-                )
-            )
-
-            # log successfully collected items
-            for idx, row in enumerate((media_batch.df.filter(pl.col('pipeline_status') == 'metadata_collected')).iter_rows(named=True)):
-                logging.info(f"metadata collected - {row['hash']}")
+            # update status, commit to db, and log
+            media_batch = update_status(media_batch)
+            utils.media_db_update(media=media_batch.to_schema())
+            log_status(media_batch)
 
             logging.debug(f"completed metadata collection batch {batch+1}/{number_of_batches}")
 
         except Exception as e:
-            # log errors to individual elements
-            media_batch.update(
-                media_batch.df.with_columns(
-                    error_status = pl.lit(True),
-                    error_condition = pl.lit(f"batch error - {e}")
-                )
-            )
-
             logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
-
-        try:
-            # attempt to write metadata back to the database; with or without errors
-            utils.media_db_update(media=media_batch.to_schema())
-        except Exception as e:
-            logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
-            logging.error(f"metadata collection batch error - could not be stored in database")
 
 
 # ------------------------------------------------------------------------------

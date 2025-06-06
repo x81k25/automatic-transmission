@@ -44,20 +44,15 @@ def create_db_engine(
     Creates and returns a SQLAlchemy engine for PostgresQL connection with specified schema.
     Uses environment variables if parameters are not provided.
 
-    Parameters:
-    username (str): Database username (default: PG_USER env var)
-    password (str): Database password (default: PG_PASSWORD env var)
-    host (str): Database host address (default: PG_ENDPOINT env var)
-    port (str): Database port (default: PG_PORT env var)
-    database (str): Database name (default: PG_DB env var)
-    schema (str): Database schema (default: PG_SCHEMA env var or 'public')
-
-    Returns:
-    Engine: Configured database engine
-
-    Raises:
-    RuntimeError: If connection cannot be established with detailed error message
-    ValueError: If required parameters are missing
+    :param username: Database username (default: PG_USER env var)
+    :param password: Database password (default: PG_PASSWORD env var)
+    :param host: Database host address (default: PG_ENDPOINT env var)
+    :param port: Database port (default: PG_PORT env var)
+    :param database: Database name (default: PG_DB env var)
+    :param schema: Database schema (default: PG_SCHEMA env var or 'public')
+    :return: Configured database engine
+    :raises RuntimeError: If connection cannot be established with detailed error message
+    :raises ValueError: If required parameters are missing
     """
     required_params = {
         'username': username,
@@ -119,14 +114,9 @@ def compare_hashes_to_db(
     """
     Compares hashes in the input list against existing hashes in the database.
 
-    Parameters:
-    hash_list (list): List of hash strings
-    engine: SQLAlchemy engine connection
-
-    Returns:
-    tuple: (new_hashes, existing_hashes)
-        - new_hashes: List of hashes not in the database
-        - existing_hashes: List of hashes that exist in the database
+    :param hash_list: List of hash strings
+    :param engine: SQLAlchemy engine connection
+    :return: tuple (new_hashes, existing_hashes) where new_hashes is list of hashes not in the database and existing_hashes is list of hashes that exist in the database
     """
     # assign engine if none provided
     engine = create_db_engine()
@@ -159,17 +149,14 @@ def compare_hashes_to_db(
         raise Exception(f"compare_hashes error: {str(e)}")
 
 
-def return_rejected_hashes(hashes: List[str]):
+def return_rejected_hashes(hashes: List[str]) -> List[str]:
     """
     Returns hashes from the input list that exist in the database and have rejection_status = 'rejected'.
 
-    Parameters:
-    engine: SQLAlchemy engine connection
-    media_type (str): Type of media to determine the correct table
-    hashes (list): List of hash strings to check
-
-    Returns:
-    list: List of hashes that exist in the database and have rejection_status = 'rejected'
+    :param engine: SQLAlchemy engine connection
+    :param media_type: Type of media to determine the correct table
+    :param hashes: List of hash strings to check
+    :return: List of hashes that exist in the database and have rejection_status = 'rejected'
     """
     # assign engine
     engine = create_db_engine()
@@ -198,15 +185,16 @@ def return_rejected_hashes(hashes: List[str]):
         raise Exception(f"return_rejected_hashes error: {str(e)}")
 
 
-def get_media_from_db(pipeline_status: str) -> MediaDataFrame | None:
+def get_media_from_db(
+    pipeline_status: str,
+    with_timestamp: bool = False
+) -> MediaDataFrame | None:
     """
     Retrieves data from movies or tv_shows table based on pipeline_status.
 
-    Args:
-        pipeline_status: str, pipeline_status to filter by
-
-    Returns:
-        MediaDataFrame containing matching rows
+    :param pipeline_status: pipeline_status to filter by
+    :param with_timestamp: whether to return timestamp fields
+    :return: MediaDataFrame containing matching rows
     """
     # assign engine
     engine = create_db_engine()
@@ -237,19 +225,25 @@ def get_media_from_db(pipeline_status: str) -> MediaDataFrame | None:
         # Convert to dict for polars
         data = [dict(zip(columns, row)) for row in rows]
 
-    # Convert to polars DataFrame and wrap in MediaDataFrame
-    return MediaDataFrame(data)
+    # convert to MediaDataFrame with or without timestamp
+    if not with_timestamp:
+        return MediaDataFrame(data)
+    else:
+        return MediaDataFrame(pl.DataFrame(data))
 
 
-def get_media_by_hash(hashes: list) -> MediaDataFrame | None:
+def get_media_by_hash(
+    hashes: list,
+    with_timestamp: bool = False
+) -> MediaDataFrame | None:
     """
-    Retrieves data from movies or tv_shows table based on pipeline_status.
+    retrieves data from media by hash
 
-    Args:
-        pipeline_status: str, pipeline_status to filter by
+    :param hashes: list of hashes to retrieve, if available
+    :param with_timestamp: whether to return timestamp fields
+    :return: MediaDataFrame containing matching rows
 
-    Returns:
-        MediaDataFrame containing matching rows
+    :debug: hashes = ["0c5ba8200b9f15d01002b10bcfe43a5b85bd2902", "dade75a46e5e127a55048fa1557ef9e4e164f4c5", "2d9d681152394ab7387ec68679e9f20671d40764"]
     """
     # assign engine
     engine = create_db_engine()
@@ -279,8 +273,11 @@ def get_media_by_hash(hashes: list) -> MediaDataFrame | None:
         # Convert to dict for polars
         data = [dict(zip(columns, row)) for row in rows]
 
-    # Convert to polars DataFrame and wrap in MediaDataFrame
-    return MediaDataFrame(data)
+    # convert to MediaDataFrame with or without timestamp
+    if not with_timestamp:
+        return MediaDataFrame(data)
+    else:
+        return MediaDataFrame(pl.DataFrame(data))
 
 
 def get_media_metadata(tmdb_ids: list) -> pl.DataFrame | None:
@@ -380,9 +377,8 @@ def insert_items_to_db(media: MediaDataFrame):
     """
     Writes a MediaDataFrame to the database using SQLAlchemy.
 
-    Parameters:
-    media_type (str): Type of media ('movie', 'tv', etc.)
-    media (MediaDataFrame): MediaDataFrame containing data to insert
+    :param media_type: Type of media ('movie', 'tv', etc.)
+    :param media: MediaDataFrame containing data to insert
     """
     # assign engine
     engine = create_db_engine()
@@ -418,8 +414,9 @@ def insert_items_to_db(media: MediaDataFrame):
 
 def delete_items_from_db(hashes: list):
     """
-    deletes specified items from db
-    :param hashes: list of string value hashes
+    Deletes specified items from db.
+
+    :param hashes: List of string value hashes
     """
     # assign engine
     engine = create_db_engine()
@@ -493,15 +490,11 @@ def update_rejection_status_by_hash(
     new_rejection_status: str
 ):
     """
-    Updates the rejection_status for all rows matching the provided hash values.
+    Updates the pipeline_status for all rows matching the provided hash values.
 
-    Parameters:
-    engine: SQLAlchemy engine connection
-    hash_list (list): List of hash strings to update
-    new_rejection_status (str): New rejection_status value to set
-
-    Returns:
-    int: Number of rows updated
+    :param hash_list: List of hash strings to update
+    :param new_pipeline_status: New pipeline_status value to set
+    :return: Number of rows updated
     """
     # assign engine
     engine = create_db_engine()
@@ -532,8 +525,7 @@ def media_db_update(media: MediaDataFrame) -> None:
     """
     Updates database records for media entries using SQLAlchemy's ORM approach.
 
-    Parameters:
-    media (MediaDataFrame): MediaDataFrame containing media records to update
+    :param media: MediaDataFrame containing media records to update
     """
     logging.debug(f"Starting database update for {len(media.df)} records")
 
