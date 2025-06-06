@@ -378,11 +378,11 @@ def filter_media():
     # filter 1 item
     elif media.df.height == 1:
         media_batch = MediaDataFrame(
-            pl.DataFrame(
+            pl.DataFrame([
                 get_prediction(
                     media.df[0].to_dicts()[0]
                 )
-            )
+            ])
         )
 
         # update status, commit to db, and log
