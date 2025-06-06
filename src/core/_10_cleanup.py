@@ -136,7 +136,7 @@ def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
     :param modulated_hung_item_cleanup_delay: delay time in seconds
     """
     # get media items currently in daemon
-    current_items = utils.return_current_torrents()
+    current_items = utils.return_current_media_items()
 
     # if no current items, return
     if current_items is None:
