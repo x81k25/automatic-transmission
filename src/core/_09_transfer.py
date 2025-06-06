@@ -160,7 +160,7 @@ def transfer_media():
 
             # if attempt to store error to element fails, output error to logs
             except Exception as e:
-                logging.error(f"media transfer error - {media['hash']} - {e}")
+                logging.error(f"media transfer error - {media_item['hash']} - {e}")
 
 
 # ------------------------------------------------------------------------------
