@@ -197,15 +197,15 @@ def extract_video_codec(raw_title: str) -> str | None:
 def extract_audio_codec(raw_title: str) -> str | None:
     # List of audio codecs to search for
     audio_codecs = [
-        'DDP?[. ]?[257]\.1',
-        'AAC[. ]?[257]\.1',
+        r'DDP?[. ]?[257]\.1',
+        r'AAC[. ]?[257]\.1',
         'DDP',
         'AAC',
         'AAC2.0',
         'AC-?3',
         'E-?AC-?3',
         'TrueHD',
-        'DTS(?:-?HD)?(?:[. ]?[257]\.1)?',
+        r'DTS(?:-?HD)?(?:[. ]?[257]\.1)?',
         'FLAC',
         'MP3',
         'WMA',
@@ -257,7 +257,7 @@ def extract_uploader(raw_title: str) -> str | None:
         'HiggsBoson',
         'RUBiK',
         'PSA',
-        'YTS\.MX',
+        r'YTS\.MX',
         'GGEZ',
         'playWEB',
         'MeGusta',
