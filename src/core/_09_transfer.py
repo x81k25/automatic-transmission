@@ -1,10 +1,10 @@
 # standard library imports
 import logging
 import os
+from pathlib import PurePosixPath
 
 # third-party imports
 from dotenv import load_dotenv
-import polars as pl
 
 # local/custom imports
 from src.data_models import *
@@ -25,13 +25,76 @@ download_dir = os.getenv('DOWNLOAD_DIR')
 tv_show_dir = os.getenv('TV_SHOW_DIR')
 movie_dir = os.getenv('MOVIE_DIR')
 
-# logger config
-logger = logging.getLogger(__name__)
-
-
 # ------------------------------------------------------------------------------
 # media item clean-up functions
 # ------------------------------------------------------------------------------
+
+def generate_file_paths(media_item: dict) -> dict:
+    """
+    generates and adds the fields parent_path and target_path to a
+        media item
+
+    :param media_item: media_item without file paths
+    :return: media_item with file paths
+    """
+    if media_item['media_type'] == 'movie':
+        try:
+            parent_path = PurePosixPath(movie_dir)
+            media_item['parent_path'] = str(parent_path)
+        except Exception as e:
+            media_item['error_condition'] = f"error writing parent_path - {e}"
+
+        try:
+            target_path = utils.generate_movie_target_path(
+                movie_title=media_item['media_title'],
+                release_year=media_item['release_year'],
+                resolution=media_item['resolution'],
+                video_codec=media_item['video_coded']
+            )
+            media_item['target_path'] = str(target_path)
+        except Exception as e:
+            media_item['error_condition'] = f"error writing target_path - {e}"
+
+    elif media_item['media_type'] == 'tv_season':
+        try:
+            parent_path = utils.generate_tv_season_parent_path(
+                root_dir=tv_show_dir,
+                tv_show_name=media_item['media_title'],
+                release_year=media_item['release_year']
+            )
+            media_item['parent_path'] = str(parent_path)
+        except Exception as e:
+            media_item['error_condition'] = f"error writing parent_path - {e}"
+        try:
+            target_path = utils.generate_tv_season_target_path(
+                season=media_item['season']
+            )
+            media_item['target_path'] = str(target_path)
+        except Exception as e:
+            media_item['error_condition'] = f"error writing target_path - {e}"
+
+    elif media_item['media_type'] == 'tv_show':
+        try:
+            parent_path = utils.generate_tv_show_parent_path(
+                root_dir=tv_show_dir,
+                tv_show_name=media_item['media_title'],
+                release_year=media_item['release_year'],
+                season=media_item['season']
+            )
+            media_item['parent_path'] = str(parent_path)
+        except Exception as e:
+            media_item['error_condition'] = f"error writing parent_path - {e}"
+
+        try:
+            target_path = utils.generate_tv_show_target_path(
+                season=media_item['season'],
+                episode=media_item['episode']
+            )
+            media_item['target_path'] = str(target_path)
+        except Exception as e:
+            media_item['error_condition'] = f"error writing target_path - {e}"
+
+    return media_item
 
 def transfer_item(media_item: dict) -> dict:
     """
@@ -40,30 +103,10 @@ def transfer_item(media_item: dict) -> dict:
     :return: updated media dict that contains error info if applicable
     """
     try:
-        if media_item['media_type'] == 'movie':
-            utils.move_movie_local(
-                dir_or_file_name=media_item['original_path'],
-                download_dir=download_dir,
-                movie_dir=movie_dir
-            )
-        elif media_item['media_type'] == 'tv_show':
-            utils.move_tv_show_local(
-                download_dir=download_dir,
-                tv_show_dir=tv_show_dir,
-                dir_or_file_name=media_item['original_path'],
-                tv_show_name=media_item['media_title'],
-                release_year=media_item['release_year'],
-                season=media_item['season']
-            )
-        elif media_item['media_type'] == 'tv_season':
-            utils.move_tv_season_local(
-                download_dir=download_dir,
-                tv_show_dir=tv_show_dir,
-                dir_name=media_item['original_path'],
-                tv_show_name=media_item['media_title'],
-                release_year=media_item['release_year'],
-                season=media_item['season']
-            )
+        utils.move_dir_or_file(
+            full_original_path=PurePosixPath(download_dir) / media_item['original_path'],
+            full_target_path=PurePosixPath(media_item['parent_path']) / media_item['target_path']
+        )
     except Exception as e:
         if media_item['error_condition'] is None:
             media_item['error_condition'] = f'failed to transfer media: {e}'
@@ -127,6 +170,31 @@ def transfer_media():
 
     # if not valid media items return
     if media is None:
+        return
+
+    # generate files paths for items to be transferred
+    updated_rows = []
+
+    for idx, row in enumerate(media.df.iter_rows(named=True)):
+        updated_row = generate_file_paths(row)
+        updated_rows.append(updated_row)
+
+    media = MediaDataFrame(updated_rows)
+
+    # commit any errors to the database and log
+    media_with_errors = MediaDataFrame(media.df.filter(pl.col('error_status')))
+
+    if media_with_errors.height > 0:
+        utils.media_db_update(media=media_with_errors.to_schema())
+        log_status(media_with_errors)
+
+        # remove from processing queue
+        media.update(
+            media.df.join(media_with_errors.df.select('hash'), on='hash', how='anti')
+        )
+
+    # if no media without error return
+    if media.height == 0:
         return
 
     # iterate through each transfer and update individually
