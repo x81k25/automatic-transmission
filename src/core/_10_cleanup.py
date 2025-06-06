@@ -29,7 +29,6 @@ hung_item_cleanup_delay = float(os.getenv('HUNG_ITEM_CLEANUP_DELAY'))
 if transferred_item_cleanup_delay < 0:
     raise ValueError(f"HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and no permitted")
 
-
 # ------------------------------------------------------------------------------
 # support functions
 # ------------------------------------------------------------------------------
