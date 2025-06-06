@@ -297,9 +297,19 @@ def move_dir_or_file(
         if not source_path.exists():
             raise ValueError(f"Source does not exist: {source_path}")
 
-        # Validate parent directory of target exists
-        if not target_path.parent.exists():
-            raise ValueError(f"Target parent directory does not exist: {target_path.parent}")
+        # Ensure parent directories of target path exist (create them if needed)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Set permissions on any newly created parent directories
+        # Walk up the path and set permissions on any directories we may have created
+        current_path = target_path.parent
+        while current_path != current_path.parent:  # Stop at filesystem root
+            if current_path.exists():
+                try:
+                    set_permissions_and_ownership(current_path)
+                except (PermissionError, OSError) as e:
+                    logging.warning(f"Could not set permissions on parent directory {current_path}: {str(e)}")
+            current_path = current_path.parent
 
         logging.debug(f"Starting copy operation from {source_path} to {target_path}")
 
