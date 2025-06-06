@@ -1,12 +1,12 @@
 # automatic transmission
 
-A personal media automation system that ingests torrent files via RSS feeds, downloads them through transmission-daemon, and organizes the content into a proper media library structure compatible with Plex and other media server applications.
+A personal media automation system that ingests media item files via RSS feeds, downloads them through transmission-daemon, and organizes the content into a proper media library structure compatible with Plex and other media server applications.
 
 ## Overview
 
 automatic transmission provides an end-to-end pipeline for downloading and organizing media content:
 
-1. ingests torrent files from RSS feeds
+1. ingests media item files from RSS feeds
 2. collects media information from existing transmission downloads
 3. parses and categorizes the media files
 4. collects metadata from multiple APIs for organization and filtering
@@ -207,7 +207,7 @@ python main.py --debug
 
 The application follows a sequential pipeline process:
 
-1. `_01_rss_ingest.py`: Ingests torrent files from configured RSS feeds
+1. `_01_rss_ingest.py`: Ingests media item files from configured RSS feeds
 2. `_02_collect.py`: Collects media information from existing transmission downloads
 3. `_03_parse.py`: Parses media details from filenames and metadata
 4. `_04_metadata_collection.py`: Retrieves and stores metadata from TMDB and OMDb APIs

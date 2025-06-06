@@ -27,7 +27,6 @@
 - improved 05_filter to be handle override items
 - updated MediaDataFrame class to handle new columns for training data
 - updated 04_metadata_collection to collect new training data features
-- fixed error in 07_download_check that caused torrents not found in 
 - suppressed `'bpchar'` warning from SQLAlchemy due to lack of library familiarity with `CHAR` PostgreSQL data type  
 
 ## [1.2.8]
@@ -88,7 +87,7 @@
 - change media collection now; if API response is successful but item not in database, item is rejected 
 
 ## [1.2.0]
-- alter db update statement to be more robust to deal with torrents being manually demoted to previous status
+- alter db update statement to be more robust to deal with media items being manually demoted to previous status
 - created utils.parse_element and moved all parsing functions to this module; in order to standardize parsing across different src scripts that parsed the same element
 
 ## [1.1.7]
@@ -100,7 +99,6 @@
 - added supports for tv_seasons to the rest of the pipeline
   - added move_tv_season to sshf.py
 - removed delete component within sshf.py, as deletion will now be handled by cleanup
-- made media initiation type agnostic utilizing new torrent_source field
 
 ## [1.1.5]
 - fixed more issues with parsing
@@ -108,7 +106,7 @@
   - download_check will not be conducted after initiate
     - download_check will check download status and mark_download complete
   - clean_up will not be the final stage in the pipeline
-    - clean_up will remove the torrent and from transmission
+    - clean_up will remove the media items and from transmission
     - clean_up will remove the original file from the completed downloads folder
   - altered sqlf.py to generate engine as needed per function
   - altered rpcf.py to generate transmission client as needed per function
@@ -126,17 +124,17 @@
 - filter will now accept all items that have rejection_status = override
   - rejection status will remain "override" after filter is complete
   - print output will reflect this
-- all torrent added ad hoc should now be added to automated pipeline
+- all media items added ad hoc should now be added to automated pipeline
 
 ## [1.1.2]
 - utils.log now print to console rather than directly to log file; logs will be captured from console and migrated to log file
 - added src.core._02_collect
-  - collect will search for torrents download ad hoc
-  - ad hoc torrents will be scanned to test for inclusion in tv_show or movie database
+  - collect will search for media items download ad hoc
+  - ad hoc media items will be scanned to test for inclusion in tv_show or movie database
   - once collected they will become part of the standard download flow
   - currently only individual episodes and movies will be collected
   - later version will include functionality to collect entire seasons
-- made database changes to reflect the multiple sources of torrents
+- made database changes to reflect the multiple sources of media items
   - all torrent links, regardless of type, will be stored in the torrent_source field
 
 ## [1.1.1]
