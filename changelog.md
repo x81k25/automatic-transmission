@@ -3,6 +3,9 @@
 ## [5.6.4]
 - added unit testing throughout codebase
 - moved log config to utils functions
+- removed timestamp from most of the database options
+  - timestamps will be handled by PGSQL triggers
+  - added optional arguments to some query functions to optionally return timestamp if needed
 
 ## [1.2.11]
 - broke file filtering and media item filtering into two distinct scripts
