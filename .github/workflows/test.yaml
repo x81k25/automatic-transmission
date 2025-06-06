@@ -10,32 +10,12 @@ jobs:
   debug:
     runs-on: ubuntu-latest
     steps:
-      - name: Debug context and conditionals
+      - name: Environment Selection Debug
         run: |
-          echo "=== GitHub Context ==="
-          echo "Event: ${{ github.event_name }}"
-          echo "Base ref: ${{ github.base_ref }}"
-          echo "Head ref: ${{ github.head_ref }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "Ref name: ${{ github.ref_name }}"
-          echo ""
-          echo "=== Individual Conditions ==="
-          echo "github.event_name == 'pull_request': ${{ github.event_name == 'pull_request' }}"
-          echo "github.base_ref == 'main': ${{ github.base_ref == 'main' }}"
-          echo "github.base_ref == 'stg': ${{ github.base_ref == 'stg' }}"
-          echo "github.ref == 'refs/heads/main': ${{ github.ref == 'refs/heads/main' }}"
-          echo "github.ref == 'refs/heads/stg': ${{ github.ref == 'refs/heads/stg' }}"
-          echo ""
-          echo "=== Combined Conditions ==="
-          echo "PR to main: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' }}"
-          echo "PR to stg: ${{ github.event_name == 'pull_request' && github.base_ref == 'stg' }}"
-          echo "Push to main: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}"
-          echo "Push to stg: ${{ github.event_name == 'push' && github.ref == 'refs/heads/stg' }}"
-          echo ""
-          echo "=== Environment Selection Logic ==="
-          echo "First condition (PR to main): ${{ (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' }}"
-          echo "Second condition (PR to stg): ${{ (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' }}"
-          echo "Final result: ${{ 
+          echo "event: ${{ github.event_name }}"
+          echo "base ref: ${{ github.base_ref }}"
+          echo "head ref: ${{ github.head_ref }}"
+          echo "selected environment for testing: ${{ 
             (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' ||
             (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' ||
             (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' ||
@@ -45,7 +25,14 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    environment: ${{ (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' || (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' || (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' || (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' || 'dev' }}
+    needs: debug
+    environment: ${{ 
+      (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' ||
+      (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' ||
+      'dev'
+    }}
     env:
       STALE_METADATA_THRESHOLD: ${{ vars.STALE_METADATA_THRESHOLD }}
       BATCH_SIZE: ${{ vars.BATCH_SIZE }}
