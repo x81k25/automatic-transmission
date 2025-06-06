@@ -132,20 +132,35 @@ def transfer_media():
     # iterate through each transfer and update individually
     for media_item in media.df.iter_rows(named=True):
 
+        # transfer media
         try:
-            # transfer media
             media_item = transfer_item(media_item)
 
+            # cast to MediaDataFrame to perform validation
+            media_singular = MediaDataFrame(pl.DataFrame(media_item))
+
+            # update log and commit to db
+            media_singular = update_status(media_singular)
+            utils.media_db_update(media=media_singular.to_schema())
+            log_status(media_singular)
+
         except Exception as e:
-            media_item['error_condition'] = f"{e}"
 
-        # case to MediaDataFrame to perform validation
-        media_singular = MediaDataFrame(pl.DataFrame(media_item))
+            # attempt to store and log error condition
+            try:
+                media_item['error_condition'] = f"{e}"
 
-        # update log and commit to db
-        media_singular = update_status(media_singular)
-        utils.media_db_update(media=media_singular.to_schema())
-        log_status(media_singular)
+                # cast to MediaDataFrame to perform validation
+                media_singular = MediaDataFrame(pl.DataFrame(media_item))
+
+                # update log and commit to db
+                media_singular = update_status(media_singular)
+                utils.media_db_update(media=media_singular.to_schema())
+                log_status(media_singular)
+
+            # if attempt to store error to element fails, output error to logs
+            except Exception as e:
+                logging.error(f"media transfer error - {media['hash']} - {e}")
 
 
 # ------------------------------------------------------------------------------

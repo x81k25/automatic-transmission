@@ -63,14 +63,21 @@ def extract_and_verify_filename(
         {'hash': k, 'original_path': v['name']}
         for k, v in downloaded_media_items.items()
     ]).with_columns(
+        original_path = pl.col("original_path").fill_null("None")
+    ).with_columns(
         error_condition = pl.when(
-            pl.col("original_path").is_null())
+            pl.col("original_path") == "None")
                 .then(pl.lit("media_item.name returned None object"))
-           .when(pl.col("original_path") == "")
+            .when(pl.col("original_path") == "")
                 .then(pl.lit("media_item.name returned empty string"))
-           .when(pl.col("original_path").str.contains(r"[a-f0-9]{40}"))
+            .when(pl.col("original_path") == pl.col("hash"))
                 .then(pl.lit("media_item.name contains item hash not filename"))
-           .otherwise(pl.lit(None))
+            .otherwise(pl.lit(None))
+    ).with_columns(
+        original_path = pl.when(
+            pl.col('original_path') == "None")
+                .then(pl.lit(None))
+            .otherwise(pl.col('original_path'))
     )
 
     media_with_paths = media_with_paths.update(
