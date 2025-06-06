@@ -49,7 +49,7 @@ def generate_file_paths(media_item: dict) -> dict:
                 movie_title=media_item['media_title'],
                 release_year=media_item['release_year'],
                 resolution=media_item['resolution'],
-                video_codec=media_item['video_coded']
+                video_codec=media_item['video_codec']
             )
             media_item['target_path'] = str(target_path)
         except Exception as e:
