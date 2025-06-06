@@ -14,27 +14,21 @@ import src.utils as utils
 # config
 # ------------------------------------------------------------------------------
 
-# get reel-driver env vars
+# log config
+utils.setup_logging()
+
+# load env vars
 load_dotenv(override=True)
 
-log_level = os.getenv('LOG_LEVEL', default="INFO")
+# get pipeline env vars
+transferred_item_cleanup_delay = float(os.getenv('TRANSFERRED_ITEM_CLEANUP_DELAY'))
+if transferred_item_cleanup_delay < 0:
+    raise ValueError(f"TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and no permitted")
 
-if log_level == "INFO":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
-elif log_level == "DEBUG":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-    logging.getLogger("paramiko").setLevel(logging.INFO)
+hung_item_cleanup_delay = float(os.getenv('HUNG_ITEM_CLEANUP_DELAY'))
+if transferred_item_cleanup_delay < 0:
+    raise ValueError(f"HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and no permitted")
+
 
 # ------------------------------------------------------------------------------
 # support functions
@@ -148,7 +142,10 @@ def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
 
     # get hashes from current items
     hashes = list(current_items.keys())
-    media = utils.get_media_by_hash(hashes)
+    media = utils.get_media_by_hash(
+        hashes = hashes,
+        with_timestamp=True
+    )
 
     # if nothing to clean, return
     if media is None:
@@ -219,14 +216,6 @@ def cleanup_media():
     perform final clean-up operations for torrents once all other steps have
         been verified completed successfully
     """
-    transferred_item_cleanup_delay = float(os.getenv('TRANSFERRED_ITEM_CLEANUP_DELAY'))
-    if transferred_item_cleanup_delay < 0:
-        raise ValueError(f"TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and no permitted")
-
-    hung_item_cleanup_delay = float(os.getenv('HUNG_ITEM_CLEANUP_DELAY'))
-    if transferred_item_cleanup_delay < 0:
-        raise ValueError(f"HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and no permitted")
-
     # get delay multiple
     delay_multiple =  get_delay_multiple()
 
