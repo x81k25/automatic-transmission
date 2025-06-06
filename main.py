@@ -1,6 +1,5 @@
 # standard library imports
 import argparse
-import logging
 
 # local/custom imports
 import src.core as core

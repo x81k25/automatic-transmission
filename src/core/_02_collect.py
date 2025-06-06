@@ -86,8 +86,8 @@ def collect_media():
     collect ad hoc items added to transmission not from rss feeds and insert
     into automatic-transmission pipeline
     """
-    # get torrents currently in transmission
-    current_transmission_items = utils.return_current_torrents()
+    # get media items currently in transmission
+    current_transmission_items = utils.return_current_media_items()
 
     # if no torrents in transmission, return
     if current_transmission_items is None:

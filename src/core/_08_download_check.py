@@ -1,6 +1,10 @@
 # standard library imports
 import logging
 
+# third party libraries
+import re
+from ctypes.wintypes import PFILETIME
+
 # local/custom imports
 from src.data_models import *
 import src.utils as utils
@@ -13,54 +17,68 @@ import src.utils as utils
 utils.setup_logging()
 
 # ------------------------------------------------------------------------------
-# functions to operate on individual media items
+# supporting functions
 # ------------------------------------------------------------------------------
 
-def media_item_download_complete(hash: str) -> str | None:
+def confirm_downloading_status(
+    media: MediaDataFrame,
+    current_media_items: dict
+) -> MediaDataFrame:
     """
-    checks to determine if media is complete for items in the downloading state
-    :param hash: media item hash string value
-    :return: True/False depending on download complete status
+    determine if items tagged as pipeline_status = 'downloading' are in fact
+        downloading
+
+    :param media: MediaDataFrame are all 'downloading' items
+    :param current_media_items: dict of media current items in transmission
+    :return:
     """
-    # attempt to get status from transmission
-    try:
-        torrent = utils.get_torrent_info(hash)
+    media_not_downloading = media.df.clone()
 
-        # return true if download complete
-        if torrent.progress == 100.0:
-            return "true"
-        else:
-            return None
+    current_hashes = list(current_media_items.keys())
 
-    except KeyError as e:
-        logging.error(f"{hash} - not found within transmission")
-        return f"{e}"
-    except Exception as e:
-        logging.error(f"{hash} - {e}")
-        return f"{e}"
+    media_not_downloading = media_not_downloading.filter(
+        ~pl.col('hash').is_in(current_hashes)
+    ).with_columns(
+        error_condition = pl.lit("not found within transmission")
+    )
+
+    return MediaDataFrame(media_not_downloading)
 
 
-def extract_and_verify_filename(media_item: dict) -> dict:
+def extract_and_verify_filename(
+    media: MediaDataFrame,
+    downloaded_media_items: dict
+) -> MediaDataFrame:
     """
-    if download is complete, extract the file name for subsequent transfer
-    :param media_item: dict containing 1 row of media.df data
+    extracts, verifies, and inserts original_path to MediaDataFrame
+
+    :param media: MediaDataFrame without original_path
+    :param downloaded_media_items: metadata for items in transmission
     :return: dict with updated file_name or error information
     """
-    # if download not complete, make no change
-    if media_item['download_complete'] != "true":
-        return media_item
+    media_with_paths = media.df.clone()
 
-    # if download is complete
-    torrent = utils.get_torrent_info(media_item['hash'])
-    file_or_dir_name = torrent.name
+    # get file paths
+    original_file_paths = pl.DataFrame([
+        {'hash': k, 'original_path': v['name']}
+        for k, v in downloaded_media_items.items()
+    ]).with_columns(
+        error_condition = pl.when(
+            pl.col("original_path").is_null())
+                .then(pl.lit("media_item.name returned None object"))
+           .when(pl.col("original_path") == "")
+                .then(pl.lit("media_item.name returned empty string"))
+           .when(pl.col("original_path").str.contains(r"[a-f0-9]{40}"))
+                .then(pl.lit("media_item.name contains item hash not filename"))
+           .otherwise(pl.lit(None))
+    )
 
-    # test filename and either assign or induce error state
-    if not file_or_dir_name or not isinstance(file_or_dir_name, str) or not file_or_dir_name.strip():
-        media_item['error_condition'] = "file_name must be a non-empty string"
-    else:
-        media_item['original_path'] = file_or_dir_name
+    media_with_paths = media_with_paths.update(
+        original_file_paths,
+        on='hash'
+    )
 
-    return media_item
+    return MediaDataFrame(media_with_paths)
 
 
 def update_status(media: MediaDataFrame) -> MediaDataFrame:
@@ -73,11 +91,34 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
     media_with_updated_status = media.df.clone()
 
     media_with_updated_status = media_with_updated_status.with_columns(
-        pipeline_status = pl.when(pl.col('rejection_status') == RejectionStatus.REJECTED)
-            .then(pl.lit(PipelineStatus.REJECTED))
-        .when(pl.col('download_complete') == "true")
+        pipeline_status = pl.when(pl.col('error_condition') == "not found within transmission")
+            .then(pl.lit(PipelineStatus.INGESTED))
+        .when(
+            (~pl.col('error_status')) &
+            (pl.col('rejection_status') != RejectionStatus.REJECTED)
+        )
             .then(pl.lit(PipelineStatus.DOWNLOADED))
-        .otherwise(pl.lit(PipelineStatus.INGESTED))
+        .otherwise(pl.col('pipeline_status'))
+    )
+
+    # if re-ingesting remove flags
+    media_with_updated_status = media_with_updated_status.with_columns(
+        rejection_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
+            .then(pl.lit(RejectionStatus.OVERRIDE))
+            .otherwise(
+                pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED)
+                    .then(pl.lit(RejectionStatus.UNFILTERED))
+                .otherwise(pl.col('rejection_status'))
+            ),
+        rejection_reason = pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED)
+            .then(pl.lit(None))
+            .otherwise(pl.col('rejection_reason')),
+        error_status = pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED)
+            .then(pl.lit(False))
+            .otherwise(pl.col('error_status')),
+        error_condition = pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED)
+            .then(pl.lit(None))
+            .otherwise(pl.col('error_condition'))
     )
 
     return MediaDataFrame(media_with_updated_status)
@@ -94,6 +135,8 @@ def log_status(media: MediaDataFrame) -> None:
     for idx, row in enumerate(media.df.iter_rows(named=True)):
         if row['pipeline_status'] == PipelineStatus.INGESTED:
             logging.error(f"re-ingesting - {row['hash']}")
+        elif row['error_status']:
+            logging.error(f"{row['hash']} - {row['error_condition']}")
         elif row['rejection_status'] == RejectionStatus.REJECTED:
             logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
         else:
@@ -116,33 +159,41 @@ def check_downloads():
     if media is None:
         return
 
-    # determine if downloaded
-    media.update(media.df.with_columns(
-        download_complete=pl.col('hash').map_elements(
-            media_item_download_complete, return_dtype=pl.Utf8)
-    ))
+    # get current media item info
+    current_media_items = utils.return_current_media_items()
 
-    # remove items where download is not complete and there is no error
-    media = MediaDataFrame(media.df.filter(~pl.col('download_complete').is_null()))
+    # confirm current media_items are in 'downloading' pipeline_status
+    media_not_downloading = confirm_downloading_status(
+        media,
+        current_media_items
+    )
 
-    # if no items complete or in error state return
+    # re-ingest items not downloading if needed
+    if media_not_downloading.height > 0:
+        media_not_downloading = update_status(media_not_downloading)
+        utils.media_db_update(media=media_not_downloading.to_schema())
+        log_status(media_not_downloading)
+
+        # remove reingested items from processing
+        media.update(
+            media.df.join(media_not_downloading.df.select('hash'), on='hash', how='anti')
+        )
+
+    # filter by items with download complete
+    downloaded_media_items = {k: v for k, v in current_media_items.items() if v['progress'] == 100.0}
+
+    media = media.filter(pl.col('hash').is_in(downloaded_media_items))
+
+    # if no items downloaded, return
     if media.height == 0:
         return
 
-    # extract filename of completed downloads
-    updated_rows = []
-    for row in media.df.iter_rows(named=True):
-        if row['pipeline_status'] == "downloaded":
-            updated_row = extract_and_verify_filename(row)
-            updated_rows.append(updated_row)
-        else:
-            updated_rows.append(row)
+    # extract file names from completed downloads
+    media = extract_and_verify_filename(media, downloaded_media_items)
 
-    media.update(pl.DataFrame(updated_rows))
-
-    # update statuses, commit to db, and log
+    # update status, commit to db, and log
     media = update_status(media)
-    utils.media_db_update(media=media.to_schema())
+    utils.media_db_update(media.to_schema())
     log_status(media)
 
 

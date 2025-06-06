@@ -30,12 +30,12 @@ logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------------------
-# torrent clean-up functions
+# media item clean-up functions
 # ------------------------------------------------------------------------------
 
 def transfer_item(media_item: dict) -> dict:
     """
-    Transfer downloaded torrents to the appropriate directory
+    Transfer downloaded media items to the appropriate directory
     :param media_item: media dict containing one row of media.df
     :return: updated media dict that contains error info if applicable
     """
@@ -114,12 +114,12 @@ def log_status(media: MediaDataFrame) -> None:
 
 
 # ------------------------------------------------------------------------------
-# torrent clean-up full pipelines
+# media item clean-up full pipelines
 # ------------------------------------------------------------------------------
 
 def transfer_media():
     """
-    full pipeline for cleaning up torrents that have completed transfer
+    full pipeline for cleaning up media items that have completed transfer
     :return:
     """
     # read in existing data based on ingest_type
