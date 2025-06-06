@@ -1,11 +1,15 @@
 # Changelog
 
 ## [5.6.4]
-- added unit testing throughout codebase
+- added unit testing throughout codebase for the majority of internal functions
 - moved log config to utils functions
 - removed timestamp from most of the database options
   - timestamps will be handled by PGSQL triggers
   - added optional arguments to some query functions to optionally return timestamp if needed
+- refactored transfer
+  - separate logic will now be applied to generate the target_path and parent_path for all media items
+  - target_path and parent_path will be stored in database
+  - the movement of files and dirs has been consolidated into a single function rather than 1 function per media_type 
 
 ## [1.2.11]
 - broke file filtering and media item filtering into two distinct scripts
