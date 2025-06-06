@@ -69,7 +69,10 @@ def cleanup_transferred_media(modulated_transferred_item_cleanup_delay: float):
     :param modulated_transferred_item_cleanup_delay: delay time in seconds
     """
     # read in existing data based on ingest_type
-    media = utils.get_media_from_db(pipeline_status='transferred')
+    media = utils.get_media_from_db(
+        pipeline_status='transferred',
+        with_timestamp=True
+    )
 
     # if no transferred items, return None
     if media is None:
