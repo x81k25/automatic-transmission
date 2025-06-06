@@ -206,9 +206,6 @@ def transfer_media():
         try:
             media_item = transfer_item(media_item)
 
-            logging.debug(f"media_item contents: {media_item}")
-            logging.debug(f"Types: {[(k, type(v)) for k, v in media_item.items()]}")
-
             # cast to MediaDataFrame to perform validation
             media_singular = MediaDataFrame(pl.DataFrame([media_item]))
 
