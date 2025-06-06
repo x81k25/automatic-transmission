@@ -40,67 +40,67 @@ def get_transmission_client(port: int = transmission_port):
 # functions to retrieve data
 # ------------------------------------------------------------------------------
 
-def get_torrent_info(hash: str):
+def get_media_item_info(hash: str):
     """
-    using hash, retrieve torrent metadata from transmission client
+    using hash, retrieve media_item metadata from transmission client
 
-    :param hash: individual hash of the torrent
-    :return: dict of all torrent parameters stored in transmission client
+    :param hash: individual hash of the media_item
+    :return: dict of all media_item parameters stored in transmission client
     """
     transmission_client = get_transmission_client()
 
-    torrent = transmission_client.get_torrent(hash)
+    media_item = transmission_client.get_torrent(hash)
 
-    return torrent
+    return media_item
 
 
-def return_current_torrents(port: int = transmission_port) -> dict | None:
+def return_current_media_items(port: int = transmission_port) -> dict | None:
     """
-    hit transmission rpc and return all current torrents
+    hit transmission rpc and return all current media_items
 
     :param port: transmission daemon port
-    :return: dict containing all relevant torrent information if torrents exist, None if no torrents
+    :return: dict containing all relevant media_item information if media_items exist, None if no media_items
     """
     # Get transmission client
     client = get_transmission_client(port)
 
-    # Get all torrents
-    torrents = client.get_torrents()
+    # Get all media_items
+    media_items = client.get_torrents()
 
-    # If no torrents, return None
-    if not torrents:
+    # If no media_items, return None
+    if not media_items:
         return None
 
-    # Create list to store torrent data
-    torrent_data = {}
+    # Create list to store media_item data
+    media_item_data = {}
 
-    # Extract relevant information from each torrent
-    for torrent in torrents:
-        torrent_datum = {
-            torrent.hashString: {
-                'id': torrent.id,
-                'name': torrent.name,
-                'status': torrent.status,
-                'torrent_source': torrent.magnet_link,
-                'progress': round(torrent.progress, 2),
-                'size': torrent.total_size,
-                'upload_speed': torrent.rate_upload,
-                'download_speed': torrent.rate_download,
-                'peers_connected': torrent.peers_connected,
-                'eta': torrent.eta,
-                'download_dir': torrent.download_dir
+    # Extract relevant information from each media_item
+    for media_item in media_items:
+        media_item_datum = {
+            media_item.hashString: {
+                'id': media_item.id,
+                'name': media_item.name,
+                'status': media_item.status,
+                'media_item_source': media_item.magnet_link,
+                'progress': round(media_item.progress, 2),
+                'size': media_item.total_size,
+                'upload_speed': media_item.rate_upload,
+                'download_speed': media_item.rate_download,
+                'peers_connected': media_item.peers_connected,
+                'eta': media_item.eta,
+                'download_dir': media_item.download_dir
             }
         }
-        torrent_data.update(torrent_datum)
+        media_item_data.update(media_item_datum)
 
-    return torrent_data
+    return media_item_data
 
 
 def return_current_item_count(port: int = transmission_port) -> int:
     """
     hit transmission rpc and return count of active items
 
-    :return: DataFrame containing all relevant torrent information if torrents exist, None if no torrents
+    :return: DataFrame containing all relevant media_item information if media_items exist, None if no media_items
 
     :param port: transmission daemon port
     :debug: port=30091
@@ -108,21 +108,21 @@ def return_current_item_count(port: int = transmission_port) -> int:
     # Get transmission client
     client = get_transmission_client(port)
 
-    # Get all torrents
-    torrents = client.get_torrents()
+    # Get all media_items
+    media_items = client.get_torrents()
 
-    # If no torrents, return None
-    return len(torrents)
+    # If no media_items, return None
+    return len(media_items)
 
 
 # ------------------------------------------------------------------------------
-# functions to add/remove torrents
+# functions to add/remove media_items
 # ------------------------------------------------------------------------------
 
-def add_media_item(torrent_source: str):
+def add_media_item(media_item_source: str):
     """
     add media item to transmission client
-    :param torrent_source: any acceptable format of torrent link
+    :param media_item_source: any acceptable format of media_item link
     """
     transmission_client = get_transmission_client()
 
@@ -130,39 +130,39 @@ def add_media_item(torrent_source: str):
     hash_pattern = re.compile(r'^[0-9a-f]{40}$')
 
     # check if the input is pure hash, and if so format as magnet
-    if hash_pattern.match(torrent_source):
-        torrent_source = f"magnet:?xt=urn:btih:{torrent_source}"
+    if hash_pattern.match(media_item_source):
+        media_item_source = f"magnet:?xt=urn:btih:{media_item_source}"
 
     # send to transmission
-    transmission_client.add_torrent(torrent_source)
+    transmission_client.add_torrent(media_item_source)
 
 
 def remove_media_item(hash: str):
     """
     remove media item from transmission client
-    :param hash: hash of the torrent to remove
+    :param hash: hash of the media_item to remove
     """
     transmission_client = get_transmission_client()
     transmission_client.remove_torrent(hash, delete_data=True)
 
 
-def purge_torrent_queue():
+def purge_media_item_queue():
     """
-    purge entire queue of torrents
+    purge entire queue of media_items
     """
     # Instantiate transmission client
     transmission_client = get_transmission_client()
 
-    # Get all torrents
-    torrents = transmission_client.get_torrents()
+    # Get all media_items
+    media_items = transmission_client.get_torrents()
 
-    # Iterate through each torrent and remove it
-    for torrent in torrents:
+    # Iterate through each media_item and remove it
+    for media_item in media_items:
         try:
-            transmission_client.remove_torrent(torrent.id, delete_data=True)
-            print(f"Removed torrent: {torrent.name} with hash {torrent.hashString}")
+            transmission_client.remove_torrent(media_item.id, delete_data=True)
+            print(f"Removed media_item: {media_item.name} with hash {media_item.hashString}")
         except Exception as e:
-            print(f"Failed to remove torrent: {torrent.name} with hash {torrent.hashString}. Error: {e}")
+            print(f"Failed to remove media_item: {media_item.name} with hash {media_item.hashString}. Error: {e}")
 
 # ------------------------------------------------------------------------------
 # end of rpcf.py
