@@ -49,7 +49,7 @@ def generate_file_paths(media_item: dict) -> dict:
                 movie_title=media_item['media_title'],
                 release_year=media_item['release_year'],
                 resolution=media_item['resolution'],
-                video_codec=media_item['video_coded']
+                video_codec=media_item['video_codec']
             )
             media_item['target_path'] = str(target_path)
         except Exception as e:
@@ -164,6 +164,8 @@ def transfer_media():
     """
     full pipeline for cleaning up media items that have completed transfer
     :return:
+
+    :debug: media_item = media.df[0].to_dicts()[0]
     """
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status='downloaded')
@@ -205,18 +207,18 @@ def transfer_media():
             media_item = transfer_item(media_item)
 
             # cast to MediaDataFrame to perform validation
-            media_singular = MediaDataFrame(pl.DataFrame(media_item))
+            media_singular = MediaDataFrame(pl.DataFrame([media_item]))
 
             # update log and commit to db
             media_singular = update_status(media_singular)
             utils.media_db_update(media=media_singular.to_schema())
             log_status(media_singular)
 
-        except Exception as e:
+        except Exception as outer_e:
 
             # attempt to store and log error condition
             try:
-                media_item['error_condition'] = f"{e}"
+                media_item['error_condition'] = f"{outer_e}"
 
                 # cast to MediaDataFrame to perform validation
                 media_singular = MediaDataFrame(pl.DataFrame(media_item))
@@ -227,8 +229,8 @@ def transfer_media():
                 log_status(media_singular)
 
             # if attempt to store error to element fails, output error to logs
-            except Exception as e:
-                logging.error(f"media transfer error - {media_item['hash']} - {e}")
+            except Exception as inner_e:
+                logging.error(f"media transfer error - {media_item['hash']} - {inner_e}")
 
 
 # ------------------------------------------------------------------------------
