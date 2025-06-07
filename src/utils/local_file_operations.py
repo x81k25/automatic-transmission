@@ -63,35 +63,6 @@ def set_permissions_and_ownership(
         raise PermissionError(error_msg)
 
 
-def validate_paths(*paths: Union[Path, str]) -> list[Path]:
-    """
-    Validates multiple paths, ensuring parent directories exist.
-    Does not verify if the final path component exists.
-    
-    Args:
-        *paths: Variable number of path arguments
-        
-    Returns:
-        list[Path]: List of validated Path objects
-        
-    Raises:
-        ValueError: If any parent directory doesn't exist
-    """
-    validated_paths = []
-    
-    for path in paths:
-        # Convert to Path object if string
-        path = Path(path)
-        
-        # Check if parent directory exists
-        if not path.parent.exists():
-            raise ValueError(f"Parent directory does not exist: {path.parent}")
-            
-        validated_paths.append(path)
-        
-    return validated_paths
-
-
 # ------------------------------------------------------------------------------
 # functions to generate proper file paths
 # ------------------------------------------------------------------------------
@@ -112,39 +83,67 @@ def generate_movie_target_path(
     :param resolution: resolution of media file
     :param video_codec: video_codec, if extracted
     :return: Path object of target dir
+    :raises ValueError: If required parameters are invalid
     """
-    # convert to lowercase
-    movie_title = movie_title.lower()
-    # replace any non-alphanumeric characters (except spaces) with spaces
-    movie_title = re.sub(r'[^\w\s]', ' ', movie_title)
-    # replace multiple whitespace with single space
-    movie_title = re.sub(r'\s+', ' ', movie_title)
-    # replace spaces with hyphens
-    movie_title = movie_title.replace(' ', '-')
-    # replace multiple consecutive hyphens with single hyphen
-    movie_title = re.sub(r'-+', '-', movie_title)
-    # remove leading and trailing hyphens
-    movie_title = movie_title.strip('-')
+    # Validate required parameters
+    if not movie_title or not isinstance(movie_title, str):
+        raise ValueError("movie_title must be a non-empty string")
 
-    release_year = str(release_year).strip()
-    resolution = str(resolution).lower().strip()
+    if not release_year or not isinstance(release_year, int):
+        raise ValueError("release_year must be a valid integer")
 
-    movie_target_path = (
-        movie_title + "-" +
-        release_year + "-" +
-        resolution
-    )
+    if not resolution or not isinstance(resolution, str):
+        raise ValueError("resolution must be a non-empty string")
 
-    video_codec = video_codec.strip('"')
-    # Convert H.265 and H 265 variations to H265
-    video_codec = re.sub(r'H[\.\s]?265', 'h265', video_codec, flags=re.IGNORECASE)
-    # Keep x265 as is (case insensitive, but maintain lowercase)
-    video_codec = re.sub(r'^x265$', 'x265', video_codec, flags=re.IGNORECASE)
+    try:
+        # Clean and format movie title
+        cleaned_title = movie_title.lower()
+        # replace any non-alphanumeric characters (except spaces) with spaces
+        cleaned_title = re.sub(r'[^\w\s]', ' ', cleaned_title)
+        # replace multiple whitespace with single space
+        cleaned_title = re.sub(r'\s+', ' ', cleaned_title)
+        # replace spaces with hyphens
+        cleaned_title = cleaned_title.replace(' ', '-')
+        # replace multiple consecutive hyphens with single hyphen
+        cleaned_title = re.sub(r'-+', '-', cleaned_title)
+        # remove leading and trailing hyphens
+        cleaned_title = cleaned_title.strip('-')
 
-    if video_codec in ("x265", "H265"):
-        movie_target_path = movie_target_path + "-" + video_codec
+        if not cleaned_title:
+            raise ValueError("movie_title resulted in empty string after cleaning")
 
-    return movie_target_path
+        # Format year and resolution
+        year_str = str(release_year).strip()
+        resolution_str = str(resolution).lower().strip()
+
+        # Build target path
+        movie_target_path = f"{cleaned_title}-{year_str}-{resolution_str}"
+
+        # Handle video codec if provided
+        if video_codec is not None and isinstance(video_codec, str):
+            try:
+                # Clean the video codec
+                codec_clean = video_codec.strip().strip('"')
+
+                if codec_clean:  # Only process if not empty after stripping
+                    # Convert H.265 and H 265 variations to H265
+                    codec_clean = re.sub(r'H[\.\s]?265', 'h265', codec_clean, flags=re.IGNORECASE)
+                    # Keep x265 as is (case insensitive, but maintain lowercase)
+                    codec_clean = re.sub(r'^x265$', 'x265', codec_clean, flags=re.IGNORECASE)
+
+                    # Only add codec if it matches expected values
+                    if codec_clean.lower() in ("x265", "h265"):
+                        movie_target_path = f"{movie_target_path}-{codec_clean}"
+
+            except Exception as e:
+                # Log the codec processing error but continue without it
+                logging.warning(f"Error processing video_codec '{video_codec}': {e}")
+
+        return movie_target_path
+
+    except Exception as e:
+        raise ValueError(f"Failed to generate movie target path: {e}")
+
 
 # seasons
 def generate_tv_season_parent_path(
@@ -159,20 +158,38 @@ def generate_tv_season_parent_path(
     :param tv_show_name: tv show name string, if tv_season
     :param release_year: release year of tv_season
     :return: PurePosixPath object of parent dir
+    :raises ValueError: If required parameters are invalid
     """
-    # Apply movie title logic to show name
-    show_name_clean = tv_show_name.lower()
-    show_name_clean = re.sub(r'[^\w\s]', ' ', show_name_clean)
-    show_name_clean = re.sub(r'\s+', ' ', show_name_clean)
-    show_name_clean = show_name_clean.replace(' ', '-')
-    show_name_clean = re.sub(r'-+', '-', show_name_clean)
-    show_name_clean = show_name_clean.strip('-')
+    # Validate required parameters
+    if not root_dir or not isinstance(root_dir, str):
+        raise ValueError("root_dir must be a non-empty string")
 
-    # Create show folder with year
-    show_folder = f"{show_name_clean}-{release_year}"
+    if not tv_show_name or not isinstance(tv_show_name, str):
+        raise ValueError("tv_show_name must be a non-empty string")
 
-    # Use PurePosixPath operations to safely join
-    return PurePosixPath(root_dir) / show_folder
+    if not release_year or not isinstance(release_year, int):
+        raise ValueError("release_year must be a valid integer")
+
+    try:
+        # Apply title cleaning logic to show name
+        show_name_clean = tv_show_name.lower()
+        show_name_clean = re.sub(r'[^\w\s]', ' ', show_name_clean)
+        show_name_clean = re.sub(r'\s+', ' ', show_name_clean)
+        show_name_clean = show_name_clean.replace(' ', '-')
+        show_name_clean = re.sub(r'-+', '-', show_name_clean)
+        show_name_clean = show_name_clean.strip('-')
+
+        if not show_name_clean:
+            raise ValueError("tv_show_name resulted in empty string after cleaning")
+
+        # Create show folder with year
+        show_folder = f"{show_name_clean}-{release_year}"
+
+        # Use PurePosixPath operations to safely join
+        return PurePosixPath(root_dir) / show_folder
+
+    except Exception as e:
+        raise ValueError(f"Failed to generate TV season parent path: {e}")
 
 
 def generate_tv_season_target_path(
@@ -182,17 +199,32 @@ def generate_tv_season_target_path(
     generates the name of the target directory for a tv_season
 
     :param season: season of tv_season
-    :return: PurePosixPath object of target dir
+    :return: string representation of target dir
+    :raises ValueError: If season parameter is invalid
     """
-    # Create season folder - determine padding based on season number
-    if season < 100:
-        season_path = f"s{season:02d}"  # s01, s02, etc.
-    elif season < 1000:
-        season_path = f"s{season:03d}"  # s001, s002, etc.
-    else:
-        season_path = f"s{season:04d}"  # s0001, s0002, etc.
+    # Validate required parameters
+    if season is None or not isinstance(season, int):
+        raise ValueError("season must be a valid integer")
 
-    return season_path
+    if season < 1:
+        raise ValueError("season must be greater than 0")
+
+    if season > 9999:
+        raise ValueError("season must be 9999 or less")
+
+    try:
+        # Create season folder - determine padding based on season number
+        if season < 100:
+            season_path = f"s{season:02d}"  # s01, s02, etc.
+        elif season < 1000:
+            season_path = f"s{season:03d}"  # s001, s002, etc.
+        else:
+            season_path = f"s{season:04d}"  # s0001, s0002, etc.
+
+        return season_path
+
+    except Exception as e:
+        raise ValueError(f"Failed to generate TV season target path: {e}")
 
 
 # tv shows
@@ -210,28 +242,55 @@ def generate_tv_show_parent_path(
     :param release_year: release year of tv_show or tv_season
     :param season: season of tv_show or tv_season
     :return: PurePosixPath object of parent dir
+    :raises ValueError: If required parameters are invalid
     """
-    # Apply movie title logic to show name
-    show_name_clean = tv_show_name.lower()
-    show_name_clean = re.sub(r'[^\w\s]', ' ', show_name_clean)
-    show_name_clean = re.sub(r'\s+', ' ', show_name_clean)
-    show_name_clean = show_name_clean.replace(' ', '-')
-    show_name_clean = re.sub(r'-+', '-', show_name_clean)
-    show_name_clean = show_name_clean.strip('-')
+    # Validate required parameters
+    if not root_dir or not isinstance(root_dir, str):
+        raise ValueError("root_dir must be a non-empty string")
 
-    # Create show folder with year
-    show_folder = f"{show_name_clean}-{release_year}"
+    if not tv_show_name or not isinstance(tv_show_name, str):
+        raise ValueError("tv_show_name must be a non-empty string")
 
-    # Create season folder - determine padding based on season number
-    if season < 100:
-        season_folder = f"s{season:02d}"  # s01, s02, etc.
-    elif season < 1000:
-        season_folder = f"s{season:03d}"  # s001, s002, etc.
-    else:
-        season_folder = f"s{season:04d}"  # s0001, s0002, etc.
+    if not release_year or not isinstance(release_year, int):
+        raise ValueError("release_year must be a valid integer")
 
-    # Use PurePosixPath operations to safely join
-    return PurePosixPath(root_dir) / show_folder / season_folder
+    if season is None or not isinstance(season, int):
+        raise ValueError("season must be a valid integer")
+
+    if season < 1:
+        raise ValueError("season must be greater than 0")
+
+    if season > 9999:
+        raise ValueError("season must be 9999 or less")
+
+    try:
+        # Apply title cleaning logic to show name
+        show_name_clean = tv_show_name.lower()
+        show_name_clean = re.sub(r'[^\w\s]', ' ', show_name_clean)
+        show_name_clean = re.sub(r'\s+', ' ', show_name_clean)
+        show_name_clean = show_name_clean.replace(' ', '-')
+        show_name_clean = re.sub(r'-+', '-', show_name_clean)
+        show_name_clean = show_name_clean.strip('-')
+
+        if not show_name_clean:
+            raise ValueError("tv_show_name resulted in empty string after cleaning")
+
+        # Create show folder with year
+        show_folder = f"{show_name_clean}-{release_year}"
+
+        # Create season folder - determine padding based on season number
+        if season < 100:
+            season_folder = f"s{season:02d}"  # s01, s02, etc.
+        elif season < 1000:
+            season_folder = f"s{season:03d}"  # s001, s002, etc.
+        else:
+            season_folder = f"s{season:04d}"  # s0001, s0002, etc.
+
+        # Use PurePosixPath operations to safely join
+        return PurePosixPath(root_dir) / show_folder / season_folder
+
+    except Exception as e:
+        raise ValueError(f"Failed to generate TV show parent path: {e}")
 
 
 def generate_tv_show_target_path(
@@ -244,24 +303,48 @@ def generate_tv_show_target_path(
    :param season: season of tv_show
    :param episode: episode number of tv_show
    :return: str representation of target dir
+   :raises ValueError: If parameters are invalid
    """
-   # Determine padding for season number
-   if season < 100:
-       season_str = f"{season:02d}"
-   elif season < 1000:
-       season_str = f"{season:03d}"
-   else:
-       season_str = f"{season:04d}"
+   # Validate required parameters
+   if season is None or not isinstance(season, int):
+       raise ValueError("season must be a valid integer")
 
-   # Determine padding for episode number
-   if episode < 100:
-       episode_str = f"{episode:02d}"
-   elif episode < 1000:
-       episode_str = f"{episode:03d}"
-   else:
-       episode_str = f"{episode:04d}"
+   if episode is None or not isinstance(episode, int):
+       raise ValueError("episode must be a valid integer")
 
-   return f"s{season_str}e{episode_str}"
+   if season < 1:
+       raise ValueError("season must be greater than 0")
+
+   if episode < 1:
+       raise ValueError("episode must be greater than 0")
+
+   if season > 9999:
+       raise ValueError("season must be 9999 or less")
+
+   if episode > 9999:
+       raise ValueError("episode must be 9999 or less")
+
+   try:
+       # Determine padding for season number
+       if season < 100:
+           season_str = f"{season:02d}"
+       elif season < 1000:
+           season_str = f"{season:03d}"
+       else:
+           season_str = f"{season:04d}"
+
+       # Determine padding for episode number
+       if episode < 100:
+           episode_str = f"{episode:02d}"
+       elif episode < 1000:
+           episode_str = f"{episode:03d}"
+       else:
+           episode_str = f"{episode:04d}"
+
+       return f"s{season_str}e{episode_str}"
+
+   except Exception as e:
+       raise ValueError(f"Failed to generate TV show target path: {e}")
 
 
 # ------------------------------------------------------------------------------

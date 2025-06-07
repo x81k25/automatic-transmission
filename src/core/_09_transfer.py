@@ -96,6 +96,7 @@ def generate_file_paths(media_item: dict) -> dict:
 
     return media_item
 
+
 def transfer_item(media_item: dict) -> dict:
     """
     Transfer downloaded media items to the appropriate directory
