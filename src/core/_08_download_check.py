@@ -1,20 +1,9 @@
 # standard library imports
 import logging
 
-# third party libraries
-import re
-from ctypes.wintypes import PFILETIME
-
 # local/custom imports
 from src.data_models import *
 import src.utils as utils
-
-# ------------------------------------------------------------------------------
-# config
-# ------------------------------------------------------------------------------
-
-# log config
-utils.setup_logging()
 
 # ------------------------------------------------------------------------------
 # supporting functions
@@ -202,6 +191,18 @@ def check_downloads():
     media = update_status(media)
     utils.media_db_update(media.to_schema())
     log_status(media)
+
+
+# ------------------------------------------------------------------------------
+# main guard
+# ------------------------------------------------------------------------------
+
+def main():
+    utils.setup_logging()
+    check_downloads()
+
+if __name__ == "__main__":
+    main()
 
 
 # ------------------------------------------------------------------------------

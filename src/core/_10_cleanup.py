@@ -11,25 +11,6 @@ import polars as pl
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# config
-# ------------------------------------------------------------------------------
-
-# log config
-utils.setup_logging()
-
-# load env vars
-load_dotenv(override=True)
-
-# get pipeline env vars
-transferred_item_cleanup_delay = float(os.getenv('TRANSFERRED_ITEM_CLEANUP_DELAY'))
-if transferred_item_cleanup_delay < 0:
-    raise ValueError(f"TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and no permitted")
-
-hung_item_cleanup_delay = float(os.getenv('HUNG_ITEM_CLEANUP_DELAY'))
-if transferred_item_cleanup_delay < 0:
-    raise ValueError(f"HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and no permitted")
-
-# ------------------------------------------------------------------------------
 # support functions
 # ------------------------------------------------------------------------------
 
@@ -218,6 +199,15 @@ def cleanup_media():
     perform final clean-up operations for torrents once all other steps have
         been verified completed successfully
     """
+    # get pipeline env vars
+    transferred_item_cleanup_delay = float(os.getenv('TRANSFERRED_ITEM_CLEANUP_DELAY'))
+    if transferred_item_cleanup_delay < 0:
+        raise ValueError(f"TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and no permitted")
+
+    hung_item_cleanup_delay = float(os.getenv('HUNG_ITEM_CLEANUP_DELAY'))
+    if transferred_item_cleanup_delay < 0:
+        raise ValueError(f"HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and no permitted")
+
     # get delay multiple
     delay_multiple =  get_delay_multiple()
 
@@ -249,6 +239,19 @@ def cleanup_media():
     cleanup_hung_items(
         modulated_hung_item_cleanup_delay = modulated_hung_item_cleanup_delay
     )
+
+
+# ------------------------------------------------------------------------------
+# main guard
+# ------------------------------------------------------------------------------
+
+def main():
+    utils.setup_logging()
+    load_dotenv(override=True)
+    cleanup_media()
+
+if __name__ == "__main__":
+    main()
 
 
 # ------------------------------------------------------------------------------

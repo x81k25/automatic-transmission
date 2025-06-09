@@ -11,21 +11,6 @@ from src.data_models import *
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# load environment variables
-# ------------------------------------------------------------------------------
-
-# log config
-utils.setup_logging()
-
-# load env vars
-load_dotenv(override=True)
-
-# set directories from .env
-download_dir = os.getenv('DOWNLOAD_DIR')
-tv_show_dir = os.getenv('TV_SHOW_DIR')
-movie_dir = os.getenv('MOVIE_DIR')
-
-# ------------------------------------------------------------------------------
 # media item clean-up functions
 # ------------------------------------------------------------------------------
 
@@ -37,6 +22,10 @@ def generate_file_paths(media_item: dict) -> dict:
     :param media_item: media_item without file paths
     :return: media_item with file paths
     """
+    # set directories from .env
+    tv_show_dir = os.getenv('TV_SHOW_DIR')
+    movie_dir = os.getenv('MOVIE_DIR')
+
     if media_item['media_type'] == 'movie':
         try:
             parent_path = PurePosixPath(movie_dir)
@@ -103,6 +92,9 @@ def transfer_item(media_item: dict) -> dict:
     :param media_item: media dict containing one row of media.df
     :return: updated media dict that contains error info if applicable
     """
+    # set directory env vars
+    download_dir = os.getenv('DOWNLOAD_DIR')
+
     try:
         utils.move_dir_or_file(
             full_original_path=PurePosixPath(download_dir) / media_item['original_path'],
@@ -232,6 +224,19 @@ def transfer_media():
             # if attempt to store error to element fails, output error to logs
             except Exception as inner_e:
                 logging.error(f"media transfer error - {media_item['hash']} - {inner_e}")
+
+
+# ------------------------------------------------------------------------------
+# main guard
+# ------------------------------------------------------------------------------
+
+def main():
+    utils.setup_logging()
+    load_dotenv(override=True)
+    transfer_media()
+
+if __name__ == "__main__":
+    main()
 
 
 # ------------------------------------------------------------------------------

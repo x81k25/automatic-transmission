@@ -1,7 +1,12 @@
 # Changelog
 
+## [5.6.8]
+- modifying usage pattern in anticipation of supporting Dagster integration
+  - each file can now function independently via CLI
+
 ## [5.6.4]
 - added unit testing throughout codebase for the majority of internal functions
+  - testing coverage now covered in readme
 - moved log config to utils functions
 - removed timestamp from most of the database options
   - timestamps will be handled by PGSQL triggers

@@ -8,10 +8,10 @@ class TestTransfer:
 
     def test_generate_file_paths(self, generate_file_paths_cases, monkeypatch):
         """Test all generate_file_paths scenarios from fixture."""
-        # Mock the module-level variables directly
-        monkeypatch.setattr('src.core._09_transfer.download_dir', '/d/media-cache/prod/complete/')
-        monkeypatch.setattr('src.core._09_transfer.movie_dir', '/k/media/video/movies/')
-        monkeypatch.setattr('src.core._09_transfer.tv_show_dir', '/k/media/video/tv/')
+        # Mock the environment variables
+        monkeypatch.setenv('DOWNLOAD_DIR', '/d/media-cache/prod/complete/')
+        monkeypatch.setenv('MOVIE_DIR', '/k/media/video/movies/')
+        monkeypatch.setenv('TV_SHOW_DIR', '/k/media/video/tv/')
 
         for case in generate_file_paths_cases:
             # Make a copy to avoid modifying the original fixture data

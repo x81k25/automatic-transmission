@@ -9,23 +9,6 @@ import yaml
 import src.utils as utils
 from src.data_models import *
 
-# -----------------------------------------------------------------------------
-# read in static parameters
-# -----------------------------------------------------------------------------
-
-# log config
-utils.setup_logging()
-
-# get filter params
-# for normal execution
-try:
-    config_path = Path(__file__).parent.parent.parent / 'config' / 'filter-parameters.yaml'
-# for IDE/interactive execution
-except NameError:
-    config_path = './config/filter-parameters.yaml'
-with open(config_path, 'r') as file:
-    filters = yaml.safe_load(file)
-
 # ------------------------------------------------------------------------------
 # support functions
 # ------------------------------------------------------------------------------
@@ -39,6 +22,16 @@ def filter_by_file_metadata(media_item: dict) -> dict:
 
     :debug: media_item = media.df.filter(pl.col('hash') == '054ce77d971194b9b6ff403df0543cfa31328718').to_dicts()[0]
     """
+    # get filter params
+    # for normal execution
+    try:
+        config_path = Path(__file__).parent.parent.parent / 'config' / 'filter-parameters.yaml'
+    # for IDE/interactive execution
+    except NameError:
+        config_path = './config/filter-parameters.yaml'
+    with open(config_path, 'r') as file:
+        filters = yaml.safe_load(file)
+
     # search separate criteria for move or tv_show
     if media_item['media_type'] == 'movie':
         sieve = filters['movie']
@@ -169,6 +162,18 @@ def filter_files():
 
     # log status
     log_status(media)
+
+
+# ------------------------------------------------------------------------------
+# main guard
+# ------------------------------------------------------------------------------
+
+def main():
+    utils.setup_logging()
+    filter_files()
+
+if __name__ == "__main__":
+    main()
 
 
 # ------------------------------------------------------------------------------
