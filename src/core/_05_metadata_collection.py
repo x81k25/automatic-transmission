@@ -12,35 +12,6 @@ import requests
 from src.data_models import *
 import src.utils as utils
 
-# -----------------------------------------------------------------------------
-# initialization and setup
-# -----------------------------------------------------------------------------
-
-# log config
-utils.setup_logging()
-
-# load env vars
-load_dotenv(override=True)
-
-# pipeline env vars
-stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
-batch_size = int(os.getenv('BATCH_SIZE'))
-
-# load api env vars
-movie_search_api_base_url = os.getenv('MOVIE_SEARCH_API_BASE_URL')
-movie_details_api_base_url = os.getenv('MOVIE_DETAILS_API_BASE_URL')
-movie_ratings_api_base_url = os.getenv('MOVIE_RATINGS_API_BASE_URL')
-movie_search_api_key = os.getenv('MOVIE_SEARCH_API_KEY')
-movie_details_api_key = os.getenv('MOVIE_DETAILS_API_KEY')
-movie_ratings_api_key = os.getenv('MOVIE_RATINGS_API_KEY')
-
-tv_search_api_base_url = os.getenv('TV_SEARCH_API_BASE_URL')
-tv_details_api_base_url = os.getenv('TV_DETAILS_API_BASE_URL')
-tv_ratings_api_base_url = os.getenv('TV_RATINGS_API_BASE_URL')
-tv_search_api_key = os.getenv('TV_SEARCH_API_KEY')
-tv_details_api_key = os.getenv('TV_DETAILS_API_KEY')
-tv_ratings_api_key = os.getenv('TV_RATINGS_API_KEY')
-
 # ------------------------------------------------------------------------------
 # API collection and processing functions
 # ------------------------------------------------------------------------------
@@ -56,6 +27,12 @@ def media_search(media_item: dict) -> dict:
 
     :debug: media_item = media.df.row(88, named=True)
     """
+    # load api env vars
+    movie_search_api_base_url = os.getenv('MOVIE_SEARCH_API_BASE_URL')
+    movie_search_api_key = os.getenv('MOVIE_SEARCH_API_KEY')
+    tv_search_api_base_url = os.getenv('TV_SEARCH_API_BASE_URL')
+    tv_search_api_key = os.getenv('TV_SEARCH_API_KEY')
+
     # make API call for media search
     response = {}
 
@@ -134,6 +111,12 @@ def collect_details(media_item: dict) -> dict:
 
     :debug: media_item = row
     """
+    # load API env vars
+    movie_details_api_base_url = os.getenv('MOVIE_DETAILS_API_BASE_URL')
+    movie_details_api_key = os.getenv('MOVIE_DETAILS_API_KEY')
+    tv_details_api_base_url = os.getenv('TV_DETAILS_API_BASE_URL')
+    tv_details_api_key = os.getenv('TV_DETAILS_API_KEY')
+
     #media_item = media.df.row(0, named=True)
     response = {}
 
@@ -264,6 +247,12 @@ def collect_ratings(media_item: dict) -> dict:
     :param media_item: dict containing one for of media.df
     :return: dict of items with metadata added
     """
+    # load API env vars
+    movie_ratings_api_base_url = os.getenv('MOVIE_RATINGS_API_BASE_URL')
+    movie_ratings_api_key = os.getenv('MOVIE_RATINGS_API_KEY')
+    tv_ratings_api_base_url = os.getenv('TV_RATINGS_API_BASE_URL')
+    tv_ratings_api_key = os.getenv('TV_RATINGS_API_KEY')
+
     response = {}
 
     # Define the parameters for the OMDb API request
@@ -290,12 +279,12 @@ def collect_ratings(media_item: dict) -> dict:
         if media_item['imdb_id'] is not None:
             params = {
                 'i': media_item["imdb_id"],
-                'apikey': movie_ratings_api_key
+                'apikey': tv_ratings_api_key
             }
         else:
             params = {
                 't': media_item["media_title"],
-                'apikey': movie_ratings_api_key
+                'apikey': tv_ratings_api_key
             }
             if media_item['release_year'] is not None:
                 params['y'] = media_item["release_year"],
@@ -421,6 +410,10 @@ def collect_metadata():
 
     :debug: batch=0
     """
+    # pipeline env vars
+    batch_size = int(os.getenv('BATCH_SIZE'))
+    stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
+
     # read in existing data
     media = utils.get_media_from_db(pipeline_status='file_accepted')
 
@@ -507,6 +500,19 @@ def collect_metadata():
 
         except Exception as e:
             logging.error(f"metadata collection batch {batch+1}/{number_of_batches} failed - {e}")
+
+
+# ------------------------------------------------------------------------------
+# main guard
+# ------------------------------------------------------------------------------
+
+def main():
+    utils.setup_logging()
+    load_dotenv(override=True)
+    collect_metadata()
+
+if __name__ == "__main__":
+    main()
 
 
 # ------------------------------------------------------------------------------
