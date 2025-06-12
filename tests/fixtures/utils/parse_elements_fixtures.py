@@ -172,7 +172,7 @@ def classify_media_type_cases():
             "expected": "unknown"
         },
         {
-            "description": "season with now special characters",
+            "description": "season with no special characters",
             "title": "The Last of Us S02 1080p x265-ELiTE EZTV",
             "expected": "tv_season"
         }
@@ -253,6 +253,60 @@ def extract_title_cases():
             "raw_title": "Dances with Wolves 1080p AMZN WEB-DL DDP 5 1 H 264-PiRaTeS",
             "media_type": "movie",
             "expected": "Dances with Wolves"
+        },
+        {
+            "description": "tv show no special characters around the date",
+            "raw_title": "The Mortician 2025 S01E02 1080p HEVC x265-MeGusta EZTV",
+            "media_type": "tv_show",
+            "expected": "The Mortician"
+        },
+        {
+            "description": "movie with no year in the tile and year in parentheses",
+            "raw_title": "Airplane 2025 (2025) [1080p] [WEBRip] [5.1] [YTS.MX]",
+            "media_type": "movie",
+            "expected": "Airplane 2025"
+        },
+        {
+            "description": "TV show with year at beginning of title",
+            "raw_title": "the.studio.2025.s01e07.1080p.web.h264-successfulcrab[EZTVx.to].mkv",
+            "media_type": "tv_show",
+            "expected": "the studio"
+        },
+        {
+            "description": "TV show with numbers in title (not year)",
+            "raw_title": "60 Minutes S57E31 1080p HEVC x265-MeGusta EZTV",
+            "media_type": "tv_show",
+            "expected": "60 Minutes"
+        },
+        {
+            "description": "TV show with S followed by year (season number)",
+            "raw_title": "Frontline S2025E04 The Rise and Fall of Terrorgram 1080p AMZN WEB-DL DDP2 0",
+            "media_type": "tv_show",
+            "expected": "Frontline"
+        },
+        {
+            "description": "TV season with year in parentheses",
+            "raw_title": "Abbott Elementary (2021) Season 2 S02 (1080p AMZN WEB-DL x265 HEVC 10bit EAC3 5.1 Silence)",
+            "media_type": "tv_season",
+            "expected": "Abbott Elementary"
+        },
+        {
+            "description": "TV show without year for comparison",
+            "raw_title": "The Mortician S01E01 Episode One 1080p AMZN WEB-DL DDP5 1 H 264-RAWR EZTV",
+            "media_type": "tv_show",
+            "expected": "The Mortician"
+        },
+        {
+            "description": "TV season with complex title and year",
+            "raw_title": "It's Always Sunny in Philadelphia (2005) Season 14 S14 (1080p WEB-DL x265 HEVC 10bit AAC 5.1 BugsFunny) [UTR]",
+            "media_type": "tv_season",
+            "expected": "It's Always Sunny in Philadelphia"
+        },
+        {
+            "description": "TV show with country identifier and year",
+            "raw_title": "Farmer Wants a Wife US 2023 S03E03 1080p WEB h264-EDITH EZTV",
+            "media_type": "tv_show",
+            "expected": "Farmer Wants a Wife US"
         }
     ]
 
