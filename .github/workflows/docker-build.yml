@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [dev, dev-agent, stg, main]
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   # Batch processing
   BATCH_SIZE: ${{ vars.BATCH_SIZE || '50' }}
