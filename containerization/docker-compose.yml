@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  # Base image builder
+  base:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.00_base
+    image: at-base:latest
+    profiles:
+      - build-only
+    command: ["echo", "Base image built successfully"]
+
+  # RSS Ingest service
+  rss-ingest:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.01_rss_ingest
+    image: at-rss-ingest:latest
+    env_file: ../.env
+    profiles:
+      - pipeline

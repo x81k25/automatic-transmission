@@ -1,0 +1,2 @@
+FROM at-base:latest
+ENTRYPOINT ["python", "src/core/_02_collect.py"]

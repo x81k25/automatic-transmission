@@ -1,0 +1,2 @@
+FROM at-base:latest
+ENTRYPOINT ["python", "src/core/_05_metadata_collection.py"]
