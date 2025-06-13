@@ -2,25 +2,25 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [dev, stg, main]
+    branches: [dev, dev-agent, stg, main]
   pull_request:
-    branches: [dev, stg, main]
+    branches: [dev, dev-agent, stg, main]
 
 env:
   # Batch processing
-  BATCH_SIZE: 50
-  LOG_LEVEL: DEBUG
+  BATCH_SIZE: ${{ vars.BATCH_SIZE || '50' }}
+  LOG_LEVEL: ${{ vars.LOG_LEVEL || 'DEBUG' }}
   
   # Metadata collection
-  STALE_METADATA_THRESHOLD: 30
+  STALE_METADATA_THRESHOLD: ${{ vars.STALE_METADATA_THRESHOLD || '30' }}
   
   # Media filtration
-  REEL_DRIVER_THRESHOLD: 0.35
+  REEL_DRIVER_THRESHOLD: ${{ vars.REEL_DRIVER_THRESHOLD || '0.35' }}
   
   # Cleanup automation
-  TARGET_ACTIVE_ITEMS: 10
-  TRANSFERRED_ITEM_CLEANUP_DELAY: 0
-  HUNG_ITEM_CLEANUP_DELAY: 1
+  TARGET_ACTIVE_ITEMS: ${{ vars.TARGET_ACTIVE_ITEMS || '10' }}
+  TRANSFERRED_ITEM_CLEANUP_DELAY: ${{ vars.TRANSFERRED_ITEM_CLEANUP_DELAY || '0' }}
+  HUNG_ITEM_CLEANUP_DELAY: ${{ vars.HUNG_ITEM_CLEANUP_DELAY || '1' }}
 
 jobs:
   build-base:
