@@ -60,7 +60,9 @@ jobs:
           context: .
           file: ./containerization/dockerfile.00_base
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.base-meta.outputs.tags }}
+          tags: |
+            ${{ steps.base-meta.outputs.tags }}
+            at-base:latest
           labels: ${{ steps.base-meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -104,7 +106,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract collect metadata
         id: collect-meta
@@ -127,7 +129,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract parse metadata
         id: parse-meta
@@ -150,7 +152,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract file-filtration metadata
         id: file-filtration-meta
@@ -173,7 +175,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract metadata-collection metadata
         id: metadata-collection-meta
@@ -196,7 +198,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract media-filtration metadata
         id: media-filtration-meta
@@ -219,7 +221,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract initiation metadata
         id: initiation-meta
@@ -242,7 +244,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract download-check metadata
         id: download-check-meta
@@ -265,7 +267,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract transfer metadata
         id: transfer-meta
@@ -288,7 +290,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
       - name: Extract cleanup metadata
         id: cleanup-meta
@@ -311,5 +313,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BASE_IMAGE=${{ fromJSON(steps.base-meta.outputs.json).tags[0] }}
+            BASE_IMAGE=at-base:latest
 
