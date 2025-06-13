@@ -1,2 +1,2 @@
 FROM at-base:latest
-ENTRYPOINT ["python", "src/core/_01_media_filtration.py"]
+ENTRYPOINT ["python", "src/core/_06_media_filtration.py"]

@@ -1,2 +1,2 @@
 FROM at-base:latest
-ENTRYPOINT ["python", "src/core/_01_rss_ingest.py"]3
+ENTRYPOINT ["python", "src/core/_08_download_check.py"]

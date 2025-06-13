@@ -9,6 +9,7 @@ services:
     image: at-base:latest
     profiles:
       - build-only
+      - base-required
     command: ["echo", "Base image built successfully"]
 
   # RSS Ingest service
@@ -20,3 +21,105 @@ services:
     env_file: ../.env
     profiles:
       - pipeline
+      - rss-ingest
+
+  # Collect service
+  collect:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.02_collect
+    image: at-collect:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - collect
+
+  # Parse service
+  parse:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.03_parse
+    image: at-parse:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - parse
+
+  # File Filtration service
+  file-filtration:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.04_file_filtration
+    image: at-file-filtration:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - file-filtration
+
+  # Metadata Collection service
+  metadata-collection:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.05_metadata_collection
+    image: at-metadata-collection:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - metadata-collection
+
+  # Media Filtration service
+  media-filtration:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.06_media_filtration
+    image: at-media-filtration:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - media-filtration
+
+  # Initiation service
+  initiation:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.07_initiation
+    image: at-initiation:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - initiation
+
+  # Download Check service
+  download-check:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.08_download_check
+    image: at-download-check:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - download-check
+
+  # Transfer service
+  transfer:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.09_transfer
+    image: at-transfer:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - transfer
+
+  # Cleanup service
+  cleanup:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.10_cleanup
+    image: at-cleanup:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - cleanup
+    depends_on:
+      - base
