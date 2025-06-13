@@ -4,7 +4,7 @@
 - add dockerfiles for project
   - created 1 initial dockerfile that create a based image with all dependencies
   - created 1 dockerfile for each main core script
-- added .github workflow to create generate images via github actions
+- added .github workflow to create generate images via github actionsgit
 
 ## [5.6.8]
 - modifying usage pattern in anticipation of supporting Dagster integration
