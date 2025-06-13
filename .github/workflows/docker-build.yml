@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [dev, stg, main]
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   # Batch processing
   BATCH_SIZE: 50
@@ -23,10 +27,8 @@ env:
   HUNG_ITEM_CLEANUP_DELAY: 1
 
 jobs:
-  build-base:
+  build-and-push:
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,31 +36,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: at-base
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha
-
-      - name: Build and push base image
+      - name: Build base image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./containerization/dockerfile.00_base
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            at-base:latest
+            ghcr.io/${{ github.repository }}/at-base:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-base:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-base:latest
+          load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -78,74 +74,167 @@ jobs:
             OMDB_API_KEY=${{ secrets.OMDB_API_KEY }}
             REEL_API_KEY=${{ secrets.REEL_API_KEY }}
 
-  build-modules:
-    runs-on: ubuntu-latest
-    needs: build-base
-    strategy:
-      matrix:
-        module:
-          - { name: "rss-ingest", number: "01", dockerfile: "rss_ingest" }
-          - { name: "collect", number: "02", dockerfile: "collect" }
-          - { name: "parse", number: "03", dockerfile: "parse" }
-          - { name: "file-filtration", number: "04", dockerfile: "file_filtration" }
-          - { name: "metadata-collection", number: "05", dockerfile: "metadata_collection" }
-          - { name: "media-filtration", number: "06", dockerfile: "media_filtration" }
-          - { name: "initiation", number: "07", dockerfile: "initiation" }
-          - { name: "download-check", number: "08", dockerfile: "download_check" }
-          - { name: "transfer", number: "09", dockerfile: "transfer" }
-          - { name: "cleanup", number: "10", dockerfile: "cleanup" }
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: at-${{ matrix.module.name }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha
-
-      - name: Build and push module image
+      - name: Build and tag RSS Ingest image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./containerization/dockerfile.${{ matrix.module.number }}_${{ matrix.module.dockerfile }}
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          file: ./containerization/dockerfile.01_rss_ingest
+          tags: |
+            ghcr.io/${{ github.repository }}/at-rss-ingest:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-rss-ingest:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-rss-ingest:latest
+          load: true
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
-  test-images:
-    runs-on: ubuntu-latest
-    needs: [build-base, build-modules]
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Build and tag Collect image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.02_collect
+          tags: |
+            ghcr.io/${{ github.repository }}/at-collect:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-collect:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-collect:latest
+          load: true
+          cache-from: type=gha
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Build and tag Parse image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.03_parse
+          tags: |
+            ghcr.io/${{ github.repository }}/at-parse:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-parse:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-parse:latest
+          load: true
+          cache-from: type=gha
+
+      - name: Build and tag File Filtration image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.04_file_filtration
+          tags: |
+            ghcr.io/${{ github.repository }}/at-file-filtration:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-file-filtration:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-file-filtration:latest
+          load: true
+          cache-from: type=gha
+
+      - name: Build and tag Metadata Collection image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.05_metadata_collection
+          tags: |
+            ghcr.io/${{ github.repository }}/at-metadata-collection:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-metadata-collection:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-metadata-collection:latest
+          load: true
+          cache-from: type=gha
+
+      - name: Build and tag Media Filtration image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.06_media_filtration
+          tags: |
+            ghcr.io/${{ github.repository }}/at-media-filtration:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-media-filtration:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-media-filtration:latest
+          load: true
+          cache-from: type=gha
+
+      - name: Build and tag Initiation image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.07_initiation
+          tags: |
+            ghcr.io/${{ github.repository }}/at-initiation:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-initiation:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-initiation:latest
+          load: true
+          cache-from: type=gha
+
+      - name: Build and tag Download Check image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.08_download_check
+          tags: |
+            ghcr.io/${{ github.repository }}/at-download-check:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-download-check:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-download-check:latest
+          load: true
+          cache-from: type=gha
+
+      - name: Build and tag Transfer image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.09_transfer
+          tags: |
+            ghcr.io/${{ github.repository }}/at-transfer:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-transfer:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-transfer:latest
+          load: true
+          cache-from: type=gha
+
+      - name: Build and tag Cleanup image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.10_cleanup
+          tags: |
+            ghcr.io/${{ github.repository }}/at-cleanup:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/at-cleanup:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/at-cleanup:latest
+          load: true
+          cache-from: type=gha
+
+      - name: Push all images to GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ghcr.io/${{ github.repository }}/at-base:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-base:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-base:latest
+          docker push ghcr.io/${{ github.repository }}/at-rss-ingest:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-rss-ingest:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-rss-ingest:latest
+          docker push ghcr.io/${{ github.repository }}/at-collect:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-collect:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-collect:latest
+          docker push ghcr.io/${{ github.repository }}/at-parse:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-parse:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-parse:latest
+          docker push ghcr.io/${{ github.repository }}/at-file-filtration:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-file-filtration:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-file-filtration:latest
+          docker push ghcr.io/${{ github.repository }}/at-metadata-collection:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-metadata-collection:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-metadata-collection:latest
+          docker push ghcr.io/${{ github.repository }}/at-media-filtration:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-media-filtration:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-media-filtration:latest
+          docker push ghcr.io/${{ github.repository }}/at-initiation:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-initiation:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-initiation:latest
+          docker push ghcr.io/${{ github.repository }}/at-download-check:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-download-check:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-download-check:latest
+          docker push ghcr.io/${{ github.repository }}/at-transfer:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-transfer:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-transfer:latest
+          docker push ghcr.io/${{ github.repository }}/at-cleanup:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}/at-cleanup:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/at-cleanup:latest
 
       - name: Test base image
         run: |
-          docker build -f containerization/dockerfile.00_base -t at-base:test .
-          docker run --rm at-base:test python --version
+          docker run --rm at-base:latest python --version
 
       - name: Test RSS ingest image
         run: |
-          docker build -f containerization/dockerfile.01_rss_ingest -t at-rss-ingest:test .
-          echo "RSS ingest image built successfully"
+          docker run --rm ghcr.io/${{ github.repository }}/at-rss-ingest:latest --help || echo "RSS ingest image built successfully"
