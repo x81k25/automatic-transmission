@@ -1,2 +1,3 @@
-FROM at-base:latest
+ARG BASE_IMAGE=at-base:latest
+FROM ${BASE_IMAGE}
 ENTRYPOINT ["python", "src/core/_06_media_filtration.py"]

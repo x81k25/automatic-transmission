@@ -10,6 +10,7 @@ services:
     profiles:
       - build-only
       - base-required
+      - pipeline
     command: ["echo", "Base image built successfully"]
 
   # RSS Ingest service
@@ -121,5 +122,3 @@ services:
     profiles:
       - pipeline
       - cleanup
-    depends_on:
-      - base
