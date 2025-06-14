@@ -60,7 +60,9 @@ jobs:
           context: .
           file: ./containerization/dockerfile.00_base
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.base-meta.outputs.tags }},at-base:latest
+          tags: |
+            ${{ steps.base-meta.outputs.tags }}
+            at-base:latest
           labels: ${{ steps.base-meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
