@@ -54,19 +54,46 @@ jobs:
             type=ref,event=pr
             type=sha
 
-      - name: Build and push base image
+      - name: Build base image (PR)
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./containerization/dockerfile.00_base
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ steps.base-meta.outputs.tags }}
-            at-base:latest
+          push: false
+          load: true
+          tags: at-base:latest
           labels: ${{ steps.base-meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          load: true
+          build-args: |
+            BATCH_SIZE=${{ env.BATCH_SIZE }}
+            LOG_LEVEL=${{ env.LOG_LEVEL }}
+            STALE_METADATA_THRESHOLD=${{ env.STALE_METADATA_THRESHOLD }}
+            REEL_DRIVER_THRESHOLD=${{ env.REEL_DRIVER_THRESHOLD }}
+            TARGET_ACTIVE_ITEMS=${{ env.TARGET_ACTIVE_ITEMS }}
+            TRANSFERRED_ITEM_CLEANUP_DELAY=${{ env.TRANSFERRED_ITEM_CLEANUP_DELAY }}
+            HUNG_ITEM_CLEANUP_DELAY=${{ env.HUNG_ITEM_CLEANUP_DELAY }}
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            TRANSMISSION_HOST=${{ secrets.TRANSMISSION_HOST }}
+            TRANSMISSION_PORT=${{ secrets.TRANSMISSION_PORT }}
+            TRANSMISSION_USER=${{ secrets.TRANSMISSION_USER }}
+            TRANSMISSION_PASS=${{ secrets.TRANSMISSION_PASS }}
+            TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}
+            OMDB_API_KEY=${{ secrets.OMDB_API_KEY }}
+            REEL_API_KEY=${{ secrets.REEL_API_KEY }}
+
+      - name: Build and push base image (Push)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./containerization/dockerfile.00_base
+          push: true
+          tags: ${{ steps.base-meta.outputs.tags }}
+          labels: ${{ steps.base-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             BATCH_SIZE=${{ env.BATCH_SIZE }}
             LOG_LEVEL=${{ env.LOG_LEVEL }}
@@ -101,6 +128,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.01_rss_ingest
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.rss-ingest-meta.outputs.tags }}
           labels: ${{ steps.rss-ingest-meta.outputs.labels }}
           cache-from: type=gha
@@ -124,6 +152,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.02_collect
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.collect-meta.outputs.tags }}
           labels: ${{ steps.collect-meta.outputs.labels }}
           cache-from: type=gha
@@ -147,6 +176,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.03_parse
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.parse-meta.outputs.tags }}
           labels: ${{ steps.parse-meta.outputs.labels }}
           cache-from: type=gha
@@ -170,6 +200,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.04_file_filtration
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.file-filtration-meta.outputs.tags }}
           labels: ${{ steps.file-filtration-meta.outputs.labels }}
           cache-from: type=gha
@@ -193,6 +224,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.05_metadata_collection
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.metadata-collection-meta.outputs.tags }}
           labels: ${{ steps.metadata-collection-meta.outputs.labels }}
           cache-from: type=gha
@@ -216,6 +248,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.06_media_filtration
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.media-filtration-meta.outputs.tags }}
           labels: ${{ steps.media-filtration-meta.outputs.labels }}
           cache-from: type=gha
@@ -239,6 +272,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.07_initiation
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.initiation-meta.outputs.tags }}
           labels: ${{ steps.initiation-meta.outputs.labels }}
           cache-from: type=gha
@@ -262,6 +296,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.08_download_check
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.download-check-meta.outputs.tags }}
           labels: ${{ steps.download-check-meta.outputs.labels }}
           cache-from: type=gha
@@ -285,6 +320,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.09_transfer
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.transfer-meta.outputs.tags }}
           labels: ${{ steps.transfer-meta.outputs.labels }}
           cache-from: type=gha
@@ -308,6 +344,7 @@ jobs:
           context: .
           file: ./containerization/dockerfile.10_cleanup
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.cleanup-meta.outputs.tags }}
           labels: ${{ steps.cleanup-meta.outputs.labels }}
           cache-from: type=gha
