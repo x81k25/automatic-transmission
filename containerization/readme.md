@@ -7,6 +7,32 @@ Docker containerization for the automatic-transmission pipeline. All containers 
 - Docker and Docker Compose installed
 - `.env` file in project root with all required environment variables
 
+## CI/CD with GitHub Actions
+
+This project uses GitHub Actions to automatically build and push Docker images to GitHub Container Registry (ghcr.io).
+
+### Automated Builds
+
+- **Trigger**: Pushes to `dev-agent`, `dev`, `stg`, `main` branches or PRs targeting `dev`, `stg`, `main`
+- **Registry**: Images are pushed to `ghcr.io/x81k25/automatic-transmission/`
+- **Tagging Strategy**:
+  - Branch builds: `ghcr.io/x81k25/automatic-transmission/[image-name]:[branch-name]`
+  - PR builds: `ghcr.io/x81k25/automatic-transmission/[image-name]:pr-[number]`
+  - Main branch: Also tagged as `latest`
+  - All builds: Also tagged with commit SHA
+
+### Using CI/CD Images
+
+To use images from the CI/CD pipeline instead of building locally:
+
+```bash
+# Set the BASE_IMAGE environment variable before running docker-compose
+export BASE_IMAGE=ghcr.io/x81k25/automatic-transmission/at-base:dev-agent
+
+# Then run services as normal
+docker-compose -f containerization/docker-compose.yml run --rm rss-ingest
+```
+
 ## File Structure
 
 ```
@@ -165,3 +191,21 @@ If a specific module fails:
 2. Verify all required environment variables are set
 3. Run in debug mode to see detailed errors
 4. Check database connectivity and required tables exist
+
+### CI/CD Issues
+
+#### GitHub Actions Build Failures
+- Check workflow logs in the Actions tab on GitHub
+- Ensure repository has package write permissions enabled
+- Verify branch protection rules aren't blocking the workflow
+
+#### Registry Access Issues
+- Images are public by default but can be made private
+- To pull private images, authenticate with: `docker login ghcr.io -u USERNAME`
+- Use a Personal Access Token (PAT) with `read:packages` scope as password
+
+#### Image Cleanup
+Old images are not automatically cleaned up. To manage registry storage:
+- Delete old images manually via GitHub UI (Packages section)
+- Use retention policies in repository settings
+- Consider implementing automated cleanup in the workflow

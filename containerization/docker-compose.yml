@@ -18,6 +18,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.01_rss_ingest
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-rss-ingest:latest
     env_file: ../.env
     profiles:
@@ -29,6 +31,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.02_collect
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-collect:latest
     env_file: ../.env
     profiles:
@@ -40,6 +44,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.03_parse
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-parse:latest
     env_file: ../.env
     profiles:
@@ -51,6 +57,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.04_file_filtration
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-file-filtration:latest
     env_file: ../.env
     profiles:
@@ -62,6 +70,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.05_metadata_collection
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-metadata-collection:latest
     env_file: ../.env
     profiles:
@@ -73,6 +83,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.06_media_filtration
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-media-filtration:latest
     env_file: ../.env
     profiles:
@@ -84,6 +96,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.07_initiation
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-initiation:latest
     env_file: ../.env
     profiles:
@@ -95,6 +109,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.08_download_check
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-download-check:latest
     env_file: ../.env
     profiles:
@@ -106,6 +122,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.09_transfer
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-transfer:latest
     env_file: ../.env
     profiles:
@@ -117,6 +135,8 @@ services:
     build:
       context: ../
       dockerfile: containerization/dockerfile.10_cleanup
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
     image: at-cleanup:latest
     env_file: ../.env
     profiles:
