@@ -66,16 +66,16 @@ jobs:
         
         # List of services to build
         services=(
-          "01_rss_ingest:rss-ingest"
-          "02_collect:collect"
-          "03_parse:parse"
-          "04_file_filtration:file-filtration"
-          "05_metadata_collection:metadata-collection"
-          "06_media_filtration:media-filtration"
-          "07_initiation:initiation"
-          "08_download_check:download-check"
-          "09_transfer:transfer"
-          "10_cleanup:cleanup"
+          "01_rss_ingest:at-01-rss-ingest"
+          "02_collect:at-02-collect"
+          "03_parse:at-03-parse"
+          "04_file_filtration:at-04-file-filtration"
+          "05_metadata_collection:at-05-metadata-collection"
+          "06_media_filtration:at-06-media-filtration"
+          "07_initiation:at-07-initiation"
+          "08_download_check:at-08-download-check"
+          "09_transfer:at-09-transfer"
+          "10_cleanup:at-10-cleanup"
         )
         
         # Build each service
@@ -114,13 +114,13 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Images pushed:" >> $GITHUB_STEP_SUMMARY
         echo "- at-base" >> $GITHUB_STEP_SUMMARY
-        echo "- rss-ingest" >> $GITHUB_STEP_SUMMARY
-        echo "- collect" >> $GITHUB_STEP_SUMMARY
-        echo "- parse" >> $GITHUB_STEP_SUMMARY
-        echo "- file-filtration" >> $GITHUB_STEP_SUMMARY
-        echo "- metadata-collection" >> $GITHUB_STEP_SUMMARY
-        echo "- media-filtration" >> $GITHUB_STEP_SUMMARY
-        echo "- initiation" >> $GITHUB_STEP_SUMMARY
-        echo "- download-check" >> $GITHUB_STEP_SUMMARY
-        echo "- transfer" >> $GITHUB_STEP_SUMMARY
-        echo "- cleanup" >> $GITHUB_STEP_SUMMARY
+        echo "- at-01-rss-ingest" >> $GITHUB_STEP_SUMMARY
+        echo "- at-02-collect" >> $GITHUB_STEP_SUMMARY
+        echo "- at-03-parse" >> $GITHUB_STEP_SUMMARY
+        echo "- at-04-file-filtration" >> $GITHUB_STEP_SUMMARY
+        echo "- at-05-metadata-collection" >> $GITHUB_STEP_SUMMARY
+        echo "- at-06-media-filtration" >> $GITHUB_STEP_SUMMARY
+        echo "- at-07-initiation" >> $GITHUB_STEP_SUMMARY
+        echo "- at-08-download-check" >> $GITHUB_STEP_SUMMARY
+        echo "- at-09-transfer" >> $GITHUB_STEP_SUMMARY
+        echo "- at-10-cleanup" >> $GITHUB_STEP_SUMMARY

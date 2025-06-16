@@ -66,7 +66,7 @@ docker-compose -f containerization/docker-compose.yml --profile build-only build
 docker build -f containerization/dockerfile.00_base -t at-base:latest .
 
 # Build specific module image (example: RSS ingest)
-docker build -f containerization/dockerfile.01_rss_ingest -t at-rss-ingest:latest .
+docker build -f containerization/dockerfile.01_rss_ingest -t at-01-rss-ingest:latest .
 ```
 
 ## Run Commands
