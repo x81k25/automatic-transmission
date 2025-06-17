@@ -145,6 +145,28 @@ uv pip compile requirements.in -o requirements.txt
 uv pip install -r requirements.txt
 ```
 
+## docker deployment
+
+The project includes Docker support for containerized deployment. All Docker configuration and detailed instructions are available in `containerization/readme.md`.
+
+**Quick start with Docker:**
+```bash
+# Build all images
+docker-compose -f containerization/docker-compose.yml build
+
+# Run specific pipeline modules
+docker-compose -f containerization/docker-compose.yml run --rm rss-ingest
+docker-compose -f containerization/docker-compose.yml run --rm collect
+```
+
+**Key features:**
+- Multi-stage Dockerfiles for optimized builds
+- Environment variable support for all configuration
+- Local development and CI/CD compatible
+- Images published to GitHub Container Registry
+
+See `containerization/readme.md` for comprehensive Docker setup, usage examples, and deployment guidance.
+
 ## configuration
 
 create a `.env` file with the following parameters customized for your setup:

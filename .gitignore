@@ -74,7 +74,8 @@ coverage.xml
 # folders used for development only
 .dev/
 .bak/
+.claude/
+CLAUDE.md
 automatic-transmission.log
 config/string-special-conditions.yaml
-.error_handling/
-dbt/
+
