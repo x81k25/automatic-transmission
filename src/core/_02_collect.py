@@ -6,13 +6,6 @@ from src.data_models import *
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# load environment variables and
-# ------------------------------------------------------------------------------
-
-# log config
-utils.setup_logging()
-
-# ------------------------------------------------------------------------------
 # supporting functions
 # ------------------------------------------------------------------------------
 
@@ -114,6 +107,18 @@ def collect_media():
         rejected_media.update(update_rejected_status(rejected_media).df)
         utils.media_db_update(media=rejected_media.to_schema())
         log_status(rejected_media)
+
+
+# ------------------------------------------------------------------------------
+# main guard
+# ------------------------------------------------------------------------------
+
+def main():
+    utils.setup_logging()
+    collect_media()
+
+if __name__ == "__main__":
+    main()
 
 
 # ------------------------------------------------------------------------------

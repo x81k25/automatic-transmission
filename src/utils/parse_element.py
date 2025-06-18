@@ -100,15 +100,35 @@ def extract_title(raw_title: str, media_type: str) -> str | None:
             if match:
                 cleaned_title = match.group(1).strip()
     elif media_type == 'tv_show':
-        # get everything before the SxxExx pattern
-        match = re.search(r'(.+?)s\d{1,4}e\d{1,4}', raw_title, re.IGNORECASE)
+        # Try to match everything before year in parentheses first
+        match = re.search(r'(.+?)[\s._-]*\((?:19|20)\d{2}\).*?s\d{1,4}e\d{1,4}', raw_title, re.IGNORECASE)
         if match:
             cleaned_title = match.group(1).strip()
+        else:
+            # Try to match everything before standalone year then season/episode pattern
+            match = re.search(r'(.+?)[\s._-]+(?:19|20)\d{2}[\s._-]+s\d{1,4}e\d{1,4}', raw_title, re.IGNORECASE)
+            if match:
+                cleaned_title = match.group(1).strip()
+            else:
+                # Fall back to original: get everything before the SxxExx pattern
+                match = re.search(r'(.+?)s\d{1,4}e\d{1,4}', raw_title, re.IGNORECASE)
+                if match:
+                    cleaned_title = match.group(1).strip()
     elif media_type == 'tv_season':
-        # get everything before the season pattern
-        match = re.search(r'(.+?)(?:season.{1,4}\d{1,4}|s\d{1,4})', raw_title, re.IGNORECASE)
+        # Try to match everything before year in parentheses first
+        match = re.search(r'(.+?)[\s._-]*\((?:19|20)\d{2}\).*?(?:season.{1,4}\d{1,4}|s\d{1,4})', raw_title, re.IGNORECASE)
         if match:
             cleaned_title = match.group(1).strip()
+        else:
+            # Try to match everything before standalone year then season pattern
+            match = re.search(r'(.+?)[\s._-]+(?:19|20)\d{2}[\s._-]+(?:season.{1,4}\d{1,4}|s\d{1,4})', raw_title, re.IGNORECASE)
+            if match:
+                cleaned_title = match.group(1).strip()
+            else:
+                # Fall back to original: get everything before the season pattern
+                match = re.search(r'(.+?)(?:season.{1,4}\d{1,4}|s\d{1,4})', raw_title, re.IGNORECASE)
+                if match:
+                    cleaned_title = match.group(1).strip()
 
     # determine if initial title extraction was successful, and if not return none
     if cleaned_title is None or cleaned_title.strip() == "":

@@ -10,19 +10,6 @@ from src.data_models import *
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
-# initialization and setup
-# ------------------------------------------------------------------------------
-
-# log config
-utils.setup_logging()
-
-# load env vars
-load_dotenv(override=True)
-
-# pipeline env vars
-batch_size = os.getenv('BATCH_SIZE')
-
-# ------------------------------------------------------------------------------
 # utility functions
 # ------------------------------------------------------------------------------
 
@@ -92,6 +79,9 @@ def initiate_media_download():
 
     :debug: batch=0
     """
+    # pipeline env vars
+    batch_size = os.getenv('BATCH_SIZE')
+
     # read in existing data based
     media = utils.get_media_from_db(pipeline_status=PipelineStatus.MEDIA_ACCEPTED)
 
@@ -137,6 +127,20 @@ def initiate_media_download():
         media_batch = update_status(media_batch)
         utils.media_db_update(media=media_batch.to_schema())
         log_status(media_batch)
+
+
+# ------------------------------------------------------------------------------
+# main guard
+# ------------------------------------------------------------------------------
+
+def main():
+    utils.setup_logging()
+    load_dotenv(override=True)
+    initiate_media_download()
+
+if __name__ == "__main__":
+    main()
+
 
 # ------------------------------------------------------------------------------
 # end of _07_initiate.py

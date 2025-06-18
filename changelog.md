@@ -1,7 +1,20 @@
 # Changelog
 
+## [5.6.10]
+- add dockerfiles for project
+  - created 1 initial dockerfile that create a based image with all dependencies
+  - created 1 dockerfile for each main core script
+  - 11 total docker images will be produced
+- added .github workflow to create generate images via github actions
+- fixed issue in download_check when no items in transmission
+
+## [5.6.8]
+- modifying usage pattern in anticipation of supporting Dagster integration
+  - each file can now function independently via CLI
+
 ## [5.6.4]
 - added unit testing throughout codebase for the majority of internal functions
+  - testing coverage now covered in readme
 - moved log config to utils functions
 - removed timestamp from most of the database options
   - timestamps will be handled by PGSQL triggers

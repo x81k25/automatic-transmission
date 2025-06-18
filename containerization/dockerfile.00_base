@@ -1,0 +1,66 @@
+FROM python:3.12-slim
+
+# Build arguments for environment variables
+ARG BATCH_SIZE=50
+ARG LOG_LEVEL=DEBUG
+ARG STALE_METADATA_THRESHOLD=30
+ARG REEL_DRIVER_THRESHOLD=0.35
+ARG TARGET_ACTIVE_ITEMS=10
+ARG TRANSFERRED_ITEM_CLEANUP_DELAY=0
+ARG HUNG_ITEM_CLEANUP_DELAY=1
+ARG DATABASE_URL
+ARG TRANSMISSION_HOST
+ARG TRANSMISSION_PORT
+ARG TRANSMISSION_USER
+ARG TRANSMISSION_PASS
+ARG TMDB_API_KEY
+ARG OMDB_API_KEY
+ARG REEL_API_KEY
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install --no-cache-dir uv
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN uv pip install -r requirements.txt --system
+
+# Copy source code and config
+COPY src/ ./src/
+COPY config/ ./config/
+
+# Set Python path
+ENV PYTHONPATH=/app
+
+# Set environment variables from build args
+ENV BATCH_SIZE=$BATCH_SIZE
+ENV LOG_LEVEL=$LOG_LEVEL
+ENV STALE_METADATA_THRESHOLD=$STALE_METADATA_THRESHOLD
+ENV REEL_DRIVER_THRESHOLD=$REEL_DRIVER_THRESHOLD
+ENV TARGET_ACTIVE_ITEMS=$TARGET_ACTIVE_ITEMS
+ENV TRANSFERRED_ITEM_CLEANUP_DELAY=$TRANSFERRED_ITEM_CLEANUP_DELAY
+ENV HUNG_ITEM_CLEANUP_DELAY=$HUNG_ITEM_CLEANUP_DELAY
+ENV DATABASE_URL=$DATABASE_URL
+ENV TRANSMISSION_HOST=$TRANSMISSION_HOST
+ENV TRANSMISSION_PORT=$TRANSMISSION_PORT
+ENV TRANSMISSION_USER=$TRANSMISSION_USER
+ENV TRANSMISSION_PASS=$TRANSMISSION_PASS
+ENV TMDB_API_KEY=$TMDB_API_KEY
+ENV OMDB_API_KEY=$OMDB_API_KEY
+ENV REEL_API_KEY=$REEL_API_KEY
+
+# Create user with specific UID/GID
+RUN groupadd -g 1001 appgroup && \
+    useradd -m -u 1005 -g 1001 appuser && \
+    chown -R appuser:appgroup /app
+
+USER appuser

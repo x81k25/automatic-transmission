@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  # Base image builder
+  base:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.00_base
+    image: at-base:latest
+    profiles:
+      - build-only
+      - base-required
+      - pipeline
+    command: ["echo", "Base image built successfully"]
+
+  # RSS Ingest service
+  rss-ingest:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.01_rss_ingest
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-01-rss-ingest:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - rss-ingest
+
+  # Collect service
+  collect:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.02_collect
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-02-collect:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - collect
+
+  # Parse service
+  parse:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.03_parse
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-03-parse:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - parse
+
+  # File Filtration service
+  file-filtration:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.04_file_filtration
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-04-file-filtration:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - file-filtration
+
+  # Metadata Collection service
+  metadata-collection:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.05_metadata_collection
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-05-metadata-collection:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - metadata-collection
+
+  # Media Filtration service
+  media-filtration:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.06_media_filtration
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-06-media-filtration:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - media-filtration
+
+  # Initiation service
+  initiation:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.07_initiation
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-07-initiation:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - initiation
+
+  # Download Check service
+  download-check:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.08_download_check
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-08-download-check:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - download-check
+
+  # Transfer service
+  transfer:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.09_transfer
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-09-transfer:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - transfer
+
+  # Cleanup service
+  cleanup:
+    build:
+      context: ../
+      dockerfile: containerization/dockerfile.10_cleanup
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-at-base:latest}
+    image: at-10-cleanup:latest
+    env_file: ../.env
+    profiles:
+      - pipeline
+      - cleanup

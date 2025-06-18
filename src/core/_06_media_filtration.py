@@ -11,25 +11,6 @@ import src.utils as utils
 from src.data_models import *
 
 # -----------------------------------------------------------------------------
-# read in static parameters
-# -----------------------------------------------------------------------------
-
-# log config
-utils.setup_logging()
-
-# load env vars
-load_dotenv(override=True)
-
-# pipeline env vars
-batch_size = int(os.getenv('BATCH_SIZE'))
-acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
-
-# reel_driver_env vars
-api_host = os.getenv('REEL_DRIVER_HOST')
-api_port = os.getenv('REEL_DRIVER_PORT')
-api_prefix = os.getenv('REEL_DRIVER_PREFIX')
-
-# -----------------------------------------------------------------------------
 # support functions that operate on one media item at a time
 # -----------------------------------------------------------------------------
 
@@ -44,6 +25,11 @@ def get_prediction(media_item: dict) -> dict:
 
     :debug: media_item=next(media.df.iter_rows(named=True))
     """
+    # reel_driver_env vars
+    api_host = os.getenv('REEL_DRIVER_HOST')
+    api_port = os.getenv('REEL_DRIVER_PORT')
+    api_prefix = os.getenv('REEL_DRIVER_PREFIX')
+
     media_item['probability'] = None
 
     try:
@@ -168,6 +154,11 @@ def get_predictions(media: MediaDataFrame) -> MediaDataFrame:
     :param media: MediaDataFrame containing all items to be predicted
     :return: MediaDataFrame df with the probability appended
     """
+    # reel_driver_env vars
+    api_host = os.getenv('REEL_DRIVER_HOST')
+    api_port = os.getenv('REEL_DRIVER_PORT')
+    api_prefix = os.getenv('REEL_DRIVER_PREFIX')
+
     media_with_predictions = media.df.clone()
 
     # Construct API URL
@@ -246,6 +237,9 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
 
 
     """
+    # load pipeline env vars
+    acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
+
     media_with_updated_status = media.df.clone()
 
     # perform updates on items with predictions
@@ -312,6 +306,9 @@ def filter_media():
     :debug: media.update(media.df[3])
     :debug: batch = 0
     """
+    # pipeline env vars
+    batch_size = int(os.getenv('BATCH_SIZE'))
+
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status=PipelineStatus.METADATA_COLLECTED)
 
@@ -431,6 +428,19 @@ def filter_media():
                 media_batch = update_status(media_batch)
                 utils.media_db_update(media=media_batch.to_schema())
                 log_status(media_batch)
+
+
+# ------------------------------------------------------------------------------
+# main guard
+# ------------------------------------------------------------------------------
+
+def main():
+    utils.setup_logging()
+    load_dotenv(override=True)
+    filter_media()
+
+if __name__ == "__main__":
+    main()
 
 
 # ------------------------------------------------------------------------------

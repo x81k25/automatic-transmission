@@ -1,55 +1,38 @@
 # standard library imports
-import argparse
-
-# local/custom imports
-import src.core as core
+import subprocess
+import sys
+import os
 
 # ------------------------------------------------------------------------------
 # end-to-end pipeline for downloading all media
 # ------------------------------------------------------------------------------
 
-def full_pipeline(debug: bool):
+def full_pipeline():
     """full pipeline for downloading contents"""
-    core.rss_ingest()
-    core.collect_media()
-    core.parse_media()
-    core.filter_files()
-    core.collect_metadata()
-    core.filter_media()
-    core.initiate_media_download()
-    core.check_downloads()
-    core.transfer_media()
-    core.cleanup_media()
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.getcwd()
 
+    subprocess.run([sys.executable, "src/core/_01_rss_ingest.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_02_collect.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_03_parse.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_04_file_filtration.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_05_metadata_collection.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_06_media_filtration.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_07_initiation.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_08_download_check.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_09_transfer.py"], cwd=os.getcwd(), env=env, check=True)
+    subprocess.run([sys.executable, "src/core/_10_cleanup.py"], cwd=os.getcwd(), env=env, check=True)
 
 # -------------------------------------------------------------------------------
-# main functions
+# main guard
 # -------------------------------------------------------------------------------
 
 def main():
     """
     Main function for command-line interface
-    :return:
     """
-    parser = argparse.ArgumentParser(
-        description="Command-line interface for running functions"
-    )
+    full_pipeline()
 
-    # Add global debug flag
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Enable debug mode"
-    )
-
-    args = parser.parse_args()
-
-    # Use the mapping to call full_pipeline
-    full_pipeline(debug=args.debug)
-
-# ------------------------------------------------------------------------------
-# main clause
-# ------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()
