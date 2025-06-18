@@ -36,14 +36,14 @@ jobs:
       run: |
         # Generate tags based on branch/PR
         if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-          TAGS="${{ env.IMAGE_PREFIX }}/at-base:pr-${{ github.event.number }}"
+          TAGS="${{ env.IMAGE_PREFIX }}/at-00-base:pr-${{ github.event.number }}"
           echo "BASE_TAG=pr-${{ github.event.number }}" >> $GITHUB_ENV
         elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-          TAGS="${{ env.IMAGE_PREFIX }}/at-base:latest,${{ env.IMAGE_PREFIX }}/at-base:main,${{ env.IMAGE_PREFIX }}/at-base:sha-${{ github.sha }}"
+          TAGS="${{ env.IMAGE_PREFIX }}/at-00-base:latest,${{ env.IMAGE_PREFIX }}/at-00-base:main,${{ env.IMAGE_PREFIX }}/at-00-base:sha-${{ github.sha }}"
           echo "BASE_TAG=latest" >> $GITHUB_ENV
         else
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          TAGS="${{ env.IMAGE_PREFIX }}/at-base:${BRANCH_NAME},${{ env.IMAGE_PREFIX }}/at-base:sha-${{ github.sha }}"
+          TAGS="${{ env.IMAGE_PREFIX }}/at-00-base:${BRANCH_NAME},${{ env.IMAGE_PREFIX }}/at-00-base:sha-${{ github.sha }}"
           echo "BASE_TAG=${BRANCH_NAME}" >> $GITHUB_ENV
         fi
         echo "TAGS=$TAGS" >> $GITHUB_ENV
@@ -62,7 +62,7 @@ jobs:
     - name: Build and push service images
       run: |
         set -e
-        echo "Building service images with base image: ${{ env.IMAGE_PREFIX }}/at-base:${{ env.BASE_TAG }}"
+        echo "Building service images with base image: ${{ env.IMAGE_PREFIX }}/at-00-base:${{ env.BASE_TAG }}"
         
         # List of services to build
         services=(
@@ -96,7 +96,7 @@ jobs:
           
           # Build and push the service image
           docker buildx build \
-            --build-arg BASE_IMAGE=${{ env.IMAGE_PREFIX }}/at-base:${{ env.BASE_TAG }} \
+            --build-arg BASE_IMAGE=${{ env.IMAGE_PREFIX }}/at-00-base:${{ env.BASE_TAG }} \
             --file ./containerization/dockerfile.${dockerfile} \
             --tag ${SERVICE_TAGS//,/ --tag } \
             --push \
@@ -109,11 +109,11 @@ jobs:
       if: always()
       run: |
         echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-        echo "- Base image: ${{ env.IMAGE_PREFIX }}/at-base:${{ env.BASE_TAG }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Base image: ${{ env.IMAGE_PREFIX }}/at-00-base:${{ env.BASE_TAG }}" >> $GITHUB_STEP_SUMMARY
         echo "- Total build time: $((SECONDS / 60)) minutes $((SECONDS % 60)) seconds" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Images pushed:" >> $GITHUB_STEP_SUMMARY
-        echo "- at-base" >> $GITHUB_STEP_SUMMARY
+        echo "- at-00-base" >> $GITHUB_STEP_SUMMARY
         echo "- at-01-rss-ingest" >> $GITHUB_STEP_SUMMARY
         echo "- at-02-collect" >> $GITHUB_STEP_SUMMARY
         echo "- at-03-parse" >> $GITHUB_STEP_SUMMARY
