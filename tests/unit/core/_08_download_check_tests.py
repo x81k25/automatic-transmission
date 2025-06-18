@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from src.core._08_download_check import *
 from src.data_models import *
 from tests.fixtures.core._08_download_check_fixtures import *
@@ -30,6 +31,7 @@ class TestDownloadCheck:
                     f"expected error_condition={expected['error_condition']}, got {row['error_condition']}"
                 )
 
+
     def test_extract_and_verify_filename(self, extract_and_verify_filename_cases):
         """Test all extract_and_verify_filename scenarios from fixture."""
         for case in extract_and_verify_filename_cases:
@@ -57,6 +59,7 @@ class TestDownloadCheck:
                     f"Failed for {case['description']}: "
                     f"expected error_condition={expected['error_condition']}, got {row['error_condition']}"
                 )
+
 
     def test_update_status(self, update_status_cases):
         """Test all update_status scenarios from fixture."""
@@ -102,3 +105,63 @@ class TestDownloadCheck:
                         f"Failed for {case['description']}: "
                         f"expected error_condition={expected['error_condition']}, got {row['error_condition']}"
                     )
+
+
+    @patch('src.core._08_download_check.utils.media_db_update')
+    @patch('src.core._08_download_check.utils.return_current_media_items')
+    @patch('src.core._08_download_check.utils.get_media_from_db')
+    def test_check_downloads_workflow_integration(self, mock_get_media,
+                                                  mock_return_current,
+                                                  mock_db_update,
+                                                  check_downloads_workflow_scenarios):
+        """Test check_downloads workflow integration scenarios from fixture."""
+        for case in check_downloads_workflow_scenarios:
+            # Reset mocks for each test case
+            mock_get_media.reset_mock()
+            mock_return_current.reset_mock()
+            mock_db_update.reset_mock()
+
+            # Setup input mocks
+            if case["input_downloading_media"] is None:
+                mock_get_media.return_value = None
+            else:
+                mock_get_media.return_value = MediaDataFrame(
+                    case["input_downloading_media"])
+
+            mock_return_current.return_value = case["input_transmission_items"]
+
+            # Execute the function
+            check_downloads()
+
+            # Verify number of database update calls
+            assert mock_db_update.call_count == case["expected_db_update_calls"], (
+                f"Failed for {case['description']}: "
+                f"expected {case['expected_db_update_calls']} db update calls, got {mock_db_update.call_count}"
+            )
+
+            # If we expect outputs, verify the MediaDataFrame contents
+            if "expected_outputs" in case and case["expected_outputs"]:
+                expected_list = case["expected_outputs"]
+
+                # Get the MediaDataFrame that was passed to the database update
+                # Get the MediaDataFrame that was passed to the database update
+                call_args = mock_db_update.call_args_list[-1]  # Get the last call
+                actual_media = call_args.kwargs['media']  # Always use kwargs
+
+                assert isinstance(actual_media, MediaDataFrame)
+                assert actual_media.df.height == len(expected_list), (
+                    f"Failed for {case['description']}: "
+                    f"expected {len(expected_list)} items in output, got {actual_media.df.height}"
+                )
+
+                for i in range(actual_media.df.height):
+                    row = actual_media.df.row(i, named=True)
+                    expected = expected_list[i]
+
+                    # Check all expected fields
+                    for field, expected_value in expected.items():
+                        actual_value = row.get(field)
+                        assert actual_value == expected_value, (
+                            f"Failed for {case['description']}: "
+                            f"expected {field}={expected_value}, got {actual_value}"
+                        )

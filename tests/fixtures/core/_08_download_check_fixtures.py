@@ -209,6 +209,27 @@ def confirm_downloading_status_cases():
                     "error_condition": "not found within transmission"
                 }
             ]
+        },
+        {
+            "description": "Empty current media items (None) means all missing",
+            "input_media_data": [
+                {
+                    "hash": "emptytransmission123456789012345678901234",
+                    "media_type": "movie",
+                    "media_title": "Empty Transmission Movie",
+                    "release_year": 2020,
+                    "pipeline_status": "downloading",
+                    "rejection_status": "accepted",
+                    "error_status": False
+                }
+            ],
+            "current_media_items": None,
+            "expected_fields": [
+                {
+                    "hash": "emptytransmission123456789012345678901234",
+                    "error_condition": "not found within transmission"
+                }
+            ]
         }
     ]
 
@@ -801,3 +822,260 @@ def update_status_cases():
             ]
         }
     ]
+
+@pytest.fixture
+def check_downloads_workflow_scenarios():
+   """Test scenarios for check_downloads workflow integration."""
+   return [
+       {
+           "description": "No media downloading - early return",
+           "input_downloading_media": None,
+           "input_transmission_items": None,
+           "expected_db_update_calls": 0
+       },
+       {
+           "description": "Empty transmission returns None causes error",
+           "input_downloading_media": [
+               {
+                   "hash": "downloading123456789012345678901234567890",
+                   "media_type": "movie",
+                   "media_title": "Downloading Movie",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": None,
+           "expected_db_update_calls": 1,
+           "expected_outputs": [
+                {
+                    "hash": "downloading123456789012345678901234567890",
+                    "pipeline_status": "ingested",  # Item gets re-ingested
+                    "rejection_status": "unfiltered"  # Status gets reset
+                }
+            ]
+       },
+       {
+           "description": "Single item missing from transmission gets re-ingested",
+           "input_downloading_media": [
+               {
+                   "hash": "missing123456789012345678901234567890123",
+                   "media_type": "movie",
+                   "media_title": "Missing Movie",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": None,
+           "expected_db_update_calls": 1,
+           "expected_outputs": [
+               {
+                   "hash": "missing123456789012345678901234567890123",
+                   "pipeline_status": "ingested",
+                   "rejection_status": "unfiltered",
+                   "rejection_reason": None,
+                   "error_status": False,
+                   "error_condition": None
+               }
+           ]
+       },
+       {
+           "description": "Single completed download gets processed",
+           "input_downloading_media": [
+               {
+                   "hash": "completed123456789012345678901234567890123",
+                   "media_type": "movie",
+                   "media_title": "Completed Movie",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": {
+               "completed123456789012345678901234567890123": {
+                   "id": 150,
+                   "name": "Completed Movie (2020) [1080p] [BluRay]",
+                   "progress": 100.0,
+                   "status": "seeding"
+               }
+           },
+           "expected_db_update_calls": 1,
+           "expected_outputs": [
+               {
+                   "hash": "completed123456789012345678901234567890123",
+                   "pipeline_status": "downloaded",
+                   "original_path": "Completed Movie (2020) [1080p] [BluRay]"
+               }
+           ]
+       },
+       {
+           "description": "Mixed scenarios: re-ingestion and completed downloads (2 db calls)",
+           "input_downloading_media": [
+               {
+                   "hash": "missing123456789012345678901234567890123",
+                   "media_type": "movie",
+                   "media_title": "Missing Movie",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               },
+               {
+                   "hash": "completed123456789012345678901234567890123",
+                   "media_type": "tv_show",
+                   "media_title": "Completed Show",
+                   "season": 1,
+                   "episode": 5,
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": {
+               "completed123456789012345678901234567890123": {
+                   "id": 151,
+                   "name": "Completed.Show.S01E05.1080p.WEB-DL",
+                   "progress": 100.0,
+                   "status": "seeding"
+               }
+           },
+           "expected_db_update_calls": 2
+       },
+       {
+           "description": "Mixed progress levels - only 100% processed",
+           "input_downloading_media": [
+               {
+                   "hash": "stilldown123456789012345678901234567890",
+                   "media_type": "movie",
+                   "media_title": "Still Downloading",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               },
+               {
+                   "hash": "completed123456789012345678901234567890123",
+                   "media_type": "movie",
+                   "media_title": "Completed Movie",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": {
+               "stilldown123456789012345678901234567890": {
+                   "id": 152,
+                   "name": "Still Downloading Movie",
+                   "progress": 45.5,
+                   "status": "downloading"
+               },
+               "completed123456789012345678901234567890123": {
+                   "id": 153,
+                   "name": "Completed Movie (2020)",
+                   "progress": 100.0,
+                   "status": "seeding"
+               }
+           },
+           "expected_db_update_calls": 1,
+           "expected_outputs": [
+               {
+                   "hash": "completed123456789012345678901234567890123",
+                   "pipeline_status": "downloaded",
+                   "original_path": "Completed Movie (2020)"
+               }
+           ]
+       },
+       {
+           "description": "Override item missing from transmission preserves override status",
+           "input_downloading_media": [
+               {
+                   "hash": "override123456789012345678901234567890123",
+                   "media_type": "tv_season",
+                   "media_title": "Override Season",
+                   "season": 2,
+                   "pipeline_status": "downloading",
+                   "rejection_status": "override",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": None,
+           "expected_db_update_calls": 1,
+           "expected_outputs": [
+               {
+                   "hash": "override123456789012345678901234567890123",
+                   "pipeline_status": "ingested",
+                   "rejection_status": "override",
+                   "rejection_reason": None,
+                   "error_status": False,
+                   "error_condition": None
+               }
+           ]
+       },
+       {
+           "description": "Filename extraction errors get recorded",
+           "input_downloading_media": [
+               {
+                   "hash": "nullname123456789012345678901234567890123",
+                   "media_type": "movie",
+                   "media_title": "Null Name Movie",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": {
+               "nullname123456789012345678901234567890123": {
+                   "id": 154,
+                   "name": None,
+                   "progress": 100.0,
+                   "status": "seeding"
+               }
+           },
+           "expected_db_update_calls": 1,
+           "expected_outputs": [
+               {
+                   "hash": "nullname123456789012345678901234567890123",
+                   "pipeline_status": "downloading",
+                   "error_status": True,
+                   "error_condition": "media_item.name returned None object"
+               }
+           ]
+       },
+       {
+           "description": "All items still downloading - no completed items to process",
+           "input_downloading_media": [
+               {
+                   "hash": "downloading1234567890123456789012345678901",
+                   "media_type": "movie",
+                   "media_title": "Downloading Movie 1",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               },
+               {
+                   "hash": "downloading2345678901234567890123456789012",
+                   "media_type": "tv_show",
+                   "media_title": "Downloading Show",
+                   "season": 3,
+                   "episode": 8,
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": {
+               "downloading1234567890123456789012345678901": {
+                   "id": 155,
+                   "name": "Downloading Movie 1",
+                   "progress": 25.3,
+                   "status": "downloading"
+               },
+               "downloading2345678901234567890123456789012": {
+                   "id": 156,
+                   "name": "Downloading Show S03E08",
+                   "progress": 78.9,
+                   "status": "downloading"
+               }
+           },
+           "expected_db_update_calls": 0
+       }
+   ]

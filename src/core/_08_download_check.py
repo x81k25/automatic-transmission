@@ -11,7 +11,7 @@ import src.utils as utils
 
 def confirm_downloading_status(
     media: MediaDataFrame,
-    current_media_items: dict
+    current_media_items: dict | None
 ) -> MediaDataFrame:
     """
     determine if items tagged as pipeline_status = 'downloading' are in fact
@@ -23,13 +23,22 @@ def confirm_downloading_status(
     """
     media_not_downloading = media.df.clone()
 
-    current_hashes = list(current_media_items.keys())
+    # if database items in downloading state, but no items with transmission
+    #   label error condition, which will trigger re-ingest
+    if current_media_items is None:
+        media_not_downloading = media_not_downloading.with_columns(
+            error_condition=pl.lit("not found within transmission")
+        )
+    # if only some items missing from transmission, label only the items
+    #   missing
+    else:
+        current_hashes = list(current_media_items.keys())
 
-    media_not_downloading = media_not_downloading.filter(
-        ~pl.col('hash').is_in(current_hashes)
-    ).with_columns(
-        error_condition = pl.lit("not found within transmission")
-    )
+        media_not_downloading = media_not_downloading.filter(
+            ~pl.col('hash').is_in(current_hashes)
+        ).with_columns(
+            error_condition = pl.lit("not found within transmission")
+        )
 
     return MediaDataFrame(media_not_downloading)
 
@@ -151,14 +160,14 @@ def check_downloads():
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status='downloading')
 
-    # return if no media downloading
-    if media is None:
-        return
-
     # get current media item info
     current_media_items = utils.return_current_media_items()
 
-    # confirm current media_items are in 'downloading' pipeline_status
+    # if no media items and no transmission items, return
+    if media is None and current_media_items is None:
+        return
+
+    # process items for re-ingestion
     media_not_downloading = confirm_downloading_status(
         media,
         current_media_items
@@ -175,6 +184,10 @@ def check_downloads():
             media.df.join(media_not_downloading.df.select('hash'), on='hash', how='anti')
         )
 
+    # if no current_media_items, return
+    if current_media_items is None:
+        return
+
     # filter by items with download complete
     downloaded_media_items = {k: v for k, v in current_media_items.items() if v['progress'] == 100.0}
 
@@ -189,7 +202,7 @@ def check_downloads():
 
     # update status, commit to db, and log
     media = update_status(media)
-    utils.media_db_update(media.to_schema())
+    utils.media_db_update(media=media.to_schema())
     log_status(media)
 
 
