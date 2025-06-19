@@ -81,15 +81,7 @@ def process_new_items_cases():
                     "name": "c944695ad9af1230dad06081fa4262e349391c92"
                 }
             },
-            "expected_fields": [
-                {
-                    "hash": "c944695ad9af1230dad06081fa4262e349391c92",
-                    "original_title": "c944695ad9af1230dad06081fa4262e349391c92",
-                    "media_type": "unknown",
-                    "rejection_status": RejectionStatus.OVERRIDE,
-                    "error_condition": "media_type is unknown"
-                }
-            ]
+            "expected_fields": {}
         },
         {
             "description": "Multiple items with mixed media types",
@@ -159,6 +151,36 @@ def process_new_items_cases():
                     "media_type": "unknown",
                     "rejection_status": RejectionStatus.OVERRIDE,
                     "error_condition": "media_type is unknown"
+                }
+            ]
+        },
+        {
+            "description": "item where name == hash for 1 item, and 2 normal items",
+            "input": {
+                "eabf8c01ebb615f4fcb5f94ff191cb5ef13de906": {
+                    "name": "eabf8c01ebb615f4fcb5f94ff191cb5ef13de906"
+                },
+                "1711fd6fc62082c3430f584eed8d5579a1ce03a6": {
+                    "name": "Nature.S43E13.Hummingbirds.of.Hollywood.1080p.WEB.h264-BAE[EZTVx.to].mkv"
+                },
+                "69dc2d2a0df4b111a4ed7150e4976611ff5b04e5": {
+                    "name": "Andor S02 1080p x265-ELiTE EZTV"
+                }
+            },
+            "expected_fields": [
+                {
+                    "hash": "1711fd6fc62082c3430f584eed8d5579a1ce03a6",
+                    "original_title": "Nature.S43E13.Hummingbirds.of.Hollywood.1080p.WEB.h264-BAE[EZTVx.to].mkv",
+                    "media_type": "tv_show",
+                    "rejection_status": RejectionStatus.OVERRIDE,
+                    "error_condition": None
+                },
+                {
+                    "hash": "69dc2d2a0df4b111a4ed7150e4976611ff5b04e5",
+                    "original_title": "Andor S02 1080p x265-ELiTE EZTV",
+                    "media_type": "tv_season",
+                    "rejection_status": RejectionStatus.OVERRIDE,
+                    "error_condition": None
                 }
             ]
         }
