@@ -30,8 +30,11 @@ def set_permissions_and_ownership(
     """
     # collect UID:GID from .env
     load_dotenv()
-    uid = int(os.getenv("UID"))
-    gid = int(os.getenv("GID"))
+    try:
+        uid = int(os.getenv("UID", "1005"))
+        gid = int(os.getenv("GID", "1001"))
+    except ValueError as e:
+        raise ValueError(f"Invalid UID/GID in environment variables: {e}")
 
     # Convert to Path object if string
     path = Path(path)
