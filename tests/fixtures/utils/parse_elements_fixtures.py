@@ -175,6 +175,11 @@ def classify_media_type_cases():
             "description": "season with no special characters",
             "title": "The Last of Us S02 1080p x265-ELiTE EZTV",
             "expected": "tv_season"
+        },
+        {
+            "description": "season that uses as + sign as a seperator",
+            "title": "Sesame+Street.S53.h265.webdl-1080p",
+            "expected": "tv_season"
         }
     ]
 
@@ -307,6 +312,12 @@ def extract_title_cases():
             "raw_title": "Farmer Wants a Wife US 2023 S03E03 1080p WEB h264-EDITH EZTV",
             "media_type": "tv_show",
             "expected": "Farmer Wants a Wife US"
+        },
+        {
+            "description": "season that uses as + sign as a seperator",
+            "raw_title": "Sesame+Street.S53.h265.webdl-1080p",
+            "media_type": "tv_season",
+            "expected": "Sesame Street"
         }
     ]
 

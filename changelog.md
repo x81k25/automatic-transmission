@@ -1,5 +1,9 @@
 # Changelog
 
+## [5.6.19]
+- various bug fixes to parsing operations
+- resolved pesky bugfix that was leading to issues in file transfer when deployed from within container
+
 ## [5.6.10]
 - add dockerfiles for project
   - created 1 initial dockerfile that create a based image with all dependencies
