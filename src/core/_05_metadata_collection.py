@@ -344,6 +344,12 @@ def process_media_with_existing_metadata(
     media_with_metadata = media.df.clone()
     metadata_to_join = existing_metadata.clone()
 
+    # select which fields to not join
+    metadata_to_join = metadata_to_join.drop([
+        'media_type',
+        'media_title'
+    ])
+
     # if metadata is already collected and not stale, use previously collected data
     media_with_metadata = (
         media_with_metadata
