@@ -9,9 +9,11 @@ import src.utils as utils
 # supporting functions
 # ------------------------------------------------------------------------------
 
-def process_new_items(new_transmission_items: dict) -> MediaDataFrame:
+def process_new_items(new_transmission_items: dict) -> MediaDataFrame | None:
     """
-    process new media items and return as formatted MediaDataFrame
+    process new media items and return as formatted MediaDataFrame; if the
+        name has not processed yet, and the hash == name, then the item will
+        be skipped
 
     :param new_transmission_items: items with new hashes currently in
         transmission
@@ -29,6 +31,8 @@ def process_new_items(new_transmission_items: dict) -> MediaDataFrame:
             error_condition = pl.when(pl.col('media_type') == MediaType.UNKNOWN)
                 .then(pl.lit("media_type is unknown"))
                 .otherwise(pl.lit(None))
+        ).filter(
+            pl.col('hash') != pl.col('original_title')
         )
     )
 
@@ -95,8 +99,9 @@ def collect_media():
     if len(new_hashes) > 0:
         new_transmission_items = {k: current_transmission_items[k] for k in new_hashes if k in current_transmission_items}
         new_media = process_new_items(new_transmission_items)
-        utils.insert_items_to_db(media=new_media.to_schema())
-        log_status(new_media)
+        if new_media.height > 0:
+            utils.insert_items_to_db(media=new_media.to_schema())
+            log_status(new_media)
 
     # process previously rejected items
     rejected_hashes = utils.return_rejected_hashes(current_hashes)

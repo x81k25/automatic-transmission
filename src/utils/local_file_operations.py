@@ -1,10 +1,12 @@
 # standard library imports
 import logging
+import os
 from pathlib import Path, PurePosixPath
 import shutil
 from typing import Union
 
 # third party library imports
+from dotenv import load_dotenv
 import re
 
 # ------------------------------------------------------------------------------
@@ -13,24 +15,27 @@ import re
 
 def set_permissions_and_ownership(
     path: Union[PurePosixPath, str],
-    user: str = "x81-media",
-    group: str = "x81-group",
     mode: int = 0o775
 ) -> None:
     """
     Recursively sets permissions and ownership for a file or directory.
-    
-    Args:
-        path (Union[PurePosixPath, str]): Path to the file or directory
-        user (str): Username for ownership
-        group (str): Group name for ownership
-        mode (int): Permission mode in octal (default: 775)
-        
-    Raises:
-        ValueError: If path doesn't exist
-        PermissionError: If unable to set permissions or ownership
-        OSError: For other operating system related errors
+    UID and GID are read from environment variables.
+
+    :param path: Path to the file or directory
+    :param mode: Permission mode in octal (default: 775)
+    :return: None
+    :raises ValueError: If path doesn't exist or UID/GID env vars are invalid
+    :raises PermissionError: If unable to set permissions or ownership
+    :raises OSError: For other operating system related errors
     """
+    # collect UID:GID from .env
+    load_dotenv()
+    try:
+        uid = int(os.getenv("UID", "1005"))
+        gid = int(os.getenv("GID", "1001"))
+    except ValueError as e:
+        raise ValueError(f"Invalid UID/GID in environment variables: {e}")
+
     # Convert to Path object if string
     path = Path(path)
     
@@ -40,7 +45,7 @@ def set_permissions_and_ownership(
     
     try:
         # Set ownership and permissions for the path itself
-        shutil.chown(path, user=user, group=group)
+        shutil.chown(path, user=uid, group=gid)
         path.chmod(mode)
         
         logging.debug(f"Set permissions and ownership for: {path}")
@@ -49,7 +54,7 @@ def set_permissions_and_ownership(
         if path.is_dir():
             for item in path.rglob('*'):
                 try:
-                    shutil.chown(item, user=user, group=group)
+                    shutil.chown(item, user=uid, group=gid)
                     item.chmod(mode)
                     logging.debug(f"Set permissions and ownership for: {item}")
                 except (PermissionError, OSError) as e:

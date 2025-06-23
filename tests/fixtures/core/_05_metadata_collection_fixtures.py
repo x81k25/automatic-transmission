@@ -18,7 +18,9 @@ def process_media_with_existing_metadata_cases():
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 241554
+                    "tmdb_id": 241554,
+                    "media_type": "tv_show",
+                    "media_title": "Murderbot"
                 }
             ],
             "existing_metadata_data": [
@@ -26,6 +28,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 241554,
                     "imdb_id": "tt30444310",
                     "media_title": "Murderbot",
+                    "media_type": "tv_show",
                     "release_year": 2025,
                     "budget": None,
                     "revenue": None,
@@ -41,6 +44,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 241554,
                     "imdb_id": "tt30444310",
                     "media_title": "Murderbot",
+                    "media_type": "tv_show",
                     "release_year": 2025,
                     "tmdb_rating": 7.3
                 }
@@ -54,7 +58,9 @@ def process_media_with_existing_metadata_cases():
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 999999
+                    "tmdb_id": 999999,
+                    "media_type": "movie",
+                    "media_title": "Unknown Movie"
                 }
             ],
             "existing_metadata_data": [
@@ -62,6 +68,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 241554,
                     "imdb_id": "tt30444310",
                     "media_title": "Murderbot",
+                    "media_type": "tv_show",
                     "release_year": 2025,
                     "budget": None,
                     "revenue": None,
@@ -78,21 +85,27 @@ def process_media_with_existing_metadata_cases():
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 125935
+                    "tmdb_id": 125935,
+                    "media_type": "tv_show",
+                    "media_title": "Abbott Elementary"
                 },
                 {
                     "hash": "nomatch123456789012345678901234567890123456",
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 888888
+                    "tmdb_id": 888888,
+                    "media_type": "movie",
+                    "media_title": "Unknown Movie 2"
                 },
                 {
                     "hash": "match2345678901234567890123456789012345678901",
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 1244944
+                    "tmdb_id": 1244944,
+                    "media_type": "movie",
+                    "media_title": "The Woman in the Yard"
                 }
             ],
             "existing_metadata_data": [
@@ -100,6 +113,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 125935,
                     "imdb_id": "tt14218830",
                     "media_title": "Abbott Elementary",
+                    "media_type": "tv_show",
                     "release_year": 2021,
                     "tmdb_rating": Decimal("7.450"),
                     "genre": ["Comedy"]
@@ -108,6 +122,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 1244944,
                     "imdb_id": "tt31314296",
                     "media_title": "The Woman in the Yard",
+                    "media_type": "movie",
                     "release_year": 2025,
                     "budget": 12000000,
                     "revenue": 23307302,
@@ -119,13 +134,15 @@ def process_media_with_existing_metadata_cases():
                     "hash": "match1234567890123456789012345678901234567890",
                     "tmdb_id": 125935,
                     "imdb_id": "tt14218830",
-                    "media_title": "Abbott Elementary"
+                    "media_title": "Abbott Elementary",
+                    "media_type": "tv_show"
                 },
                 {
                     "hash": "match2345678901234567890123456789012345678901",
                     "tmdb_id": 1244944,
                     "imdb_id": "tt31314296",
-                    "media_title": "The Woman in the Yard"
+                    "media_title": "The Woman in the Yard",
+                    "media_type": "movie"
                 }
             ]
         },
@@ -137,14 +154,18 @@ def process_media_with_existing_metadata_cases():
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 83867
+                    "tmdb_id": 83867,
+                    "media_type": "tv_show",
+                    "media_title": "Andor"
                 },
                 {
                     "hash": "same2345678901234567890123456789012345678901",
                     "pipeline_status": "file_accepted",
                     "rejection_status": "override",
                     "error_status": False,
-                    "tmdb_id": 83867
+                    "tmdb_id": 83867,
+                    "media_type": "tv_show",
+                    "media_title": "Andor"
                 }
             ],
             "existing_metadata_data": [
@@ -152,6 +173,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 83867,
                     "imdb_id": "tt9253284",
                     "media_title": "Andor",
+                    "media_type": "tv_show",
                     "release_year": 2022,
                     "tmdb_rating": Decimal("8.248"),
                     "tmdb_votes": 1518,
@@ -163,13 +185,15 @@ def process_media_with_existing_metadata_cases():
                     "hash": "same1234567890123456789012345678901234567890",
                     "tmdb_id": 83867,
                     "imdb_id": "tt9253284",
-                    "media_title": "Andor"
+                    "media_title": "Andor",
+                    "media_type": "tv_show"
                 },
                 {
                     "hash": "same2345678901234567890123456789012345678901",
                     "tmdb_id": 83867,
                     "imdb_id": "tt9253284",
-                    "media_title": "Andor"
+                    "media_title": "Andor",
+                    "media_type": "tv_show"
                 }
             ]
         },
@@ -181,14 +205,18 @@ def process_media_with_existing_metadata_cases():
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 60694
+                    "tmdb_id": 60694,
+                    "media_type": "tv_show",
+                    "media_title": "Last Week Tonight with John Oliver"
                 },
                 {
                     "hash": "allmatch2345678901234567890123456789012345",
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 100088
+                    "tmdb_id": 100088,
+                    "media_type": "tv_show",
+                    "media_title": "The Last of Us"
                 }
             ],
             "existing_metadata_data": [
@@ -196,6 +224,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 60694,
                     "imdb_id": "tt3530232",
                     "media_title": "Last Week Tonight with John Oliver",
+                    "media_type": "tv_show",
                     "release_year": 2014,
                     "genre": ["Talk", "Comedy", "News"]
                 },
@@ -203,6 +232,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 100088,
                     "imdb_id": "tt3581920",
                     "media_title": "The Last of Us",
+                    "media_type": "tv_show",
                     "release_year": 2023,
                     "tmdb_rating": 8.554,
                     "genre": ["Drama"]
@@ -213,13 +243,15 @@ def process_media_with_existing_metadata_cases():
                     "hash": "allmatch1234567890123456789012345678901234",
                     "tmdb_id": 60694,
                     "imdb_id": "tt3530232",
-                    "media_title": "Last Week Tonight with John Oliver"
+                    "media_title": "Last Week Tonight with John Oliver",
+                    "media_type": "tv_show"
                 },
                 {
                     "hash": "allmatch2345678901234567890123456789012345",
                     "tmdb_id": 100088,
                     "imdb_id": "tt3581920",
-                    "media_title": "The Last of Us"
+                    "media_title": "The Last of Us",
+                    "media_type": "tv_show"
                 }
             ]
         },
@@ -231,14 +263,18 @@ def process_media_with_existing_metadata_cases():
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 777777
+                    "tmdb_id": 777777,
+                    "media_type": "movie",
+                    "media_title": "Unknown Movie 1"
                 },
                 {
                     "hash": "nomatch2345678901234567890123456789012345",
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 888888
+                    "tmdb_id": 888888,
+                    "media_type": "movie",
+                    "media_title": "Unknown Movie 2"
                 }
             ],
             "existing_metadata_data": [
@@ -246,12 +282,14 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 60694,
                     "imdb_id": "tt3530232",
                     "media_title": "Last Week Tonight with John Oliver",
+                    "media_type": "tv_show",
                     "release_year": 2014
                 },
                 {
                     "tmdb_id": 100088,
                     "imdb_id": "tt3581920",
                     "media_title": "The Last of Us",
+                    "media_type": "tv_show",
                     "release_year": 2023
                 }
             ],
@@ -265,14 +303,18 @@ def process_media_with_existing_metadata_cases():
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 814776
+                    "tmdb_id": 814776,
+                    "media_type": "movie",
+                    "media_title": "Bottoms"
                 },
                 {
                     "hash": "tvshow123456789012345678901234567890123456",
                     "pipeline_status": "file_accepted",
                     "rejection_status": "accepted",
                     "error_status": False,
-                    "tmdb_id": 1667
+                    "tmdb_id": 1667,
+                    "media_type": "tv_show",
+                    "media_title": "Saturday Night Live"
                 }
             ],
             "existing_metadata_data": [
@@ -280,6 +322,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 814776,
                     "imdb_id": "tt17527468",
                     "media_title": "Bottoms",
+                    "media_type": "movie",
                     "release_year": 2023,
                     "budget": 11300000,
                     "revenue": 12976079,
@@ -290,6 +333,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 1667,
                     "imdb_id": "tt0072562",
                     "media_title": "Saturday Night Live",
+                    "media_type": "tv_show",
                     "release_year": 1975,
                     "budget": None,
                     "revenue": None,
@@ -303,6 +347,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 814776,
                     "imdb_id": "tt17527468",
                     "media_title": "Bottoms",
+                    "media_type": "movie",
                     "budget": 11300000,
                     "revenue": 12976079,
                     "runtime": 91
@@ -312,6 +357,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 1667,
                     "imdb_id": "tt0072562",
                     "media_title": "Saturday Night Live",
+                    "media_type": "tv_show",
                     "budget": None,
                     "revenue": None,
                     "runtime": None
@@ -327,7 +373,8 @@ def process_media_with_existing_metadata_cases():
                     "rejection_status": "accepted",
                     "error_status": False,
                     "tmdb_id": 38705,
-                    "media_title": "Old Title"  # This should get overwritten
+                    "media_type": "movie",
+                    "media_title": "Old Title"  # This should be retained
                 }
             ],
             "existing_metadata_data": [
@@ -335,6 +382,7 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 38705,
                     "imdb_id": "tt0011071",
                     "media_title": "Convict 13",
+                    "media_type": "movie",
                     "release_year": 1920,
                     "budget": 0,
                     "revenue": 0,
@@ -346,7 +394,8 @@ def process_media_with_existing_metadata_cases():
                     "hash": "partial123456789012345678901234567890123456",
                     "tmdb_id": 38705,
                     "imdb_id": "tt0011071",
-                    "media_title": "Convict 13",  # Should be updated from metadata
+                    "media_title": "Old Title",  # Should be retained from input
+                    "media_type": "movie",
                     "release_year": 1920,
                     "budget": 0,
                     "revenue": 0,

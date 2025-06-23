@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.6.19]
+- various bug fixes to parsing operations
+- resolved pesky bug that was leading to issues in file transfer when deployed from within container
+  - add proper mounts to the 09_transfer container op in Dagster
+    - no changes here
+  - configured local file operations to use uid:gid instead of usernames
+- resolved bug where metadata_collection would flip tv_season -> tv_show values 
+- added full unit test coverage for 01_rss_ingest
+
 ## [5.6.10]
 - add dockerfiles for project
   - created 1 initial dockerfile that create a based image with all dependencies
