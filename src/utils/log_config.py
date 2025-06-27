@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 def setup_logging():
     """
-    Configure logging based on LOG_LEVEL environment variable.
+    Configure logging based on AT_LOG_LEVEL environment variable.
 
     Sets up different logging formats and levels for INFO vs DEBUG,
     and configures third-party library log levels.
@@ -15,7 +15,7 @@ def setup_logging():
     # Load environment variables
     load_dotenv(override=True)
 
-    log_level = os.getenv('LOG_LEVEL', default="INFO")
+    log_level = os.getenv('AT_LOG_LEVEL') or "DEBUG"
 
     if log_level == "INFO":
         logging.basicConfig(

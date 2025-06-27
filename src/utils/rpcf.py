@@ -14,7 +14,7 @@ from transmission_rpc import Client as Transmission_client
 load_dotenv(override=True)
 
 # transmission connection details
-hostname=os.getenv('SERVER_IP')
+hostname=os.getenv('TRANSMISSION_HOST')
 transmission_username = os.getenv('TRANSMISSION_USERNAME')
 transmission_password = os.getenv('TRANSMISSION_PASSWORD')
 transmission_port = os.getenv('TRANSMISSION_PORT')

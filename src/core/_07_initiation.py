@@ -80,7 +80,7 @@ def initiate_media_download():
     :debug: batch=0
     """
     # pipeline env vars
-    batch_size = os.getenv('BATCH_SIZE')
+    batch_size = int(os.getenv('AT_BATCH_SIZE') or "50")
 
     # read in existing data based
     media = utils.get_media_from_db(pipeline_status=PipelineStatus.MEDIA_ACCEPTED)
@@ -90,14 +90,14 @@ def initiate_media_download():
         return
 
      # batch up operations to avoid API rate limiting
-    number_of_batches = (media.df.height + 49) // 50
+    number_of_batches = (media.df.height + (batch_size-1)) // batch_size
 
     for batch in range(number_of_batches):
         logging.debug(f"starting initiation batch {batch+1}/{number_of_batches}")
 
         # set batch indices
-        batch_start_index = batch * 50
-        batch_end_index = min((batch + 1) * 50, media.df.height)
+        batch_start_index = batch * batch_size
+        batch_end_index = min((batch + 1) * batch_size, media.df.height)
 
         # create media batch as proper MediaDataFrame to perform data validation
         media_batch = MediaDataFrame(media.df[batch_start_index:batch_end_index])

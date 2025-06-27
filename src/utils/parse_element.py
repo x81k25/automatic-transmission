@@ -281,7 +281,9 @@ def extract_uploader(raw_title: str) -> str | None:
         'GGEZ',
         'playWEB',
         'MeGusta',
-        'ELiTE'
+        'ELiTE',
+        'RARBG',
+        'SMURF'
     ]
 
     # Create pattern for uploaders with optional separators

@@ -169,8 +169,8 @@ def rss_ingest_workflow_cases():
         {
             "description": "Complete workflow with both RSS sources and new entries",
             "env_vars": {
-                "RSS_SOURCES": "yts.mx,episodefeed.com",
-                "RSS_URLS": "https://yts.mx/rss/,https://episodefeed.com/rss/148/abc123"
+                "AT_RSS_SOURCES": "yts.mx,episodefeed.com",
+                "AT_RSS_URLS": "https://yts.mx/rss/,https://episodefeed.com/rss/148/abc123"
             },
             "mock_feed_data": [
                 {
@@ -217,8 +217,8 @@ def rss_ingest_workflow_cases():
         {
             "description": "Workflow with duplicate entries within same ingest",
             "env_vars": {
-                "RSS_SOURCES": "yts.mx,yts.mx",
-                "RSS_URLS": "https://yts.mx/rss/1,https://yts.mx/rss/2"
+                "AT_RSS_SOURCES": "yts.mx,yts.mx",
+                "AT_RSS_URLS": "https://yts.mx/rss/1,https://yts.mx/rss/2"
             },
             "mock_feed_data": [
                 {
@@ -260,8 +260,8 @@ def rss_ingest_workflow_cases():
         {
             "description": "Workflow with all entries already in database",
             "env_vars": {
-                "RSS_SOURCES": "yts.mx",
-                "RSS_URLS": "https://yts.mx/rss/"
+                "AT_RSS_SOURCES": "yts.mx",
+                "AT_RSS_URLS": "https://yts.mx/rss/"
             },
             "mock_feed_data": [
                 {
@@ -284,8 +284,8 @@ def rss_ingest_workflow_cases():
         {
             "description": "Workflow with mismatched RSS sources and URLs",
             "env_vars": {
-                "RSS_SOURCES": "yts.mx",
-                "RSS_URLS": "https://yts.mx/rss/,https://extra.com/rss/"
+                "AT_RSS_SOURCES": "yts.mx",
+                "AT_RSS_URLS": "https://yts.mx/rss/,https://extra.com/rss/"
             },
             "mock_feed_data": [],
             "mock_db_hashes": [],
@@ -296,8 +296,8 @@ def rss_ingest_workflow_cases():
         {
             "description": "Workflow with empty RSS feeds",
             "env_vars": {
-                "RSS_SOURCES": "yts.mx,episodefeed.com",
-                "RSS_URLS": "https://yts.mx/rss/,https://episodefeed.com/rss/"
+                "AT_RSS_SOURCES": "yts.mx,episodefeed.com",
+                "AT_RSS_URLS": "https://yts.mx/rss/,https://episodefeed.com/rss/"
             },
             "mock_feed_data": [
                 {

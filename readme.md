@@ -175,59 +175,59 @@ create a `.env` file with the following parameters customized for your setup:
 
 ```bash
 # Batch processing
-BATCH_SIZE=50                    # Controls batch sizes for scripts with external dependencies
-LOG_LEVEL=DEBUG                  # Sets log level (DEBUG, INFO, WARNING, ERROR)
+AT_BATCH_SIZE=50                    # Controls batch sizes for scripts with external dependencies
+AT_LOG_LEVEL=DEBUG                  # Sets log level (DEBUG, INFO, WARNING, ERROR)
 
 # Metadata collection
-STALE_METADATA_THRESHOLD=30      # Days after which metadata is considered stale and recollected
+AT_STALE_METADATA_THRESHOLD=30      # Days after which metadata is considered stale and recollected
 
 # Media filtration  
-REEL_DRIVER_THRESHOLD=0.35       # Minimum prediction probability for acceptance
+AT_REEL_DRIVER_THRESHOLD=0.35       # Minimum prediction probability for acceptance
 
 # Cleanup automation
-TARGET_ACTIVE_ITEMS=10           # Soft cap on download items (modulates cleanup timing)
-TRANSFERRED_ITEM_CLEANUP_DELAY=0 # Days to wait before removing completed items (0 = immediate)
-HUNG_ITEM_CLEANUP_DELAY=1        # Days to wait before removing stalled downloads
+AT_TARGET_ACTIVE_ITEMS=10           # Soft cap on download items (modulates cleanup timing)
+AT_TRANSFERRED_ITEM_CLEANUP_DELAY=0 # Days to wait before removing completed items (0 = immediate)
+AT_HUNG_ITEM_CLEANUP_DELAY=1        # Days to wait before removing stalled downloads
 ```
 
 ### service credentials
 
 ```bash
 # Transmission daemon
-SERVER_IP=your_server_ip
+TRANSMISSION_HOST=your_server_ip
 TRANSMISSION_USERNAME=your_username
 TRANSMISSION_PASSWORD=your_password
 TRANSMISSION_PORT=9091
 
 # PostgreSQL database
-PG_ENDPOINT=your_postgres_host
-PG_PORT=5432
-PG_DATABASE=your_database_name
-PG_USERNAME=your_postgres_username
-PG_PASSWORD=your_postgres_password
-PG_SCHEMA=your_schema_name
+AT_PGSQL_ENDPOINT=your_postgres_host
+AT_PGSQL_PORT=5432
+AT_PGSQL_DATABASE=your_database_name
+AT_PGSQL_USERNAME=your_postgres_username
+AT_PGSQL_PASSWORD=your_postgres_password
+AT_PGSQL_SCHEMA=your_schema_name
 ```
 
 ### API keys
 
 ```bash
 # TMDB API (for movie metadata)
-MOVIE_SEARCH_API_BASE_URL=https://api.themoviedb.org/3/search/movie
-MOVIE_DETAILS_API_BASE_URL=https://api.themoviedb.org/3/movie
-MOVIE_SEARCH_API_KEY=your_tmdb_api_key
-MOVIE_DETAILS_API_KEY=your_tmdb_api_key
+AT_MOVIE_SEARCH_API_BASE_URL=https://api.themoviedb.org/3/search/movie
+AT_MOVIE_DETAILS_API_BASE_URL=https://api.themoviedb.org/3/movie
+AT_MOVIE_SEARCH_API_KEY=your_tmdb_api_key
+AT_MOVIE_DETAILS_API_KEY=your_tmdb_api_key
 
 # TMDB API (for TV metadata)  
-TV_SEARCH_API_BASE_URL=https://api.themoviedb.org/3/search/tv
-TV_DETAILS_API_BASE_URL=https://api.themoviedb.org/3/tv
-TV_SEARCH_API_KEY=your_tmdb_api_key
-TV_DETAILS_API_KEY=your_tmdb_api_key
+AT_TV_SEARCH_API_BASE_URL=https://api.themoviedb.org/3/search/tv
+AT_TV_DETAILS_API_BASE_URL=https://api.themoviedb.org/3/tv
+AT_TV_SEARCH_API_KEY=your_tmdb_api_key
+AT_TV_DETAILS_API_KEY=your_tmdb_api_key
 
 # OMDb API (for ratings)
-MOVIE_RATINGS_API_BASE_URL=https://www.omdbapi.com/
-MOVIE_RATINGS_API_KEY=your_omdb_api_key
-TV_RATINGS_API_BASE_URL=https://www.omdbapi.com/
-TV_RATINGS_API_KEY=your_omdb_api_key
+AT_MOVIE_RATINGS_API_BASE_URL=https://www.omdbapi.com/
+AT_MOVIE_RATINGS_API_KEY=your_omdb_api_key
+AT_TV_RATINGS_API_BASE_URL=https://www.omdbapi.com/
+AT_TV_RATINGS_API_KEY=your_omdb_api_key
 
 # Reel-driver API (optional ML scoring)
 REEL_DRIVER_HOST=your_reel_driver_host
@@ -239,8 +239,8 @@ REEL_DRIVER_PREFIX=api_prefix
 
 ```bash
 # RSS feed configuration (sources and URLs must be in same order)
-RSS_SOURCES=yts.mx,episodefeed.com
-RSS_URLS=your_movie_rss_url,your_tv_show_rss_url
+AT_RSS_SOURCES=yts.mx,episodefeed.com
+AT_RSS_URLS=your_movie_rss_url,your_tv_show_rss_url
 ```
 > **RSS Setup:** Generate feeds at [YTS](https://yts.torrentbay.st/rss-guide) for movies and [episodefeed](https://episodefeed.com/) for TV shows
 
@@ -248,9 +248,9 @@ RSS_URLS=your_movie_rss_url,your_tv_show_rss_url
 
 ```bash
 # File system paths
-DOWNLOAD_DIR=/path/to/transmission/downloads
-MOVIE_DIR=/path/to/movie/library
-TV_SHOW_DIR=/path/to/tv/library
+AT_DOWNLOAD_DIR=/path/to/transmission/downloads
+AT_MOVIE_DIR=/path/to/movie/library
+AT_TV_SHOW_DIR=/path/to/tv/library
 ```
 
 ### configuration files

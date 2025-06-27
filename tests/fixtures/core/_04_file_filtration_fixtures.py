@@ -482,3 +482,164 @@ def update_status_cases():
             ]
         }
     ]
+
+
+@pytest.fixture
+def filter_files_workflow_cases():
+    """Test scenarios for filter_files workflow integration."""
+    return [
+        {
+            "description": "No media to filter - early return",
+            "input_media": None,
+            "expected_db_update_calls": 0,
+            "expected_outputs": []
+        },
+        {
+            "description": "Single movie passes all filters",
+            "input_media": [
+                {
+                    "hash": "goodmovie123456789012345678901234567890123",
+                    "media_type": "movie",
+                    "media_title": "Good Movie",
+                    "release_year": 2020,
+                    "resolution": "1080p",
+                    "pipeline_status": "parsed",
+                    "error_status": False,
+                    "rejection_status": "unfiltered",
+                    "rejection_reason": None
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_outputs": [
+                {
+                    "hash": "goodmovie123456789012345678901234567890123",
+                    "rejection_status": "accepted",
+                    "pipeline_status": "file_accepted"
+                }
+            ]
+        },
+        {
+            "description": "Single movie fails filters and gets rejected",
+            "input_media": [
+                {
+                    "hash": "badmovie123456789012345678901234567890123",
+                    "media_type": "movie",
+                    "media_title": "Bad Movie",
+                    "release_year": 2020,
+                    "resolution": "720p",
+                    "pipeline_status": "parsed",
+                    "error_status": False,
+                    "rejection_status": "unfiltered",
+                    "rejection_reason": None
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_outputs": [
+                {
+                    "hash": "badmovie123456789012345678901234567890123",
+                    "rejection_status": "rejected",
+                    "pipeline_status": "rejected"
+                }
+            ]
+        },
+        {
+            "description": "Mixed media with some accepted and some rejected",
+            "input_media": [
+                {
+                    "hash": "accept123456789012345678901234567890123456",
+                    "media_type": "movie",
+                    "media_title": "Accepted Movie",
+                    "release_year": 2020,
+                    "resolution": "1080p",
+                    "pipeline_status": "parsed",
+                    "error_status": False,
+                    "rejection_status": "unfiltered",
+                    "rejection_reason": None
+                },
+                {
+                    "hash": "reject123456789012345678901234567890123456",
+                    "media_type": "movie",
+                    "media_title": "Rejected Movie",
+                    "release_year": 2020,
+                    "resolution": "720p",
+                    "pipeline_status": "parsed",
+                    "error_status": False,
+                    "rejection_status": "unfiltered",
+                    "rejection_reason": None
+                },
+                {
+                    "hash": "tvshow123456789012345678901234567890123456",
+                    "media_type": "tv_show",
+                    "media_title": "TV Show",
+                    "season": 1,
+                    "episode": 1,
+                    "resolution": "720p",
+                    "pipeline_status": "parsed",
+                    "error_status": False,
+                    "rejection_status": "unfiltered",
+                    "rejection_reason": None
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_outputs": [
+                {
+                    "hash": "accept123456789012345678901234567890123456",
+                    "rejection_status": "accepted",
+                    "pipeline_status": "file_accepted"
+                },
+                {
+                    "hash": "reject123456789012345678901234567890123456",
+                    "rejection_status": "rejected",
+                    "pipeline_status": "rejected"
+                },
+                {
+                    "hash": "tvshow123456789012345678901234567890123456",
+                    "rejection_status": "accepted",
+                    "pipeline_status": "file_accepted"
+                }
+            ]
+        },
+        {
+            "description": "Override status items pass through regardless of filters",
+            "input_media": [
+                {
+                    "hash": "override123456789012345678901234567890123456",
+                    "media_type": "movie",
+                    "media_title": "Override Movie",
+                    "release_year": 2020,
+                    "resolution": "720p",
+                    "pipeline_status": "parsed",
+                    "error_status": False,
+                    "rejection_status": "override",
+                    "rejection_reason": None
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_outputs": [
+                {
+                    "hash": "override123456789012345678901234567890123456",
+                    "rejection_status": "override",
+                    "pipeline_status": "file_accepted"
+                }
+            ]
+        },
+        {
+            "description": "Item with processing error",
+            "input_media": [
+                {
+                    "hash": "error123456789012345678901234567890123456",
+                    "media_type": "movie",
+                    "media_title": "Error Movie",
+                    "release_year": 2020,
+                    "resolution": "1080p",
+                    "pipeline_status": "parsed",
+                    "error_status": True,
+                    "error_condition": "test error condition",
+                    "rejection_status": "unfiltered",
+                    "rejection_reason": None
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_outputs": []
+        }
+    ]

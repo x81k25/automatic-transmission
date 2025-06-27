@@ -1,5 +1,9 @@
 # Changelog
 
+## [5.6.27]
+- added specificity to env vars
+- src/core unit testing coverage at 100%
+
 ## [5.6.19]
 - various bug fixes to parsing operations
 - resolved pesky bug that was leading to issues in file transfer when deployed from within container

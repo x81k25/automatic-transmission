@@ -357,3 +357,268 @@ def update_rejected_status_cases():
             ]
         }
     ]
+
+
+@pytest.fixture
+def collect_media_workflow_cases():
+    """Test scenarios for collect_media workflow integration."""
+    return [
+        {
+            "description": "No transmission items - early return",
+            "current_transmission_items": None,
+            "expected_insert_calls": 0,
+            "expected_update_calls": 0
+        },
+        {
+            "description": "Empty transmission items - early return",
+            "current_transmission_items": {},
+            "new_hashes": [],
+            "rejected_hashes": [],
+            "expected_insert_calls": 0,
+            "expected_update_calls": 0
+        },
+        {
+            "description": "Single new item - insert only",
+            "current_transmission_items": {
+                "newhash123456789012345678901234567890123": {
+                    "id": 1,
+                    "name": "New Movie (2024) [1080p] [BluRay]",
+                    "progress": 50.0,
+                    "status": "downloading"
+                }
+            },
+            "new_hashes": ["newhash123456789012345678901234567890123"],
+            "rejected_hashes": [],
+            "expected_insert_calls": 1,
+            "expected_update_calls": 0,
+            "expected_insert_items": [
+                {
+                    "hash": "newhash123456789012345678901234567890123",
+                    "original_title": "New Movie (2024) [1080p] [BluRay]",
+                    "media_type": "movie",
+                    "rejection_status": "override",
+                    "pipeline_status": "ingested"
+                }
+            ]
+        },
+        {
+            "description": "Single rejected item - update only",
+            "current_transmission_items": {
+                "rejectedhash123456789012345678901234567890": {
+                    "id": 2,
+                    "name": "Rejected Movie (2023) [720p]",
+                    "progress": 75.0,
+                    "status": "downloading"
+                }
+            },
+            "new_hashes": [],
+            "rejected_hashes": ["rejectedhash123456789012345678901234567890"],
+            "rejected_media": [
+                {
+                    "hash": "rejectedhash123456789012345678901234567890",
+                    "original_title": "Rejected Movie (2023) [720p]",
+                    "media_type": "movie",
+                    "media_title": "Rejected Movie",
+                    "rejection_status": "rejected",
+                    "rejection_reason": "resolution 720p is not in allowed_values",
+                    "pipeline_status": "media_rejected"
+                }
+            ],
+            "expected_insert_calls": 0,
+            "expected_update_calls": 1,
+            "expected_update_items": [
+                {
+                    "hash": "rejectedhash123456789012345678901234567890",
+                    "rejection_status": "override"
+                }
+            ]
+        },
+        {
+            "description": "Mixed new and rejected items",
+            "current_transmission_items": {
+                "newhash234567890123456789012345678901234": {
+                    "id": 3,
+                    "name": "New Show S01E01 1080p WEB-DL",
+                    "progress": 25.0,
+                    "status": "downloading"
+                },
+                "rejectedhash345678901234567890123456789012": {
+                    "id": 4,
+                    "name": "Previously Rejected Movie (2022) [720p]",
+                    "progress": 90.0,
+                    "status": "downloading"
+                }
+            },
+            "new_hashes": ["newhash234567890123456789012345678901234"],
+            "rejected_hashes": ["rejectedhash345678901234567890123456789012"],
+            "rejected_media": [
+                {
+                    "hash": "rejectedhash345678901234567890123456789012",
+                    "original_title": "Previously Rejected Movie (2022) [720p]",
+                    "media_type": "movie",
+                    "media_title": "Previously Rejected Movie",
+                    "rejection_status": "rejected",
+                    "rejection_reason": "probability 0.1 below threshold 0.35",
+                    "pipeline_status": "media_rejected"
+                }
+            ],
+            "expected_insert_calls": 1,
+            "expected_update_calls": 1,
+            "expected_insert_items": [
+                {
+                    "hash": "newhash234567890123456789012345678901234",
+                    "original_title": "New Show S01E01 1080p WEB-DL",
+                    "media_type": "tv_show",
+                    "rejection_status": "override",
+                    "pipeline_status": "ingested"
+                }
+            ],
+            "expected_update_items": [
+                {
+                    "hash": "rejectedhash345678901234567890123456789012",
+                    "rejection_status": "override"
+                }
+            ]
+        },
+        {
+            "description": "Multiple new items with hash-only name filtered out",
+            "current_transmission_items": {
+                "goodhash123456789012345678901234567890123": {
+                    "id": 5,
+                    "name": "Good Movie (2024) [1080p]",
+                    "progress": 10.0,
+                    "status": "downloading"
+                },
+                "badhash234567890123456789012345678901234": {
+                    "id": 6,
+                    "name": "badhash234567890123456789012345678901234",
+                    "progress": 20.0,
+                    "status": "downloading"
+                },
+                "tvhash345678901234567890123456789012345": {
+                    "id": 7,
+                    "name": "TV Season S02 Complete 1080p",
+                    "progress": 30.0,
+                    "status": "downloading"
+                }
+            },
+            "new_hashes": [
+                "goodhash123456789012345678901234567890123",
+                "badhash234567890123456789012345678901234",
+                "tvhash345678901234567890123456789012345"
+            ],
+            "rejected_hashes": [],
+            "expected_insert_calls": 1,
+            "expected_update_calls": 0,
+            "expected_insert_items": [
+                {
+                    "hash": "goodhash123456789012345678901234567890123",
+                    "original_title": "Good Movie (2024) [1080p]",
+                    "media_type": "movie",
+                    "rejection_status": "override",
+                    "pipeline_status": "ingested"
+                },
+                {
+                    "hash": "tvhash345678901234567890123456789012345",
+                    "original_title": "TV Season S02 Complete 1080p",
+                    "media_type": "tv_season",
+                    "rejection_status": "override",
+                    "pipeline_status": "ingested"
+                }
+            ]
+        },
+        {
+            "description": "Item with unknown media type gets error condition",
+            "current_transmission_items": {
+                "unknownhash123456789012345678901234567890": {
+                    "id": 8,
+                    "name": "Strange.File.Without.Clear.Type.123",
+                    "progress": 60.0,
+                    "status": "downloading"
+                }
+            },
+            "new_hashes": ["unknownhash123456789012345678901234567890"],
+            "rejected_hashes": [],
+            "expected_insert_calls": 1,
+            "expected_update_calls": 0,
+            "expected_insert_items": [
+                {
+                    "hash": "unknownhash123456789012345678901234567890",
+                    "original_title": "Strange.File.Without.Clear.Type.123",
+                    "media_type": "unknown",
+                    "rejection_status": "override",
+                    "error_condition": "media_type is unknown",
+                    "pipeline_status": "ingested"
+                }
+            ]
+        },
+        {
+            "description": "All items already in database - no new or rejected",
+            "current_transmission_items": {
+                "existinghash123456789012345678901234567890": {
+                    "id": 9,
+                    "name": "Existing Movie (2024) [1080p]",
+                    "progress": 100.0,
+                    "status": "seeding"
+                }
+            },
+            "new_hashes": [],
+            "rejected_hashes": [],
+            "expected_insert_calls": 0,
+            "expected_update_calls": 0
+        },
+        {
+            "description": "Multiple rejected items with different rejection reasons",
+            "current_transmission_items": {
+                "reject1hash123456789012345678901234567890": {
+                    "id": 10,
+                    "name": "Low Probability Movie (2023) [1080p]",
+                    "progress": 85.0,
+                    "status": "downloading"
+                },
+                "reject2hash234567890123456789012345678901": {
+                    "id": 11,
+                    "name": "Bad Resolution Show S01E01 720p",
+                    "progress": 95.0,
+                    "status": "downloading"
+                }
+            },
+            "new_hashes": [],
+            "rejected_hashes": [
+                "reject1hash123456789012345678901234567890",
+                "reject2hash234567890123456789012345678901"
+            ],
+            "rejected_media": [
+                {
+                    "hash": "reject1hash123456789012345678901234567890",
+                    "original_title": "Low Probability Movie (2023) [1080p]",
+                    "media_type": "movie",
+                    "media_title": "Low Probability Movie",
+                    "rejection_status": "rejected",
+                    "rejection_reason": "probability 0.15 below threshold 0.35",
+                    "pipeline_status": "media_rejected"
+                },
+                {
+                    "hash": "reject2hash234567890123456789012345678901",
+                    "original_title": "Bad Resolution Show S01E01 720p",
+                    "media_type": "tv_show",
+                    "media_title": "Bad Resolution Show",
+                    "rejection_status": "rejected",
+                    "rejection_reason": "resolution 720p is not in allowed_values",
+                    "pipeline_status": "file_rejected"
+                }
+            ],
+            "expected_insert_calls": 0,
+            "expected_update_calls": 1,
+            "expected_update_items": [
+                {
+                    "hash": "reject1hash123456789012345678901234567890",
+                    "rejection_status": "override"
+                },
+                {
+                    "hash": "reject2hash234567890123456789012345678901",
+                    "rejection_status": "override"
+                }
+            ]
+        }
+    ]

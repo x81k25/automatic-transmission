@@ -87,8 +87,8 @@ def rss_ingest():
     full ingest pipeline for either movies or tv shows
     """
     # retrieve rss feed based on ingest_type
-    rss_sources = os.getenv('RSS_SOURCES').split(',')
-    rss_urls = os.getenv('RSS_URLS').split(',')
+    rss_sources = os.getenv('AT_RSS_SOURCES').split(',')
+    rss_urls = os.getenv('AT_RSS_URLS').split(',')
 
     # confirm sources and urls or equal length, and if not return
     if len(rss_sources) != len(rss_urls):
