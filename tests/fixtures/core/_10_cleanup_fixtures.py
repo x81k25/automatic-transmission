@@ -54,7 +54,7 @@ def get_delay_multiple_error_cases():
             "target_active_items": "-1",
             "current_item_count": 5,
             "expected_error": ValueError,
-            "expected_error_message": "AT_TARGET_ACTIVE_ITEMS value of -1.0 is less than 0 and no permitted"
+            "expected_error_message": "AT_TARGET_ACTIVE_ITEMS value of -1.0 is less than 0 and not permitted"
         }
     ]
 
@@ -327,7 +327,7 @@ def cleanup_media_error_cases():
                 "AT_TARGET_ACTIVE_ITEMS": "10"
             },
             "expected_error": ValueError,
-            "expected_error_message": "AT_TRANSFERRED_ITEM_CLEANUP_DELAY value of -1.0 is less than 0 and no permitted"
+            "expected_error_message": "AT_TRANSFERRED_ITEM_CLEANUP_DELAY value of -1.0 is less than 0 and not permitted"
         },
         {
             "description": "Negative HUNG_ITEM_CLEANUP_DELAY does not raise error (due to bug in source)", 
@@ -335,6 +335,8 @@ def cleanup_media_error_cases():
                 "AT_TRANSFERRED_ITEM_CLEANUP_DELAY": "1",
                 "AT_HUNG_ITEM_CLEANUP_DELAY": "-3",
                 "AT_TARGET_ACTIVE_ITEMS": "10"
-            }
+            },
+            "expected_error": ValueError,
+            "expected_error_message": "AT_HUNG_ITEM_CLEANUP_DELAY value of -3.0 is less than 0 and not permitted"
         }
     ]

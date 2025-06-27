@@ -23,7 +23,7 @@ def get_delay_multiple() -> float:
     # get pipeline env vars
     target_active_items = float(os.getenv('AT_TARGET_ACTIVE_ITEMS') or "10")
     if target_active_items < 0:
-        raise ValueError(f"AT_TARGET_ACTIVE_ITEMS value of {target_active_items} is less than 0 and no permitted")
+        raise ValueError(f"AT_TARGET_ACTIVE_ITEMS value of {target_active_items} is less than 0 and not permitted")
 
     # if TARGET_ACTIVE_ITEMS is 0, do not modulate
     if target_active_items == 0:
@@ -202,11 +202,11 @@ def cleanup_media():
     # get pipeline env vars
     transferred_item_cleanup_delay = float(os.getenv('AT_TRANSFERRED_ITEM_CLEANUP_DELAY') or "0")
     if transferred_item_cleanup_delay < 0:
-        raise ValueError(f"AT_TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and no permitted")
+        raise ValueError(f"AT_TRANSFERRED_ITEM_CLEANUP_DELAY value of {transferred_item_cleanup_delay} is less than 0 and not permitted")
 
     hung_item_cleanup_delay = float(os.getenv('AT_HUNG_ITEM_CLEANUP_DELAY') or "1")
     if hung_item_cleanup_delay < 0:
-        raise ValueError(f"AT_HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and no permitted")
+        raise ValueError(f"AT_HUNG_ITEM_CLEANUP_DELAY value of {hung_item_cleanup_delay} is less than 0 and not permitted")
 
     # get delay multiple
     delay_multiple =  get_delay_multiple()
