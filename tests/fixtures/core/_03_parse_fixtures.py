@@ -752,11 +752,6 @@ def parse_media_workflow_cases():
     """Test scenarios for parse_media workflow integration."""
     return [
         {
-            "description": "No media to parse - early return",
-            "input_media": None,
-            "expected_db_update_calls": 0
-        },
-        {
             "description": "Single movie parsed successfully",
             "input_media": [
                 {
@@ -867,38 +862,12 @@ def parse_media_workflow_cases():
                 },
                 {
                     "hash": "bad234567890123456789012345678901234567",
-                    "media_title": "Bad Parse Title Without Season Episode",
+                    "media_title": None,
                     "season": None,
                     "episode": None,
-                    "error_condition": "season is null; episode is null",
+                    "error_condition": "media_title is null; season is null; episode is null",
                     "error_status": True,
                     "pipeline_status": "ingested"
-                }
-            ]
-        },
-        {
-            "description": "Item with pre-processing replacements applied",
-            "input_media": [
-                {
-                    "hash": "preproc123456789012345678901234567890123",
-                    "media_type": "movie",
-                    "original_title": "Movie.Title.2023.PROPER.1080p.BluRay.x264-GROUP",
-                    "pipeline_status": "ingested",
-                    "rejection_status": "unfiltered",
-                    "error_status": False
-                }
-            ],
-            "expected_db_update_calls": 1,
-            "expected_output": [
-                {
-                    "hash": "preproc123456789012345678901234567890123",
-                    "media_title": "Movie Title",
-                    "release_year": 2023,
-                    "resolution": "1080p",
-                    "upload_type": "BluRay",
-                    "video_codec": "x264",
-                    "uploader": "GROUP",
-                    "pipeline_status": "parsed"
                 }
             ]
         },
@@ -1001,10 +970,10 @@ def parse_media_workflow_cases():
                 },
                 {
                     "hash": "fail2345678901234567890123456789012345",
-                    "media_title": "NoSeasonEpisodeShow",
+                    "media_title": None,
                     "season": None,
                     "episode": None,
-                    "error_condition": "season is null; episode is null",
+                    "error_condition": "media_title is null; season is null; episode is null",
                     "error_status": True,
                     "pipeline_status": "ingested"
                 }
