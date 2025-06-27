@@ -745,3 +745,269 @@ def update_status_cases():
             ]
         }
     ]
+
+
+@pytest.fixture
+def parse_media_workflow_cases():
+    """Test scenarios for parse_media workflow integration."""
+    return [
+        {
+            "description": "No media to parse - early return",
+            "input_media": None,
+            "expected_db_update_calls": 0
+        },
+        {
+            "description": "Single movie parsed successfully",
+            "input_media": [
+                {
+                    "hash": "movie123456789012345678901234567890123456",
+                    "media_type": "movie",
+                    "original_title": "The Matrix (1999) [1080p] [BluRay] [x264] [YTS.MX]",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_output": [
+                {
+                    "hash": "movie123456789012345678901234567890123456",
+                    "media_title": "The Matrix",
+                    "release_year": 1999,
+                    "resolution": "1080p",
+                    "upload_type": "BluRay",
+                    "video_codec": "x264",
+                    "uploader": "YTS.MX",
+                    "pipeline_status": "parsed"
+                }
+            ]
+        },
+        {
+            "description": "Single TV show parsed successfully",
+            "input_media": [
+                {
+                    "hash": "tvshow123456789012345678901234567890123456",
+                    "media_type": "tv_show",
+                    "original_title": "Breaking Bad S01E01 Pilot 1080p WEB-DL DD5.1 H264-RARBG",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_output": [
+                {
+                    "hash": "tvshow123456789012345678901234567890123456",
+                    "media_title": "Breaking Bad",
+                    "season": 1,
+                    "episode": 1,
+                    "resolution": "1080p",
+                    "upload_type": "WEB-DL",
+                    "audio_codec": "DD5.1",
+                    "video_codec": "H264",
+                    "uploader": "RARBG",
+                    "pipeline_status": "parsed"
+                }
+            ]
+        },
+        {
+            "description": "Single TV season parsed successfully",
+            "input_media": [
+                {
+                    "hash": "tvseason123456789012345678901234567890123",
+                    "media_type": "tv_season",
+                    "original_title": "The Office S03 Complete 720p BluRay x265-HEVC",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_output": [
+                {
+                    "hash": "tvseason123456789012345678901234567890123",
+                    "media_title": "The Office",
+                    "season": 3,
+                    "resolution": "720p",
+                    "upload_type": "BluRay",
+                    "video_codec": "x265",
+                    "pipeline_status": "parsed"
+                }
+            ]
+        },
+        {
+            "description": "Mixed items with parse errors",
+            "input_media": [
+                {
+                    "hash": "good123456789012345678901234567890123456",
+                    "media_type": "movie",
+                    "original_title": "Good Movie (2020) [1080p] [BluRay]",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                },
+                {
+                    "hash": "bad234567890123456789012345678901234567",
+                    "media_type": "tv_show",
+                    "original_title": "Bad Parse Title Without Season Episode",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_output": [
+                {
+                    "hash": "good123456789012345678901234567890123456",
+                    "media_title": "Good Movie",
+                    "release_year": 2020,
+                    "resolution": "1080p",
+                    "upload_type": "BluRay",
+                    "pipeline_status": "parsed"
+                },
+                {
+                    "hash": "bad234567890123456789012345678901234567",
+                    "media_title": "Bad Parse Title Without Season Episode",
+                    "season": None,
+                    "episode": None,
+                    "error_condition": "season is null; episode is null",
+                    "error_status": True,
+                    "pipeline_status": "ingested"
+                }
+            ]
+        },
+        {
+            "description": "Item with pre-processing replacements applied",
+            "input_media": [
+                {
+                    "hash": "preproc123456789012345678901234567890123",
+                    "media_type": "movie",
+                    "original_title": "Movie.Title.2023.PROPER.1080p.BluRay.x264-GROUP",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_output": [
+                {
+                    "hash": "preproc123456789012345678901234567890123",
+                    "media_title": "Movie Title",
+                    "release_year": 2023,
+                    "resolution": "1080p",
+                    "upload_type": "BluRay",
+                    "video_codec": "x264",
+                    "uploader": "GROUP",
+                    "pipeline_status": "parsed"
+                }
+            ]
+        },
+        {
+            "description": "Multiple items all parsed successfully",
+            "input_media": [
+                {
+                    "hash": "multi1234567890123456789012345678901234",
+                    "media_type": "movie",
+                    "original_title": "Inception (2010) [2160p] [4K] [BluRay] [x265] [10bit] [HDR] [YTS.MX]",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                },
+                {
+                    "hash": "multi2345678901234567890123456789012345",
+                    "media_type": "tv_show",
+                    "original_title": "Stranger Things S04E09 The Piggyback 1080p NF WEB-DL DDP5.1 Atmos x264-SMURF",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                },
+                {
+                    "hash": "multi3456789012345678901234567890123456",
+                    "media_type": "tv_season",
+                    "original_title": "Better Call Saul S06 Complete 1080p AMZN WEB-DL DDP5.1 H.264-NTb",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_output": [
+                {
+                    "hash": "multi1234567890123456789012345678901234",
+                    "media_title": "Inception",
+                    "release_year": 2010,
+                    "resolution": "2160p",
+                    "upload_type": "BluRay",
+                    "video_codec": "x265",
+                    "uploader": "YTS.MX",
+                    "pipeline_status": "parsed"
+                },
+                {
+                    "hash": "multi2345678901234567890123456789012345",
+                    "media_title": "Stranger Things",
+                    "season": 4,
+                    "episode": 9,
+                    "resolution": "1080p",
+                    "upload_type": "WEB-DL",
+                    "audio_codec": "DDP5.1",
+                    "video_codec": "x264",
+                    "uploader": "SMURF",
+                    "pipeline_status": "parsed"
+                },
+                {
+                    "hash": "multi3456789012345678901234567890123456",
+                    "media_title": "Better Call Saul",
+                    "season": 6,
+                    "resolution": "1080p",
+                    "upload_type": "WEB-DL",
+                    "audio_codec": "DDP5.1",
+                    "video_codec": "H.264",
+                    "uploader": "NTb",
+                    "pipeline_status": "parsed"
+                }
+            ]
+        },
+        {
+            "description": "All items fail validation",
+            "input_media": [
+                {
+                    "hash": "fail1234567890123456789012345678901234",
+                    "media_type": "movie",
+                    "original_title": "NoYearMovie [1080p] [BluRay]",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                },
+                {
+                    "hash": "fail2345678901234567890123456789012345",
+                    "media_type": "tv_show",
+                    "original_title": "NoSeasonEpisodeShow",
+                    "pipeline_status": "ingested",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                }
+            ],
+            "expected_db_update_calls": 1,
+            "expected_output": [
+                {
+                    "hash": "fail1234567890123456789012345678901234",
+                    "media_title": "NoYearMovie",
+                    "release_year": None,
+                    "resolution": "1080p",
+                    "upload_type": "BluRay",
+                    "error_condition": "release_year is null",
+                    "error_status": True,
+                    "pipeline_status": "ingested"
+                },
+                {
+                    "hash": "fail2345678901234567890123456789012345",
+                    "media_title": "NoSeasonEpisodeShow",
+                    "season": None,
+                    "episode": None,
+                    "error_condition": "season is null; episode is null",
+                    "error_status": True,
+                    "pipeline_status": "ingested"
+                }
+            ]
+        }
+    ]
