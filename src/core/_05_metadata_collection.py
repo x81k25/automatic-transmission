@@ -28,10 +28,10 @@ def media_search(media_item: dict) -> dict:
     :debug: media_item = media.df.row(88, named=True)
     """
     # load api env vars
-    movie_search_api_base_url = os.getenv('MOVIE_SEARCH_API_BASE_URL')
-    movie_search_api_key = os.getenv('MOVIE_SEARCH_API_KEY')
-    tv_search_api_base_url = os.getenv('TV_SEARCH_API_BASE_URL')
-    tv_search_api_key = os.getenv('TV_SEARCH_API_KEY')
+    movie_search_api_base_url = os.getenv('AT_MOVIE_SEARCH_API_BASE_URL')
+    movie_search_api_key = os.getenv('AT_MOVIE_SEARCH_API_KEY')
+    tv_search_api_base_url = os.getenv('AT_TV_SEARCH_API_BASE_URL')
+    tv_search_api_key = os.getenv('AT_TV_SEARCH_API_KEY')
 
     # make API call for media search
     response = {}
@@ -112,10 +112,10 @@ def collect_details(media_item: dict) -> dict:
     :debug: media_item = row
     """
     # load API env vars
-    movie_details_api_base_url = os.getenv('MOVIE_DETAILS_API_BASE_URL')
-    movie_details_api_key = os.getenv('MOVIE_DETAILS_API_KEY')
-    tv_details_api_base_url = os.getenv('TV_DETAILS_API_BASE_URL')
-    tv_details_api_key = os.getenv('TV_DETAILS_API_KEY')
+    movie_details_api_base_url = os.getenv('AT_MOVIE_DETAILS_API_BASE_URL')
+    movie_details_api_key = os.getenv('AT_MOVIE_DETAILS_API_KEY')
+    tv_details_api_base_url = os.getenv('AT_TV_DETAILS_API_BASE_URL')
+    tv_details_api_key = os.getenv('AT_TV_DETAILS_API_KEY')
 
     #media_item = media.df.row(0, named=True)
     response = {}
@@ -248,10 +248,10 @@ def collect_ratings(media_item: dict) -> dict:
     :return: dict of items with metadata added
     """
     # load API env vars
-    movie_ratings_api_base_url = os.getenv('MOVIE_RATINGS_API_BASE_URL')
-    movie_ratings_api_key = os.getenv('MOVIE_RATINGS_API_KEY')
-    tv_ratings_api_base_url = os.getenv('TV_RATINGS_API_BASE_URL')
-    tv_ratings_api_key = os.getenv('TV_RATINGS_API_KEY')
+    movie_ratings_api_base_url = os.getenv('AT_MOVIE_RATINGS_API_BASE_URL')
+    movie_ratings_api_key = os.getenv('AT_MOVIE_RATINGS_API_KEY')
+    tv_ratings_api_base_url = os.getenv('AT_TV_RATINGS_API_BASE_URL')
+    tv_ratings_api_key = os.getenv('AT_TV_RATINGS_API_KEY')
 
     response = {}
 
@@ -417,8 +417,8 @@ def collect_metadata():
     :debug: batch=0
     """
     # pipeline env vars
-    batch_size = int(os.getenv('BATCH_SIZE'))
-    stale_metadata_threshold = int(os.getenv('STALE_METADATA_THRESHOLD'))
+    batch_size = int(os.getenv('AT_BATCH_SIZE') or "50")
+    stale_metadata_threshold = int(os.getenv('AT_STALE_METADATA_THRESHOLD') or "30")
 
     # read in existing data
     media = utils.get_media_from_db(pipeline_status='file_accepted')

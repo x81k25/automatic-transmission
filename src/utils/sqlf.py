@@ -21,12 +21,12 @@ from src.data_models import MediaDataFrame
 # ------------------------------------------------------------------------------
 load_dotenv(override=True)
 
-pg_username = os.getenv('PG_USERNAME')
-pg_password = os.getenv('PG_PASSWORD')
-pg_host = os.getenv('PG_ENDPOINT')
-pg_port = os.getenv('PG_PORT')
-pg_database = os.getenv('PG_DATABASE')
-pg_schema = os.getenv('PG_SCHEMA')
+pg_username = os.getenv('AT_PGSQL_USERNAME')
+pg_password = os.getenv('AT_PGSQL_PASSWORD')
+pg_host = os.getenv('AT_PGSQL_ENDPOINT')
+pg_port = os.getenv('AT_PGSQL_PORT')
+pg_database = os.getenv('AT_PGSQL_DATABASE')
+pg_schema = os.getenv('AT_PGSQL_SCHEMA')
 
 # ------------------------------------------------------------------------------
 # sql functions to be used by core packages
@@ -44,12 +44,12 @@ def create_db_engine(
     Creates and returns a SQLAlchemy engine for PostgresQL connection with specified schema.
     Uses environment variables if parameters are not provided.
 
-    :param username: Database username (default: PG_USER env var)
-    :param password: Database password (default: PG_PASSWORD env var)
-    :param host: Database host address (default: PG_ENDPOINT env var)
-    :param port: Database port (default: PG_PORT env var)
-    :param database: Database name (default: PG_DB env var)
-    :param schema: Database schema (default: PG_SCHEMA env var or 'public')
+    :param username: Database username (default: AT_PGSQL_USERNAME env var)
+    :param password: Database password (default: AT_PGSQL_PASSWORD env var)
+    :param host: Database host address (default: AT_PGSQL_ENDPOINT env var)
+    :param port: Database port (default: AT_PGSQL_PORT env var)
+    :param database: Database name (default: AT_PGSQL_DATABASE env var)
+    :param schema: Database schema (default: AT_PGSQL_SCHEMA env var or 'public')
     :return: Configured database engine
     :raises RuntimeError: If connection cannot be established with detailed error message
     :raises ValueError: If required parameters are missing

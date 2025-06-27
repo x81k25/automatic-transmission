@@ -10,8 +10,8 @@ class TestTransfer:
         """Test all generate_file_paths scenarios from fixture."""
         # Mock the environment variables
         monkeypatch.setenv('DOWNLOAD_DIR', '/d/media-cache/prod/complete/')
-        monkeypatch.setenv('MOVIE_DIR', '/k/media/video/movies/')
-        monkeypatch.setenv('TV_SHOW_DIR', '/k/media/video/tv/')
+        monkeypatch.setenv('AT_MOVIE_DIR', '/k/media/video/movies/')
+        monkeypatch.setenv('AT_TV_SHOW_DIR', '/k/media/video/tv/')
 
         for case in generate_file_paths_cases:
             # Make a copy to avoid modifying the original fixture data

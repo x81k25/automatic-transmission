@@ -238,7 +238,7 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
 
     """
     # load pipeline env vars
-    acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD'))
+    acceptance_threshold = float(os.getenv('AT_REEL_DRIVER_THRESHOLD') or "0.35")
 
     media_with_updated_status = media.df.clone()
 
@@ -307,7 +307,7 @@ def filter_media():
     :debug: batch = 0
     """
     # pipeline env vars
-    batch_size = int(os.getenv('BATCH_SIZE'))
+    batch_size = int(os.getenv('AT_BATCH_SIZE') or "50")
 
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status=PipelineStatus.METADATA_COLLECTED)
