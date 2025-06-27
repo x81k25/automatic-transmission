@@ -3,6 +3,7 @@
 ## [5.6.27]
 - added specificity to env vars
 - src/core unit testing coverage at 100%
+- making arbitrary change to test GitHub secrets
 
 ## [5.6.19]
 - various bug fixes to parsing operations
