@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from src.core._04_file_filtration import *
 from src.data_models import *
 from tests.fixtures.core._04_file_filtration_fixtures import *
@@ -47,3 +48,54 @@ class TestFileFilteration:
                     f"Failed for {case['description']}: "
                     f"expected pipeline_status={expected['pipeline_status']}, got {row['pipeline_status']}"
                 )
+
+    @patch('src.core._04_file_filtration.utils.media_db_update')
+    @patch('src.core._04_file_filtration.utils.get_media_from_db')
+    def test_filter_files_workflow_integration(self, mock_get_media, mock_db_update, filter_files_workflow_cases):
+        """Test filter_files workflow integration scenarios from fixture."""
+        for case in filter_files_workflow_cases:
+            # Reset mocks for each test case
+            mock_get_media.reset_mock()
+            mock_db_update.reset_mock()
+
+            # Setup input mocks
+            if case["input_media"] is None:
+                mock_get_media.return_value = None
+            else:
+                mock_get_media.return_value = MediaDataFrame(case["input_media"])
+
+            # Execute the function
+            filter_files()
+
+            # Verify database calls
+            expected_db_calls = case.get("expected_db_update_calls", 0)
+            assert mock_db_update.call_count == expected_db_calls, (
+                f"Failed for {case['description']}: "
+                f"expected {expected_db_calls} db update calls, got {mock_db_update.call_count}"
+            )
+
+            # Verify the content of database updates if any
+            if "expected_outputs" in case and case["expected_outputs"]:
+                call_args = mock_db_update.call_args
+                actual_media = call_args.kwargs['media']
+
+                assert isinstance(actual_media, MediaDataFrame)
+                assert actual_media.df.height == len(case["expected_outputs"]), (
+                    f"Failed for {case['description']}: "
+                    f"expected {len(case['expected_outputs'])} items in output, "
+                    f"got {actual_media.df.height}"
+                )
+
+                # Sort both actual and expected by hash for consistent comparison
+                actual_sorted = actual_media.df.sort("hash")
+                expected_sorted = sorted(case["expected_outputs"],
+                                       key=lambda x: x["hash"])
+
+                for i, expected in enumerate(expected_sorted):
+                    row = actual_sorted.row(i, named=True)
+                    for field, expected_value in expected.items():
+                        actual_value = row.get(field)
+                        assert actual_value == expected_value, (
+                            f"Failed for {case['description']} item {i}: "
+                            f"expected {field}={expected_value}, got {actual_value}"
+                        )
