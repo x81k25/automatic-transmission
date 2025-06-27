@@ -19,22 +19,22 @@ def set_permissions_and_ownership(
 ) -> None:
     """
     Recursively sets permissions and ownership for a file or directory.
-    UID and GID are read from environment variables.
+    AT_UID and AT_GID are read from environment variables.
 
     :param path: Path to the file or directory
     :param mode: Permission mode in octal (default: 775)
     :return: None
-    :raises ValueError: If path doesn't exist or UID/GID env vars are invalid
+    :raises ValueError: If path doesn't exist or AT_UID/AT_GID env vars are invalid
     :raises PermissionError: If unable to set permissions or ownership
     :raises OSError: For other operating system related errors
     """
     # collect UID:GID from .env
     load_dotenv()
     try:
-        uid = int(os.getenv("UID", "1005"))
-        gid = int(os.getenv("GID", "1001"))
+        uid = int(os.getenv("AT_UID", "1005"))
+        gid = int(os.getenv("AT_GID", "1001"))
     except ValueError as e:
-        raise ValueError(f"Invalid UID/GID in environment variables: {e}")
+        raise ValueError(f"Invalid AT_UID/AT_GID in environment variables: {e}")
 
     # Convert to Path object if string
     path = Path(path)

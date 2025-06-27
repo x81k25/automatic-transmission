@@ -15,7 +15,7 @@ class TestCleanup:
         """Test all get_delay_multiple scenarios from fixture."""
         for case in get_delay_multiple_cases:
             # Set environment variable
-            os.environ['TARGET_ACTIVE_ITEMS'] = case["target_active_items"]
+            os.environ['AT_TARGET_ACTIVE_ITEMS'] = case["target_active_items"]
             
             # Setup mock
             mock_current_count.return_value = case["current_item_count"]
@@ -37,7 +37,7 @@ class TestCleanup:
         """Test error scenarios for get_delay_multiple function."""
         for case in get_delay_multiple_error_cases:
             # Set environment variable
-            os.environ['TARGET_ACTIVE_ITEMS'] = case["target_active_items"]
+            os.environ['AT_TARGET_ACTIVE_ITEMS'] = case["target_active_items"]
             
             # Verify error is raised
             with pytest.raises(case["expected_error"]) as exc_info:

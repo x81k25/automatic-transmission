@@ -23,8 +23,8 @@ def generate_file_paths(media_item: dict) -> dict:
     :return: media_item with file paths
     """
     # set directories from .env
-    tv_show_dir = os.getenv('TV_SHOW_DIR')
-    movie_dir = os.getenv('MOVIE_DIR')
+    tv_show_dir = os.getenv('AT_TV_SHOW_DIR')
+    movie_dir = os.getenv('AT_MOVIE_DIR')
 
     if media_item['media_type'] == 'movie':
         try:

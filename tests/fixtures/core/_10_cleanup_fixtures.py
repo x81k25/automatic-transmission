@@ -54,7 +54,7 @@ def get_delay_multiple_error_cases():
             "target_active_items": "-1",
             "current_item_count": 5,
             "expected_error": ValueError,
-            "expected_error_message": "TARGET_ACTIVE_ITEMS value of -1.0 is less than 0 and no permitted"
+            "expected_error_message": "AT_TARGET_ACTIVE_ITEMS value of -1.0 is less than 0 and no permitted"
         }
     ]
 
@@ -285,9 +285,9 @@ def cleanup_media_workflow_cases():
         {
             "description": "Normal cleanup with valid environment variables",
             "env_vars": {
-                "TRANSFERRED_ITEM_CLEANUP_DELAY": "1",
-                "HUNG_ITEM_CLEANUP_DELAY": "3",
-                "TARGET_ACTIVE_ITEMS": "10"
+                "AT_TRANSFERRED_ITEM_CLEANUP_DELAY": "1",
+                "AT_HUNG_ITEM_CLEANUP_DELAY": "3",
+                "AT_TARGET_ACTIVE_ITEMS": "10"
             },
             "current_item_count": 5,
             "transferred_media": None,
@@ -300,9 +300,9 @@ def cleanup_media_workflow_cases():
         {
             "description": "Zero delays with items to cleanup",
             "env_vars": {
-                "TRANSFERRED_ITEM_CLEANUP_DELAY": "0",
-                "HUNG_ITEM_CLEANUP_DELAY": "0",
-                "TARGET_ACTIVE_ITEMS": "0"
+                "AT_TRANSFERRED_ITEM_CLEANUP_DELAY": "0",
+                "AT_HUNG_ITEM_CLEANUP_DELAY": "0",
+                "AT_TARGET_ACTIVE_ITEMS": "0"
             },
             "current_item_count": 0,
             "transferred_media": None,
@@ -322,19 +322,19 @@ def cleanup_media_error_cases():
         {
             "description": "Negative TRANSFERRED_ITEM_CLEANUP_DELAY raises ValueError",
             "env_vars": {
-                "TRANSFERRED_ITEM_CLEANUP_DELAY": "-1",
-                "HUNG_ITEM_CLEANUP_DELAY": "3",
-                "TARGET_ACTIVE_ITEMS": "10"
+                "AT_TRANSFERRED_ITEM_CLEANUP_DELAY": "-1",
+                "AT_HUNG_ITEM_CLEANUP_DELAY": "3",
+                "AT_TARGET_ACTIVE_ITEMS": "10"
             },
             "expected_error": ValueError,
-            "expected_error_message": "TRANSFERRED_ITEM_CLEANUP_DELAY value of -1.0 is less than 0 and no permitted"
+            "expected_error_message": "AT_TRANSFERRED_ITEM_CLEANUP_DELAY value of -1.0 is less than 0 and no permitted"
         },
         {
             "description": "Negative HUNG_ITEM_CLEANUP_DELAY does not raise error (due to bug in source)", 
             "env_vars": {
-                "TRANSFERRED_ITEM_CLEANUP_DELAY": "1",
-                "HUNG_ITEM_CLEANUP_DELAY": "-3",
-                "TARGET_ACTIVE_ITEMS": "10"
+                "AT_TRANSFERRED_ITEM_CLEANUP_DELAY": "1",
+                "AT_HUNG_ITEM_CLEANUP_DELAY": "-3",
+                "AT_TARGET_ACTIVE_ITEMS": "10"
             }
         }
     ]

@@ -117,8 +117,8 @@ class TestRssIngest:
             # Setup mock feed data
             def parse_side_effect(url):
                 mock_feed = MagicMock()
-                # Find the index of this URL in the RSS_URLS
-                urls = case["env_vars"]["RSS_URLS"].split(',')
+                # Find the index of this URL in the AT_RSS_URLS
+                urls = case["env_vars"]["AT_RSS_URLS"].split(',')
                 if url in urls:
                     idx = urls.index(url)
                     if idx < len(case["mock_feed_data"]):

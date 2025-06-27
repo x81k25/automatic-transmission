@@ -129,7 +129,7 @@ docker-compose -f containerization/docker-compose.yml run --rm --entrypoint /bin
 ### Debug Mode
 ```bash
 # Run with debug logging
-docker-compose -f containerization/docker-compose.yml run --rm -e LOG_LEVEL=DEBUG rss-ingest
+docker-compose -f containerization/docker-compose.yml run --rm -e AT_LOG_LEVEL=DEBUG rss-ingest
 
 # Run with Python debugger
 docker-compose -f containerization/docker-compose.yml run --rm -e PYTHONBREAKPOINT=ipdb.set_trace rss-ingest
@@ -139,7 +139,7 @@ docker-compose -f containerization/docker-compose.yml run --rm -e PYTHONBREAKPOI
 
 All containers require a `.env` file in the project root. Key variables include:
 
-- `BATCH_SIZE`: Number of items to process per batch
+- `AT_BATCH_SIZE`: Number of items to process per batch
 - `DEBUG_MODE`: Enable debug logging (true/false)
 - `DATABASE_URL`: PostgreSQL connection string
 - `TRANSMISSION_HOST`: Transmission RPC host
