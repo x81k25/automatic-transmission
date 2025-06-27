@@ -81,7 +81,7 @@ class TestMediaFiltration:
     def test_update_status(self, update_status_cases):
         """Test all update_status scenarios from fixture."""
         # Get the threshold from environment variable, fallback to 0.35 for testing
-        threshold = float(os.getenv('REEL_DRIVER_THRESHOLD', "0.35"))
+        threshold = float(os.getenv('REEL_DRIVER_THRESHOLD') or "0.35")
 
         for case in update_status_cases:
             # Create MediaDataFrame with standard schema (no probability)

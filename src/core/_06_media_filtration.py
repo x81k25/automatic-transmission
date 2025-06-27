@@ -238,7 +238,7 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
 
     """
     # load pipeline env vars
-    acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD', "0.35"))
+    acceptance_threshold = float(os.getenv('REEL_DRIVER_THRESHOLD') or "0.35")
 
     media_with_updated_status = media.df.clone()
 
