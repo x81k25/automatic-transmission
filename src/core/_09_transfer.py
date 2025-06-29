@@ -93,7 +93,7 @@ def transfer_item(media_item: dict) -> dict:
     :return: updated media dict that contains error info if applicable
     """
     # set directory env vars
-    download_dir = os.getenv('DOWNLOAD_DIR')
+    download_dir = os.getenv('AT_DOWNLOAD_DIR')
 
     try:
         utils.move_dir_or_file(
