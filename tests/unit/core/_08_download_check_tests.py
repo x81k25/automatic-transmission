@@ -109,8 +109,10 @@ class TestDownloadCheck:
 
     @patch('src.core._08_download_check.utils.media_db_update')
     @patch('src.core._08_download_check.utils.return_current_media_items')
+    @patch('src.core._08_download_check.utils.get_media_by_hash')
     @patch('src.core._08_download_check.utils.get_media_from_db')
     def test_check_downloads_workflow_integration(self, mock_get_media,
+                                                  mock_get_media_by_hash,
                                                   mock_return_current,
                                                   mock_db_update,
                                                   check_downloads_workflow_scenarios):
@@ -118,16 +120,41 @@ class TestDownloadCheck:
         for case in check_downloads_workflow_scenarios:
             # Reset mocks for each test case
             mock_get_media.reset_mock()
+            mock_get_media_by_hash.reset_mock()
             mock_return_current.reset_mock()
             mock_db_update.reset_mock()
 
-            # Setup input mocks
-            if case["input_downloading_media"] is None:
-                mock_get_media.return_value = None
+            # Setup input mocks - function now calls get_media_from_db twice
+            def mock_get_media_side_effect(pipeline_status):
+                if pipeline_status == 'downloading':
+                    if case["input_downloading_media"] is None:
+                        return None
+                    else:
+                        return MediaDataFrame(case["input_downloading_media"])
+                elif pipeline_status == 'transferred':
+                    # For most tests, assume no transferred items unless specified
+                    return case.get("input_transferred_media", None)
+                return None
+            
+            mock_get_media.side_effect = mock_get_media_side_effect
+            
+            # Mock get_media_by_hash for orphaned items scenario
+            if case["input_downloading_media"] is None and case["input_transmission_items"] is not None:
+                # Create fake media items for the orphaned hashes from transmission
+                orphaned_items = []
+                for hash_key in case["input_transmission_items"].keys():
+                    orphaned_items.append({
+                        "hash": hash_key,
+                        "media_type": "movie",
+                        "media_title": "Orphaned Item",
+                        "pipeline_status": "downloading",
+                        "rejection_status": "accepted",
+                        "error_status": False
+                    })
+                mock_get_media_by_hash.return_value = MediaDataFrame(orphaned_items)
             else:
-                mock_get_media.return_value = MediaDataFrame(
-                    case["input_downloading_media"])
-
+                mock_get_media_by_hash.return_value = None
+                
             mock_return_current.return_value = case["input_transmission_items"]
 
             # Execute the function

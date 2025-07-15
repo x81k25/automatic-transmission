@@ -837,7 +837,7 @@ def check_downloads_workflow_scenarios():
            "description": "Empty transmission returns None causes error",
            "input_downloading_media": [
                {
-                   "hash": "downloading123456789012345678901234567890",
+                   "hash": "downloading123456789012345678901234567891",
                    "media_type": "movie",
                    "media_title": "Downloading Movie",
                    "pipeline_status": "downloading",
@@ -849,7 +849,7 @@ def check_downloads_workflow_scenarios():
            "expected_db_update_calls": 1,
            "expected_outputs": [
                 {
-                    "hash": "downloading123456789012345678901234567890",
+                    "hash": "downloading123456789012345678901234567891",
                     "pipeline_status": "ingested",  # Item gets re-ingested
                     "rejection_status": "unfiltered"  # Status gets reset
                 }
@@ -1098,20 +1098,9 @@ def check_downloads_workflow_scenarios():
            "expected_db_update_calls": 1,
            "expected_outputs": [
                {
-                   "hash": "orphaned123456789012345678901234567890123",
-                   "pipeline_status": "ingested",
-                   "rejection_status": "unfiltered",
-                   "rejection_reason": None,
-                   "error_status": False,
-                   "error_condition": None
-               },
-               {
                    "hash": "orphaned234567890123456789012345678901234",
-                   "pipeline_status": "ingested",
-                   "rejection_status": "unfiltered",
-                   "rejection_reason": None,
-                   "error_status": False,
-                   "error_condition": None
+                   "pipeline_status": "downloaded",
+                   "original_path": "Another Orphaned Item"
                }
            ]
        },
