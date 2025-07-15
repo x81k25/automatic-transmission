@@ -1077,5 +1077,85 @@ def check_downloads_workflow_scenarios():
                }
            },
            "expected_db_update_calls": 0
+       },
+       {
+           "description": "No media in DB but transmission has items - items should be re-ingested",
+           "input_downloading_media": None,
+           "input_transmission_items": {
+               "orphaned123456789012345678901234567890123": {
+                   "id": 157,
+                   "name": "Orphaned Movie",
+                   "progress": 75.0,
+                   "status": "downloading"
+               },
+               "orphaned234567890123456789012345678901234": {
+                   "id": 158,
+                   "name": "Another Orphaned Item",
+                   "progress": 100.0,
+                   "status": "seeding"
+               }
+           },
+           "expected_db_update_calls": 1,
+           "expected_outputs": [
+               {
+                   "hash": "orphaned123456789012345678901234567890123",
+                   "pipeline_status": "ingested",
+                   "rejection_status": "unfiltered",
+                   "rejection_reason": None,
+                   "error_status": False,
+                   "error_condition": None
+               },
+               {
+                   "hash": "orphaned234567890123456789012345678901234",
+                   "pipeline_status": "ingested",
+                   "rejection_status": "unfiltered",
+                   "rejection_reason": None,
+                   "error_status": False,
+                   "error_condition": None
+               }
+           ]
+       },
+       {
+           "description": "Media in DB but no transmission items - all should be re-ingested",
+           "input_downloading_media": [
+               {
+                   "hash": "notransmission12345678901234567890123456",
+                   "media_type": "movie",
+                   "media_title": "No Transmission Movie",
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               },
+               {
+                   "hash": "notransmission23456789012345678901234567",
+                   "media_type": "tv_show",
+                   "media_title": "No Transmission Show",
+                   "season": 1,
+                   "episode": 1,
+                   "pipeline_status": "downloading",
+                   "rejection_status": "accepted",
+                   "error_status": False
+               }
+           ],
+           "input_transmission_items": None,
+           "expected_db_update_calls": 1,
+           "expected_outputs": [
+               {
+                   "hash": "notransmission12345678901234567890123456",
+                   "pipeline_status": "ingested",
+                   "rejection_status": "unfiltered",
+                   "rejection_reason": None,
+                   "error_status": False,
+                   "error_condition": None
+               },
+               {
+                   "hash": "notransmission23456789012345678901234567",
+                   "pipeline_status": "ingested",
+                   "rejection_status": "unfiltered",
+                   "rejection_reason": None,
+                   "error_status": False,
+                   "error_condition": None
+               }
+           ]
        }
    ]
