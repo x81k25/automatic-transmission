@@ -1,5 +1,8 @@
 # Changelog
 
+## [5.7.14]
+- fixed bug causing download check to file when all items in transmission were 'transferred'
+
 ## [5.6.27]
 - added specificity to env vars
 - src/core unit testing coverage at 100%

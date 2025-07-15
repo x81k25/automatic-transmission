@@ -144,7 +144,7 @@ def log_status(media: MediaDataFrame) -> None:
             logging.error(f"{row['hash']} - {row['error_condition']}")
         elif row['rejection_status'] == RejectionStatus.REJECTED:
             logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
-        else:
+        elif row['pipeline_status'] != PipelineStatus.TRANSFERRED:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
 
 
@@ -158,7 +158,23 @@ def check_downloads():
         if download is complete
     """
     # read in existing data based on ingest_type
-    media = utils.get_media_from_db(pipeline_status='downloading')
+    #   check for orphaned transferred items as well
+    media_downloading = utils.get_media_from_db(pipeline_status='downloading')
+    media_transferred = utils.get_media_from_db(pipeline_status='transferred')
+
+    if media_downloading is None and media_transferred is None:
+         media = None
+    elif media_downloading is None and media_transferred is not None:
+        media = media_transferred
+    elif media_downloading is not None and media_transferred is None:
+        media = media_downloading
+    else:
+        media = MediaDataFrame(
+            pl.concat([
+                media_downloading.df,
+                media_transferred.df
+            ])
+        )
 
     # get current media item info
     current_media_items = utils.return_current_media_items()
@@ -166,6 +182,11 @@ def check_downloads():
     # if no media items and no transmission items, return
     if media is None and current_media_items is None:
         return
+
+    # if not items in downloading or transferred state, but items exist in
+    #   current_media_items, retrieve them be hash
+    if media is None and current_media_items is not None:
+        media = utils.get_media_by_hash(list(current_media_items.keys()))
 
     # process items for re-ingestion
     media_not_downloading = confirm_downloading_status(
@@ -183,6 +204,11 @@ def check_downloads():
         media.update(
             media.df.join(media_not_downloading.df.select('hash'), on='hash', how='anti')
         )
+
+    # remove transferred items from processing
+    media.update(
+        media.df.filter(pl.col('pipeline_status') != PipelineStatus.TRANSFERRED)
+    )
 
     # if no current_media_items, return
     if current_media_items is None:
