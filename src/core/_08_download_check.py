@@ -184,7 +184,7 @@ def check_downloads():
         return
 
     # if not items in downloading or transferred state, but items exist in
-    #   current_media_items, retrieve them be hash
+    #   current_media_items, retrieve them bu hash
     if media is None and current_media_items is not None:
         media = utils.get_media_by_hash(list(current_media_items.keys()))
 
