@@ -102,27 +102,16 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
    cd automatic-transmission
    ```
 
-2. create a virtual environment and activate it:
-   ```bash
-   python -m venv .venv
-   # on Windows
-   .venv\Scripts\activate
-   # on Unix or MacOS
-   source .venv/bin/activate
-   ```
-
-3. install dependencies using uv (recommended):
+2. ensure uv is installed:
    ```bash
    # install uv if you don't have it
    pip install uv
-   
-   # install dependencies from requirements.txt
-   uv pip install -r requirements.txt
    ```
 
-   alternatively, you can use pip:
+3. install dependencies using uv:
    ```bash
-   pip install -r requirements.txt
+   # create virtual environment and install dependencies
+   uv sync
    ```
 
 4. set up the PostgreSQL database objects:
@@ -135,14 +124,9 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
 
 ### adding new packages:
 ```bash
-# add new package to requirements.in
-echo "new-package" >> requirements.in
-
-# compile requirements.in to requirements.txt
-uv pip compile requirements.in -o requirements.txt
-
-# install the updated requirements
-uv pip install -r requirements.txt
+# add new package to pyproject.toml dependencies
+# then sync to update the environment
+uv sync
 ```
 
 ## docker deployment
