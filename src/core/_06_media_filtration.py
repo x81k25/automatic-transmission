@@ -200,7 +200,7 @@ def get_predictions(media: MediaDataFrame) -> MediaDataFrame:
     media_with_predictions = media_with_predictions.join(
         pl.DataFrame(response.json()['results']).select(
             'imdb_id',
-            'probability'
+            pl.col('probability').cast(pl.Float64)
         ),
         on = 'imdb_id',
         how = 'left'
@@ -244,6 +244,11 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
 
     # perform updates on items with predictions
     if 'probability' in media_with_updated_status.columns:
+        # First ensure probability is Float64 for comparison
+        media_with_updated_status = media_with_updated_status.with_columns(
+            pl.col('probability').cast(pl.Float64)
+        )
+        
         media_with_updated_status = media_with_updated_status.with_columns(
             rejection_reason = (
                 pl.when(pl.col('probability') < acceptance_threshold)
@@ -374,13 +379,16 @@ def filter_media():
 
     # filter 1 item
     elif media.df.height == 1:
-        media_batch = MediaDataFrame(
-            pl.DataFrame([
-                get_prediction(
-                    media.df[0].to_dicts()[0]
-                )
-            ])
-        )
+        prediction_result = get_prediction(media.df[0].to_dicts()[0])
+        media_batch_df = pl.DataFrame([prediction_result])
+        
+        # Ensure probability is Float64 if it exists
+        if 'probability' in media_batch_df.columns:
+            media_batch_df = media_batch_df.with_columns(
+                pl.col('probability').cast(pl.Float64)
+            )
+        
+        media_batch = MediaDataFrame(media_batch_df)
 
         # update status, commit to db, and log
         media_batch = update_status(media_batch)
@@ -422,7 +430,13 @@ def filter_media():
                     updated_row = get_prediction(row)
                     updated_rows.append(updated_row)
 
-                media_batch.update(pl.DataFrame(updated_rows))
+                # Create DataFrame and ensure probability is Float64
+                updated_df = pl.DataFrame(updated_rows)
+                if 'probability' in updated_df.columns:
+                    updated_df = updated_df.with_columns(
+                        pl.col('probability').cast(pl.Float64)
+                    )
+                media_batch.update(updated_df)
 
                 # update statuses, commit td db, and log
                 media_batch = update_status(media_batch)
