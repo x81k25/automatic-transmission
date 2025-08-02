@@ -29,11 +29,12 @@ Automatic transmission provides an intelligent, end-to-end pipeline for download
 
 ## prerequisites
 
-- Python 3.12
+- Python 3.12+
 - PostgreSQL database
 - Transmission daemon running on the local network
 - API credentials for metadata services (TMDB, OMDb)
-- connection to the reel-driver API for media recommendation scoring
+- Connection to the reel-driver API for media recommendation scoring
+- uv package manager (install with `pip install uv`)
 
 ## repository structure
 
@@ -76,12 +77,12 @@ automatic-transmission/
 ├── .venv/                    # virtual environment (gitignored)
 ├── .env                      # environment variables (gitignored)
 ├── .gitignore
-├── .python-version           # python version specification
+├── .env                      # environment variables (gitignored)
 ├── changelog.md              # contains all major/minor version changes
 ├── main.py                   # main execution script
-├── pytest.ini                # pytest configuration
-├── readme.md                 # this file
 ├── pyproject.toml            # project configuration and dependencies
+├── pytest.ini                # pytest configuration
+├── README.md                 # this file
 └── uv.lock                   # locked dependency versions
 ```
 
@@ -110,8 +111,11 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
 
 3. install dependencies using uv:
    ```bash
-   # create virtual environment and install dependencies
+   # Create virtual environment and install dependencies
    uv sync
+   
+   # For development (includes test dependencies)
+   uv sync --dev
    ```
 
 4. set up the PostgreSQL database objects:
