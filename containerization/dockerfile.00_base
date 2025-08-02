@@ -30,16 +30,15 @@ RUN apt-get update && apt-get install -y \
 # Install uv
 RUN pip install --no-cache-dir uv
 
-# Copy pyproject.toml and install dependencies
-COPY pyproject.toml uv.lock ./
-RUN uv sync --no-dev --system
+# Copy pyproject.toml
+COPY pyproject.toml ./
 
 # Copy source code and config
 COPY src/ ./src/
 COPY config/ ./config/
 
-# Install package in editable mode
-RUN uv pip install -e . --system
+# Install package and dependencies
+RUN uv pip install --system .
 
 # Set environment variables from build args
 ENV AT_BATCH_SIZE=$AT_BATCH_SIZE
