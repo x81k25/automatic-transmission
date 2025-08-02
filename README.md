@@ -29,11 +29,12 @@ Automatic transmission provides an intelligent, end-to-end pipeline for download
 
 ## prerequisites
 
-- Python 3.12
+- Python 3.12+
 - PostgreSQL database
 - Transmission daemon running on the local network
 - API credentials for metadata services (TMDB, OMDb)
-- connection to the reel-driver API for media recommendation scoring
+- Connection to the reel-driver API for media recommendation scoring
+- uv package manager (install with `pip install uv`)
 
 ## repository structure
 
@@ -76,13 +77,13 @@ automatic-transmission/
 ├── .venv/                    # virtual environment (gitignored)
 ├── .env                      # environment variables (gitignored)
 ├── .gitignore
-├── .python-version           # python version specification
+├── .env                      # environment variables (gitignored)
 ├── changelog.md              # contains all major/minor version changes
 ├── main.py                   # main execution script
+├── pyproject.toml            # project configuration and dependencies
 ├── pytest.ini                # pytest configuration
-├── readme.md                 # this file
-├── requirements.in           # direct dependencies
-└── requirements.txt          # pinned dependencies
+├── README.md                 # this file
+└── uv.lock                   # locked dependency versions
 ```
 
 ## core data model
@@ -102,27 +103,19 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
    cd automatic-transmission
    ```
 
-2. create a virtual environment and activate it:
-   ```bash
-   python -m venv .venv
-   # on Windows
-   .venv\Scripts\activate
-   # on Unix or MacOS
-   source .venv/bin/activate
-   ```
-
-3. install dependencies using uv (recommended):
+2. ensure uv is installed:
    ```bash
    # install uv if you don't have it
    pip install uv
-   
-   # install dependencies from requirements.txt
-   uv pip install -r requirements.txt
    ```
 
-   alternatively, you can use pip:
+3. install dependencies using uv:
    ```bash
-   pip install -r requirements.txt
+   # Create virtual environment and install dependencies
+   uv sync
+   
+   # For development (includes test dependencies)
+   uv sync --dev
    ```
 
 4. set up the PostgreSQL database objects:
@@ -135,14 +128,14 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
 
 ### adding new packages:
 ```bash
-# add new package to requirements.in
-echo "new-package" >> requirements.in
+# Add new package and update environment
+uv add package-name
 
-# compile requirements.in to requirements.txt
-uv pip compile requirements.in -o requirements.txt
+# Add development dependency
+uv add --dev package-name
 
-# install the updated requirements
-uv pip install -r requirements.txt
+# Sync environment after manual pyproject.toml edits
+uv sync
 ```
 
 ## docker deployment
@@ -264,13 +257,13 @@ additional configuration is available in:
 Execute the complete pipeline using the command line interface:
 
 ```bash
-python main.py
+uv run python main.py
 ```
 
 ### debug mode
 Add the `--debug` flag to enable verbose logging:
 ```bash
-python main.py --debug
+uv run python main.py --debug
 ```
 
 ### first run setup
@@ -289,10 +282,10 @@ python main.py --debug
 ### common workflows
 ```bash
 # Standard daily run
-python main.py
+uv run python main.py
 
 # Debug run with verbose output
-python main.py --debug
+uv run python main.py --debug
 
 # Check current pipeline status (via database)
 # Monitor active downloads (via transmission web interface)
@@ -301,18 +294,18 @@ python main.py --debug
 
 ## testing
 
-Run the test suite using pytest:
+Run the test suite using uv:
 
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run with verbose output
-pytest -v
+uv run pytest -v
 
 # Run specific test modules
-pytest tests/unit/core/
-pytest tests/unit/utils/
+uv run pytest tests/unit/core/
+uv run pytest tests/unit/utils/
 ```
 
 ### test coverage

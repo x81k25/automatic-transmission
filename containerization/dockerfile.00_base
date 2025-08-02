@@ -30,16 +30,13 @@ RUN apt-get update && apt-get install -y \
 # Install uv
 RUN pip install --no-cache-dir uv
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN uv pip install -r requirements.txt --system
-
-# Copy source code and config
+# Copy project files for installation
+COPY pyproject.toml ./
 COPY src/ ./src/
 COPY config/ ./config/
 
-# Set Python path
-ENV PYTHONPATH=/app
+# Create virtual environment and install dependencies
+RUN uv sync --no-dev
 
 # Set environment variables from build args
 ENV AT_BATCH_SIZE=$AT_BATCH_SIZE
