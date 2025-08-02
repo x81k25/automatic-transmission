@@ -22,7 +22,6 @@ jobs:
     needs: debug
     environment: ${{ (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' || (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' || (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' || (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' || 'dev' }}
     env:
-      PYTHONPATH: .
       STALE_METADATA_THRESHOLD: ${{ vars.STALE_METADATA_THRESHOLD }}
       BATCH_SIZE: ${{ vars.BATCH_SIZE }}
       LOG_LEVEL: ${{ vars.LOG_LEVEL }}
@@ -37,16 +36,18 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version-file: '.python-version'
+        python-version: '3.12'
 
     - name: Install uv
-      run: pip install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
 
     - name: Install dependencies
-      run: uv pip install -r requirements.txt --system
+      run: uv sync --dev
 
     - name: Run utils tests
-      run: pytest tests/unit/utils/ -v
+      run: uv run pytest tests/unit/utils/ -v
 
     - name: Run core tests
-      run: pytest tests/unit/core/ -v
+      run: uv run pytest tests/unit/core/ -v
