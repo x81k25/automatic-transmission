@@ -181,7 +181,7 @@ Ensure PostgreSQL is accessible from within containers:
 ### Build Failures
 If builds fail:
 1. Clear Docker cache: `docker system prune -a`
-2. Check `requirements.txt` is present in project root
+2. Check `pyproject.toml` is present in project root
 3. Ensure all source files are present in `src/` directory
 4. Check Docker daemon logs for errors
 

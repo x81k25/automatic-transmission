@@ -81,8 +81,8 @@ automatic-transmission/
 ├── main.py                   # main execution script
 ├── pytest.ini                # pytest configuration
 ├── readme.md                 # this file
-├── requirements.in           # direct dependencies
-└── requirements.txt          # pinned dependencies
+├── pyproject.toml            # project configuration and dependencies
+└── uv.lock                   # locked dependency versions
 ```
 
 ## core data model
@@ -124,8 +124,13 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
 
 ### adding new packages:
 ```bash
-# add new package to pyproject.toml dependencies
-# then sync to update the environment
+# Add new package and update environment
+uv add package-name
+
+# Add development dependency
+uv add --dev package-name
+
+# Sync environment after manual pyproject.toml edits
 uv sync
 ```
 
@@ -248,13 +253,13 @@ additional configuration is available in:
 Execute the complete pipeline using the command line interface:
 
 ```bash
-python main.py
+uv run python main.py
 ```
 
 ### debug mode
 Add the `--debug` flag to enable verbose logging:
 ```bash
-python main.py --debug
+uv run python main.py --debug
 ```
 
 ### first run setup
@@ -273,10 +278,10 @@ python main.py --debug
 ### common workflows
 ```bash
 # Standard daily run
-python main.py
+uv run python main.py
 
 # Debug run with verbose output
-python main.py --debug
+uv run python main.py --debug
 
 # Check current pipeline status (via database)
 # Monitor active downloads (via transmission web interface)
@@ -285,18 +290,18 @@ python main.py --debug
 
 ## testing
 
-Run the test suite using pytest:
+Run the test suite using uv:
 
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run with verbose output
-pytest -v
+uv run pytest -v
 
 # Run specific test modules
-pytest tests/unit/core/
-pytest tests/unit/utils/
+uv run pytest tests/unit/core/
+uv run pytest tests/unit/utils/
 ```
 
 ### test coverage
