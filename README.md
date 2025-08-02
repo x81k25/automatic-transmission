@@ -84,7 +84,7 @@ automatic-transmission/
 ├── pytest.ini                # pytest configuration
 ├── README.md                 # this file
 └── uv.lock                   # locked dependency versions
-```
+
 
 ## core data model
 
@@ -116,7 +116,6 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
    
    # For development (includes test dependencies)
    uv sync --dev
-   ```
 
 4. set up the PostgreSQL database objects:
    - See the `schema-owners-manual` project for documentation covering database schema creation and setup
