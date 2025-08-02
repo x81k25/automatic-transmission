@@ -135,3 +135,66 @@ class TestMediaFiltration:
                         f"Failed for {case['description']}: "
                         f"expected rejection_reason={expected_reason}, got {row['rejection_reason']}"
                     )
+
+    def test_probability_type_handling(self, probability_type_handling_cases):
+        """Test that probability column is correctly cast to Float64 from various input types."""
+        # Get the threshold from environment variable, fallback to 0.35 for testing
+        threshold = float(os.getenv('AT_REEL_DRIVER_THRESHOLD') or "0.35")
+
+        for case in probability_type_handling_cases:
+            # Create MediaDataFrame with standard schema (no probability)
+            input_media = MediaDataFrame(case["input_data"])
+
+            # Add probability column with test values (may be strings or floats)
+            probability_values = case["probability_values"]
+            # Convert all values to strings first to simulate API response
+            probability_strings = [str(v) for v in probability_values]
+            input_media_with_probability = input_media.df.with_columns(
+                probability=pl.Series(probability_strings, dtype=pl.Utf8)
+            )
+            
+            # Call update_status with the modified DataFrame
+            result = update_status(MediaDataFrame(input_media_with_probability))
+            expected_list = case["expected_fields"]
+
+            assert isinstance(result, MediaDataFrame)
+            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+
+            # Check that probability column is Float64
+            if 'probability' in result.df.columns:
+                assert result.df['probability'].dtype == case["expected_probability_type"], (
+                    f"Failed for {case['description']}: "
+                    f"expected probability dtype={case['expected_probability_type']}, got {result.df['probability'].dtype}"
+                )
+
+            for i in range(result.df.height):
+                row = result.df.row(i, named=True)
+                expected = expected_list[i]
+
+                assert row["hash"] == expected["hash"], (
+                    f"Failed for {case['description']}: "
+                    f"expected hash {expected['hash']}, got {row['hash']}"
+                )
+                assert row["rejection_status"] == expected["rejection_status"], (
+                    f"Failed for {case['description']}: "
+                    f"expected rejection_status={expected['rejection_status']}, got {row['rejection_status']}"
+                )
+                assert row["pipeline_status"] == expected["pipeline_status"], (
+                    f"Failed for {case['description']}: "
+                    f"expected pipeline_status={expected['pipeline_status']}, got {row['pipeline_status']}"
+                )
+
+                # For cases with probability-based rejection reasons, adjust expected message with actual threshold
+                if "rejection_reason" in expected:
+                    expected_reason = expected["rejection_reason"]
+                    if expected_reason and "below threshold" in expected_reason:
+                        # Extract probability from the rejection reason and rebuild with actual threshold
+                        parts = expected_reason.split()
+                        if len(parts) >= 4:  # "probability X.XXX below threshold Y.YY"
+                            prob_value = parts[1]
+                            expected_reason = f"probability {prob_value} below threshold {threshold}"
+
+                    assert row["rejection_reason"] == expected_reason, (
+                        f"Failed for {case['description']}: "
+                        f"expected rejection_reason={expected_reason}, got {row['rejection_reason']}"
+                    )

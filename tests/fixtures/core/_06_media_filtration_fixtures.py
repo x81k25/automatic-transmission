@@ -669,3 +669,116 @@ def update_status_cases():
             ]
         }
     ]
+
+
+@pytest.fixture
+def probability_type_handling_cases():
+    """Test scenarios for probability column type handling."""
+    return [
+        {
+            "description": "String probability values should be cast to Float64",
+            "input_data": [
+                {
+                    "hash": "stringprob123456789012345678901234567890123",
+                    "media_type": "movie",
+                    "media_title": "String Probability Movie",
+                    "release_year": 2024,
+                    "pipeline_status": "metadata_collected",
+                    "rejection_status": "accepted",
+                    "rejection_reason": None,
+                    "error_status": False
+                }
+            ],
+            "probability_values": ["0.756"],  # String value as might come from API
+            "expected_fields": [
+                {
+                    "hash": "stringprob123456789012345678901234567890123",
+                    "rejection_status": "accepted",
+                    "pipeline_status": "media_accepted",
+                    "rejection_reason": None
+                }
+            ],
+            "expected_probability_type": pl.Float64
+        },
+        {
+            "description": "Mixed probability types should all be cast to Float64",
+            "input_data": [
+                {
+                    "hash": "mixedprob1234567890123456789012345678901234",
+                    "media_type": "movie",
+                    "media_title": "Float Probability Movie",
+                    "release_year": 2024,
+                    "pipeline_status": "metadata_collected",
+                    "rejection_status": "accepted",
+                    "rejection_reason": None,
+                    "error_status": False
+                },
+                {
+                    "hash": "mixedprob2345678901234567890123456789012345",
+                    "media_type": "movie",
+                    "media_title": "String Probability Movie",
+                    "release_year": 2024,
+                    "pipeline_status": "metadata_collected",
+                    "rejection_status": "accepted",
+                    "rejection_reason": None,
+                    "error_status": False
+                }
+            ],
+            "probability_values": [0.823, "0.234"],  # Mixed types
+            "expected_fields": [
+                {
+                    "hash": "mixedprob1234567890123456789012345678901234",
+                    "rejection_status": "accepted",
+                    "pipeline_status": "media_accepted"
+                },
+                {
+                    "hash": "mixedprob2345678901234567890123456789012345",
+                    "rejection_status": "rejected",
+                    "pipeline_status": "rejected",
+                    "rejection_reason": "probability 0.234 below threshold 0.35"
+                }
+            ],
+            "expected_probability_type": pl.Float64
+        },
+        {
+            "description": "String probabilities with rounding should work correctly",
+            "input_data": [
+                {
+                    "hash": "roundprob1234567890123456789012345678901234",
+                    "media_type": "movie",
+                    "media_title": "Rounding Test Movie 1",
+                    "release_year": 2024,
+                    "pipeline_status": "metadata_collected",
+                    "rejection_status": "accepted",
+                    "rejection_reason": None,
+                    "error_status": False
+                },
+                {
+                    "hash": "roundprob2345678901234567890123456789012345",
+                    "media_type": "movie",
+                    "media_title": "Rounding Test Movie 2",
+                    "release_year": 2024,
+                    "pipeline_status": "metadata_collected",
+                    "rejection_status": "accepted",
+                    "rejection_reason": None,
+                    "error_status": False
+                }
+            ],
+            "probability_values": ["0.3456789", "0.1234567"],  # String values that need rounding
+            "expected_fields": [
+                {
+                    "hash": "roundprob1234567890123456789012345678901234",
+                    "rejection_status": "rejected",
+                    "pipeline_status": "rejected",
+                    "rejection_reason": "probability 0.346 below threshold 0.35"  # Rounded to 3 decimals
+                },
+                {
+                    "hash": "roundprob2345678901234567890123456789012345",
+                    "rejection_status": "rejected",
+                    "pipeline_status": "rejected",
+                    "rejection_reason": "probability 0.123 below threshold 0.35"  # Rounded to 3 decimals
+                }
+            ],
+            "expected_probability_type": pl.Float64
+        }
+    ]
