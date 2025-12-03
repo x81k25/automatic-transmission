@@ -23,47 +23,77 @@ def rss_feed_ingest(
     ping rss feed and store the input
     :param rss_url: url of rss feed
     :param rss_source: source of rss feed as a base url
-    :return: list of rss entries
+    :return: list of rss entries (empty list if feed fails)
     """
-    # call rss feed
-    feed = feedparser.parse(rss_url)
+    try:
+        # call rss feed
+        feed = feedparser.parse(rss_url)
 
-    # print terminal message
-    logging.debug("ingesting from: " + str(feed.channel.title))
+        # check if feed parsing failed (bozo bit indicates malformed/failed feed)
+        if hasattr(feed, 'bozo') and feed.bozo:
+            if hasattr(feed, 'bozo_exception'):
+                logging.error(f"RSS feed parsing failed for {rss_source} ({rss_url}): {feed.bozo_exception}")
+            else:
+                logging.error(f"RSS feed parsing failed for {rss_source} ({rss_url}): Unknown error")
 
-    # extract entries
-    entries = feed['entries']
+        # print terminal message with error handling for missing channel.title
+        try:
+            feed_title = feed.channel.title
+        except AttributeError:
+            feed_title = rss_source
+            logging.warning(f"Could not access channel.title for {rss_source}, using source name instead")
 
-    # append rss_source
-    for entry in entries:
-        entry['rss_source'] = rss_source
+        logging.debug("ingesting from: " + str(feed_title))
 
-    return feed['entries']
+        # extract entries
+        entries = feed['entries']
+
+        # check if feed returned no entries and log appropriately
+        if len(entries) == 0:
+            logging.warning(f"No entries found in RSS feed for {rss_source} ({rss_url})")
+
+        # append rss_source
+        for entry in entries:
+            entry['rss_source'] = rss_source
+
+        return entries
+
+    except Exception as e:
+        logging.error(f"Failed to ingest RSS feed from {rss_source} ({rss_url}): {e}")
+        return []
 
 
 def format_entries(entry: FeedParserDict) -> dict:
     """
     converts raw rss entries into dicts suitable for ingestion into a MediaDataFrame
     :param entry: FeedParserDict
-    :return: entry dict suitable for MediaDataFrame insertion
+    :return: entry dict suitable for MediaDataFrame insertion (None if formatting fails)
     """
     formatted_entry = {}
 
-    # format entries based off of rss source
-    if entry['rss_source'] == "yts.mx":
-        formatted_entry['hash'] = utils.extract_hash_from_direct_download_url(
-            entry['links'][1]['href'])
-        formatted_entry['media_type'] = "movie"
-        formatted_entry['original_title'] = entry['title']
-        formatted_entry['original_link'] = entry['links'][1]['href']
-    elif entry['rss_source'] == "episodefeed.com":
-        formatted_entry['hash'] = utils.extract_hash_from_magnet_link(
-            entry['link'])
-        formatted_entry['media_type'] = utils.classify_media_type(
-            entry['title'])
-        formatted_entry['media_title'] = entry['tv_show_name']
-        formatted_entry['original_title'] = entry['title']
-        formatted_entry['original_link'] = entry['link']
+    try:
+        # format entries based off of rss source
+        if entry['rss_source'] in ["yts.mx", "yts.lt"]:
+            formatted_entry['hash'] = utils.extract_hash_from_direct_download_url(
+                entry['links'][1]['href'])
+            formatted_entry['media_type'] = "movie"
+            formatted_entry['original_title'] = entry['title']
+            formatted_entry['original_link'] = entry['links'][1]['href']
+        elif entry['rss_source'] == "episodefeed.com":
+            formatted_entry['hash'] = utils.extract_hash_from_magnet_link(
+                entry['link'])
+            formatted_entry['media_type'] = utils.classify_media_type(
+                entry['title'])
+            formatted_entry['media_title'] = entry['tv_show_name']
+            formatted_entry['original_title'] = entry['title']
+            formatted_entry['original_link'] = entry['link']
+        else:
+            logging.warning(f"Unknown RSS source: {entry.get('rss_source', 'N/A')}")
+            return None
+
+    except Exception as e:
+        logging.error(f"Failed to format entry from {entry.get('rss_source', 'unknown')}: {e}")
+        return None
 
     return formatted_entry
 
@@ -107,11 +137,14 @@ def rss_ingest():
     # format each entry for conversion to MediaDataFrame
     formatted_entries = [format_entries(entry=entry) for entry in all_entries]
 
+    # filter out None entries (failed formatting)
+    formatted_entries = [entry for entry in formatted_entries if entry is not None]
+
     # remove duplicates by hash, keeping first occurrence
     seen_hashes = set()
     unique_entries = []
     for entry in formatted_entries:
-        if entry['hash'] not in seen_hashes:
+        if 'hash' in entry and entry['hash'] not in seen_hashes:
             seen_hashes.add(entry['hash'])
             unique_entries.append(entry)
 
