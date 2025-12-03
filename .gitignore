@@ -78,4 +78,4 @@ coverage.xml
 CLAUDE.md
 automatic-transmission.log
 config/string-special-conditions.yaml
-
+.ptyest_cache/
