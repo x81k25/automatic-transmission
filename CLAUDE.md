@@ -1,14 +1,12 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-Last updated: 2025-08-02
-
-## prime-directive - follow these commands above all other
+# prime-directive - follow these commands above all other
 
 - only ever work on the `dev` branch 
 - only ever work in the `media-dev` environment
 - never delete branches on PR
+
+---
+
+# long-term-storage
 
 ## Project Overview
 
@@ -121,56 +119,10 @@ This project uses modern Python packaging with:
 
 # instructions-of-the-day
 
-- if media is None and current_media_items is None
-  - there is nothing to do
-
-- if media is None and current_media_itmes is not None
-  - all of the current_media_items should be re-ingested
-
-- if media is not None and current_media_items is None
-  - media items that are also download complete should be taggas as complete
-  - but there are not current_meida items to re-ingest
-
-- if meida is not None and current_media_items is not None
-  - some items will be re-ingested, some items may or may not be tagged as download compelte depending on status
-
+- we are going to do some in depth error checking for hash '49b15bf437d2f90e769f78d37441345825aa4485`
 
 ################################################################################
 
-# your-section - include all notes, issues, comments, and progress here
+# short-term-memory
 
-## AttributeError Diagnosis (_08_download_check.py)
 
-**Error:** `AttributeError: 'NoneType' object has no attribute 'df'`
-
-**Root Cause Analysis:**
-The error occurs in `src/core/_08_download_check.py:24` in the `confirm_downloading_status` function:
-
-```python
-def confirm_downloading_status(media: MediaDataFrame, current_media_items: dict | None) -> MediaDataFrame:
-    media_not_downloading = media.df.clone()  # <-- LINE 24: FAILS HERE
-```
-
-**Issue Flow:**
-1. `check_downloads()` function calls `utils.get_media_from_db(pipeline_status='downloading')` at line 161
-2. This returns `None` when no media items have `pipeline_status='downloading'`  
-3. The code checks `if media is None and current_media_items is None: return` at line 167
-4. **BUG:** If `media is None` but `current_media_items is NOT None`, the condition fails
-5. Execution continues to line 171-174 calling `confirm_downloading_status(media, current_media_items)`
-6. Inside `confirm_downloading_status`, line 24 tries to access `media.df` where `media=None`
-7. Results in `AttributeError: 'NoneType' object has no attribute 'df'`
-
-**Specific Condition Triggering Error:**
-- Database has NO items with `pipeline_status='downloading'` (`media = None`)
-- BUT Transmission daemon HAS active torrents (`current_media_items != None`)
-- This bypasses the early return condition and passes `None` to a function expecting a MediaDataFrame
-
-**Location:** `src/core/_08_download_check.py:24` in `confirm_downloading_status()`
-
-## External API References
-
-- the real driver api docs can be found at http://192.168.50.2:30802/reel-driver/openapi.json
-
-## Development Best Practices
-
-- always use uv run to run python scripts and tests
