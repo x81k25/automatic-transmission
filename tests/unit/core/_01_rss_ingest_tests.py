@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock, call
 import os
+import polars as pl
 from src.core._01_rss_ingest import *
 from src.data_models import *
 from tests.fixtures.core._01_rss_ingest_fixtures import *
@@ -161,26 +162,26 @@ class TestRssIngest:
             
             # Verify the content of inserted items if any
             if case["expected_insert_items"]:
-                # Get the MediaDataFrame that was passed to insert
+                # Get the DataFrame that was passed to insert
                 call_args = mock_insert_db.call_args
                 actual_media = call_args.kwargs['media']
-                
-                assert isinstance(actual_media, MediaDataFrame), (
+
+                assert isinstance(actual_media, pl.DataFrame), (
                     f"Failed for {case['description']}: "
-                    f"expected MediaDataFrame, got {type(actual_media)}"
+                    f"expected pl.DataFrame, got {type(actual_media)}"
                 )
-                
-                assert actual_media.df.height == len(case["expected_insert_items"]), (
+
+                assert actual_media.height == len(case["expected_insert_items"]), (
                     f"Failed for {case['description']}: "
                     f"expected {len(case['expected_insert_items'])} items to insert, "
-                    f"got {actual_media.df.height}"
+                    f"got {actual_media.height}"
                 )
-                
+
                 # Sort both actual and expected by hash for consistent comparison
-                actual_sorted = actual_media.df.sort("hash")
-                expected_sorted = sorted(case["expected_insert_items"], 
+                actual_sorted = actual_media.sort("hash")
+                expected_sorted = sorted(case["expected_insert_items"],
                                        key=lambda x: x["hash"])
-                
+
                 for i, expected in enumerate(expected_sorted):
                     row = actual_sorted.row(i, named=True)
                     for field, expected_value in expected.items():

@@ -5,9 +5,10 @@ from pathlib import PurePosixPath
 
 # third-party imports
 from dotenv import load_dotenv
+import polars as pl
 
 # local/custom imports
-from src.data_models import *
+from src.data_models import MediaSchema, RejectionStatus, PipelineStatus
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
@@ -110,40 +111,46 @@ def transfer_item(media_item: dict) -> dict:
     return media_item
 
 
-def update_status(media: MediaDataFrame) -> MediaDataFrame:
+def update_status(media: pl.DataFrame) -> pl.DataFrame:
     """
     updates status flags based off of conditions
 
-    :param media: MediaDataFrame with old status flags
-    :return: updated MediaDataFrame with correct status flags
+    :param media: DataFrame with old status flags
+    :return: updated DataFrame with correct status flags
     """
-    media_with_updated_status = media.df.clone()
+    media_with_updated_status = media.clone()
+
+    # Add error_condition column if missing
+    if 'error_condition' not in media_with_updated_status.columns:
+        media_with_updated_status = media_with_updated_status.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias('error_condition')
+        )
 
     media_with_updated_status = media_with_updated_status.with_columns(
         pipeline_status = pl.when(
             (pl.col('rejection_status').is_in([RejectionStatus.ACCEPTED.value, RejectionStatus.OVERRIDE.value])) &
-            (pl.col('error_status') == False)
-        ).then(pl.lit(PipelineStatus.TRANSFERRED))
-        .when(pl.col('rejection_status') == RejectionStatus.REJECTED)
-            .then(pl.lit(PipelineStatus.REJECTED))
+            (pl.col('error_condition').is_null())
+        ).then(pl.lit(PipelineStatus.TRANSFERRED.value))
+        .when(pl.col('rejection_status') == RejectionStatus.REJECTED.value)
+            .then(pl.lit(PipelineStatus.REJECTED.value))
         .otherwise(pl.col('pipeline_status'))
     )
 
-    return MediaDataFrame(media_with_updated_status)
+    return media_with_updated_status
 
 
-def log_status(media: MediaDataFrame) -> None:
+def log_status(media: pl.DataFrame) -> None:
     """
     logs current stats of all media items
 
-    :param media: MediaDataFrame contain process values to be printed
+    :param media: DataFrame contain process values to be printed
     :return: None
     """
     # log entries based on rejection status
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
-        if row['error_status']:
+    for idx, row in enumerate(media.iter_rows(named=True)):
+        if row['error_condition'] is not None:
             logging.error(f"{row['hash']} - {row['error_condition']}")
-        elif row['rejection_status'] == RejectionStatus.REJECTED:
+        elif row['rejection_status'] == RejectionStatus.REJECTED.value:
             logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
         else:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
@@ -158,7 +165,7 @@ def transfer_media():
     full pipeline for cleaning up media items that have completed transfer
     :return:
 
-    :debug: media_item = media.df[0].to_dicts()[0]
+    :debug: media_item = media[0].to_dicts()[0]
     """
     # read in existing data based on ingest_type
     media = utils.get_media_from_db(pipeline_status='downloaded')
@@ -170,41 +177,39 @@ def transfer_media():
     # generate files paths for items to be transferred
     updated_rows = []
 
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
+    for idx, row in enumerate(media.iter_rows(named=True)):
         updated_row = generate_file_paths(row)
         updated_rows.append(updated_row)
 
-    media = MediaDataFrame(updated_rows)
+    media = pl.DataFrame(updated_rows)
 
     # commit any errors to the database and log
-    media_with_errors = MediaDataFrame(media.df.filter(pl.col('error_status')))
+    media_with_errors = media.filter(~pl.col('error_condition').is_null())
 
     if media_with_errors.height > 0:
-        utils.media_db_update(media=media_with_errors.to_schema())
+        utils.media_db_update(media=MediaSchema.validate(media_with_errors))
         log_status(media_with_errors)
 
         # remove from processing queue
-        media.update(
-            media.df.join(media_with_errors.df.select('hash'), on='hash', how='anti')
-        )
+        media = media.join(media_with_errors.select('hash'), on='hash', how='anti')
 
     # if no media without error return
     if media.height == 0:
         return
 
     # iterate through each transfer and update individually
-    for media_item in media.df.iter_rows(named=True):
+    for media_item in media.iter_rows(named=True):
 
         # transfer media
         try:
             media_item = transfer_item(media_item)
 
-            # cast to MediaDataFrame to perform validation
-            media_singular = MediaDataFrame(pl.DataFrame([media_item]))
+            # cast to DataFrame to perform validation
+            media_singular = pl.DataFrame([media_item])
 
             # update log and commit to db
             media_singular = update_status(media_singular)
-            utils.media_db_update(media=media_singular.to_schema())
+            utils.media_db_update(media=MediaSchema.validate(media_singular))
             log_status(media_singular)
 
         except Exception as outer_e:
@@ -213,12 +218,12 @@ def transfer_media():
             try:
                 media_item['error_condition'] = f"{outer_e}"
 
-                # cast to MediaDataFrame to perform validation
-                media_singular = MediaDataFrame(pl.DataFrame(media_item))
+                # cast to DataFrame to perform validation
+                media_singular = pl.DataFrame([media_item])
 
                 # update log and commit to db
                 media_singular = update_status(media_singular)
-                utils.media_db_update(media=media_singular.to_schema())
+                utils.media_db_update(media=MediaSchema.validate(media_singular))
                 log_status(media_singular)
 
             # if attempt to store error to element fails, output error to logs

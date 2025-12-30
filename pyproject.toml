@@ -9,6 +9,7 @@ dependencies = [
     "feedparser>=6.0.11",
     "numpy>=2.2.5",
     "pandas>=2.2.3",
+    "pandera[polars]>=0.20.0",
     "paramiko>=3.5.1",
     "polars[timezone]>=1.29.0",
     "psycopg2-binary>=2.9.10",

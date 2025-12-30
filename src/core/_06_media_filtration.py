@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 
 # local/custom imports
 import src.utils as utils
-from src.data_models import *
+import polars as pl
+from src.data_models import MediaSchema, RejectionStatus, PipelineStatus, MediaType
 
 # -----------------------------------------------------------------------------
 # support functions that operate on one media item at a time
@@ -74,32 +75,38 @@ def get_prediction(media_item: dict) -> dict:
 # support functions that operate on multiple items as a DataFrame
 # -----------------------------------------------------------------------------
 
-def process_exempt_items(media: MediaDataFrame) -> MediaDataFrame:
+def process_exempt_items(media: pl.DataFrame) -> pl.DataFrame:
     """
     processes items that do not need media filtering
 
-    :param media: unprocessed MediaDataFrame
-    :return: updated MediaDataFrame with the status updated to correspond
+    :param media: unprocessed DataFrame
+    :return: updated DataFrame with the status updated to correspond
         with the label
     """
-    media_exempt = media.df.clone()
+    if media.height == 0:
+        return media
+
+    media_exempt = media.clone()
 
     media_exempt = media_exempt.filter(
         pl.col('media_type').is_in([MediaType.TV_SHOW.value, MediaType.TV_SEASON.value])
     )
 
-    return MediaDataFrame(media_exempt)
+    return media_exempt
 
 
-def reject_media_without_imdb_id(media: MediaDataFrame) -> MediaDataFrame:
+def reject_media_without_imdb_id(media: pl.DataFrame) -> pl.DataFrame:
     """
     set rejection_reason for items with no imdb_id
 
-    :param media: MediaDataFrame that contains elements potentially with
+    :param media: DataFrame that contains elements potentially with
         and without imdb_id's
-    :return: MediaDataFrame of elements with no imdb_id
+    :return: DataFrame of elements with no imdb_id
     """
-    media_without_imdb_id = media.df.clone()
+    if media.height == 0:
+        return media
+
+    media_without_imdb_id = media.clone()
 
     media_without_imdb_id = media_without_imdb_id.filter(
         pl.col('imdb_id').is_null()
@@ -107,23 +114,29 @@ def reject_media_without_imdb_id(media: MediaDataFrame) -> MediaDataFrame:
         rejection_reason = pl.lit("no imdb_id for media filtration")
     )
 
-    return MediaDataFrame(media_without_imdb_id)
+    return media_without_imdb_id
 
 
 def process_prelabeled_items(
-    media: MediaDataFrame,
+    media: pl.DataFrame,
     media_labels: pl.DataFrame
-) -> MediaDataFrame:
+) -> pl.DataFrame:
     """
-    applies that retrieved media labels to the unprocess MediaDataFrame
+    applies that retrieved media labels to the unprocessed DataFrame
 
-    :param media: unprocessed MediaDataFrame
+    :param media: unprocessed DataFrame
     :param media_labels: DataFrame containing training labels and the
         corresponding imdb_id's
-    :return: updated MediaDataFrame with the status updated to correspond
+    :return: updated DataFrame with the status updated to correspond
         with the label
     """
-    media_prelabeled=media.df.clone()
+    media_prelabeled = media.clone()
+
+    # Add rejection_reason column if missing
+    if 'rejection_reason' not in media_prelabeled.columns:
+        media_prelabeled = media_prelabeled.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias('rejection_reason')
+        )
 
     # join existing metadata with main DataFrame
     media_prelabeled = (
@@ -143,23 +156,23 @@ def process_prelabeled_items(
         .otherwise(pl.col('rejection_reason'))
     )
 
-    return MediaDataFrame(media_prefiltered)
+    return media_prefiltered
 
 
-def get_predictions(media: MediaDataFrame) -> MediaDataFrame:
+def get_predictions(media: pl.DataFrame) -> pl.DataFrame:
     """
     hits the reel-driver batch prediction, appends the probability to the
         input df, and then returns the df
 
-    :param media: MediaDataFrame containing all items to be predicted
-    :return: MediaDataFrame df with the probability appended
+    :param media: DataFrame containing all items to be predicted
+    :return: DataFrame with the probability appended
     """
     # reel_driver_env vars
     api_host = os.getenv('REEL_DRIVER_HOST')
     api_port = os.getenv('REEL_DRIVER_PORT')
     api_prefix = os.getenv('REEL_DRIVER_PREFIX')
 
-    media_with_predictions = media.df.clone()
+    media_with_predictions = media.clone()
 
     # Construct API URL
     api_url = f"http://{api_host}:{api_port}/{api_prefix}/api/predict_batch"
@@ -206,20 +219,20 @@ def get_predictions(media: MediaDataFrame) -> MediaDataFrame:
         how = 'left'
     )
 
-    return MediaDataFrame(media_with_predictions)
+    return media_with_predictions
 
 
 # -----------------------------------------------------------------------------
 # support logic for updating status and displaying log output
 # -----------------------------------------------------------------------------
 
-def update_status(media: MediaDataFrame) -> MediaDataFrame:
+def update_status(media: pl.DataFrame) -> pl.DataFrame:
     """
-    properly updates all relevant status using the filtered MediaDataFrame
+    properly updates all relevant status using the filtered DataFrame
 
-    :param media: MediaDataFrame with the probability attached or the
+    :param media: DataFrame with the probability attached or the
         error_condition if the probability could not be obtained
-    :return: updated MediaDataFrame with all errors properly tagged
+    :return: updated DataFrame with all errors properly tagged
 
     :debug: media = media_batch
     media_with_updated_status = pl.DataFrame(
@@ -240,7 +253,13 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
     # load pipeline env vars
     acceptance_threshold = float(os.getenv('AT_REEL_DRIVER_THRESHOLD') or "0.35")
 
-    media_with_updated_status = media.df.clone()
+    media_with_updated_status = media.clone()
+
+    # Add error_condition column if missing
+    if 'error_condition' not in media_with_updated_status.columns:
+        media_with_updated_status = media_with_updated_status.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias('error_condition')
+        )
 
     # perform updates on items with predictions
     if 'probability' in media_with_updated_status.columns:
@@ -248,7 +267,7 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
         media_with_updated_status = media_with_updated_status.with_columns(
             pl.col('probability').cast(pl.Float64)
         )
-        
+
         media_with_updated_status = media_with_updated_status.with_columns(
             rejection_reason = (
                 pl.when(pl.col('probability') < acceptance_threshold)
@@ -260,41 +279,41 @@ def update_status(media: MediaDataFrame) -> MediaDataFrame:
     # update rejection_status and pipeline_status
     media_with_updated_status = media_with_updated_status.with_columns(
         rejection_status = (
-            pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
-                .then(pl.lit(RejectionStatus.OVERRIDE))
+            pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE.value)
+                .then(pl.lit(RejectionStatus.OVERRIDE.value))
             .when(~pl.col('rejection_reason').is_null())
-                .then(pl.lit(RejectionStatus.REJECTED))
-            .otherwise(pl.lit(RejectionStatus.ACCEPTED))
+                .then(pl.lit(RejectionStatus.REJECTED.value))
+            .otherwise(pl.lit(RejectionStatus.ACCEPTED.value))
         )).with_columns(
             pipeline_status = (
-                pl.when(pl.col('error_status'))
+                pl.when(~pl.col('error_condition').is_null())
                     .then(pl.col('pipeline_status'))
-                .when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
-                    .then(pl.lit(PipelineStatus.MEDIA_ACCEPTED))
-                .when(pl.col('rejection_status') == RejectionStatus.ACCEPTED)
-                    .then(pl.lit(PipelineStatus.MEDIA_ACCEPTED))
-                .when(pl.col('rejection_status') == RejectionStatus.REJECTED)
-                    .then(pl.lit(PipelineStatus.REJECTED))
+                .when(pl.col('rejection_status') == RejectionStatus.OVERRIDE.value)
+                    .then(pl.lit(PipelineStatus.MEDIA_ACCEPTED.value))
+                .when(pl.col('rejection_status') == RejectionStatus.ACCEPTED.value)
+                    .then(pl.lit(PipelineStatus.MEDIA_ACCEPTED.value))
+                .when(pl.col('rejection_status') == RejectionStatus.REJECTED.value)
+                    .then(pl.lit(PipelineStatus.REJECTED.value))
                 .otherwise(pl.col('pipeline_status'))
             )
         )
 
-    return MediaDataFrame(media_with_updated_status)
+    return media_with_updated_status
 
 
-def log_status(media: MediaDataFrame) -> None:
+def log_status(media: pl.DataFrame) -> None:
     """
     logs acceptance/rejection of the media filtration process
 
-    :param media: MediaDataFrame contain process values to be printed
+    :param media: DataFrame contain process values to be printed
     :return: None
     """
-    for row in media.df.iter_rows(named=True):
-        if row['error_status']:
+    for row in media.iter_rows(named=True):
+        if row['error_condition'] is not None:
             logging.error(f"{row['hash']} - {row['error_condition']}")
-        elif row['rejection_status'] == RejectionStatus.REJECTED:
+        elif row['rejection_status'] == RejectionStatus.REJECTED.value:
             logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
-        elif 'probability' in row:
+        elif 'probability' in row and row['probability'] is not None:
             logging.info(f"media-{row['rejection_status']} - {row['hash']} - with probability: {row['probability']:.3f}")
         else:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
@@ -308,7 +327,7 @@ def filter_media():
     """
     full pipeline for filtering all media after metadata has been collected
 
-    :debug: media.update(media.df[3])
+    :debug: media = media[3]
     :debug: batch = 0
     """
     # pipeline env vars
@@ -326,13 +345,11 @@ def filter_media():
     if media_exempt.height > 0:
         # update status, commit to db, and log
         media_exempt = update_status(media_exempt)
-        utils.media_db_update(media=media_exempt.to_schema())
+        utils.media_db_update(media=MediaSchema.validate(media_exempt))
         log_status(media_exempt)
 
         # remove from processing
-        media.update(
-            media.df.join(media_exempt.df.select('hash'), on='hash', how='anti')
-        )
+        media = media.join(media_exempt.select('hash'), on='hash', how='anti')
 
     # if no further items to process return
     if media.height == 0:
@@ -341,23 +358,21 @@ def filter_media():
     # reject items with no valid imdb_id
     media_without_imdb_id = reject_media_without_imdb_id(media)
 
-    if media_without_imdb_id.df.height > 0:
+    if media_without_imdb_id.height > 0:
         # update status, commit to db, and log
         media_without_imdb_id = update_status(media_without_imdb_id)
-        utils.media_db_update(media=media_without_imdb_id.to_schema())
+        utils.media_db_update(media=MediaSchema.validate(media_without_imdb_id))
         log_status(media_without_imdb_id)
 
         # remove from processing
-        media.update(
-            media.df.join(media_without_imdb_id.df.select('hash'), on='hash', how='anti')
-        )
+        media = media.join(media_without_imdb_id.select('hash'), on='hash', how='anti')
 
     # if no media with valid imdb_id, return
-    if media.df.height == 0:
+    if media.height == 0:
         return
 
     # get values for media which has previously been filtered
-    media_labels = utils.get_training_labels(list(set(media.df['imdb_id'])))
+    media_labels = utils.get_training_labels(list(set(media['imdb_id'])))
 
     # if any labels have already been set
     if media_labels is not None:
@@ -365,58 +380,54 @@ def filter_media():
 
         # update status, commit to db, and log
         prelabeled_media = update_status(prelabeled_media)
-        utils.media_db_update(media=prelabeled_media.to_schema())
+        utils.media_db_update(media=MediaSchema.validate(prelabeled_media))
         log_status(prelabeled_media)
 
         # remove from list of items to be filtered
-        media.update(
-            media.df.join(prelabeled_media.df.select('hash'), on='hash', how='anti')
-        )
+        media = media.join(prelabeled_media.select('hash'), on='hash', how='anti')
 
     # if no more items need filtration, return
     if media.height == 0:
         return
 
     # filter 1 item
-    elif media.df.height == 1:
-        prediction_result = get_prediction(media.df[0].to_dicts()[0])
-        media_batch_df = pl.DataFrame([prediction_result])
-        
+    elif media.height == 1:
+        prediction_result = get_prediction(media[0].to_dicts()[0])
+        media_batch = pl.DataFrame([prediction_result])
+
         # Ensure probability is Float64 if it exists
-        if 'probability' in media_batch_df.columns:
-            media_batch_df = media_batch_df.with_columns(
+        if 'probability' in media_batch.columns:
+            media_batch = media_batch.with_columns(
                 pl.col('probability').cast(pl.Float64)
             )
-        
-        media_batch = MediaDataFrame(media_batch_df)
 
         # update status, commit to db, and log
         media_batch = update_status(media_batch)
-        utils.media_db_update(media_batch.to_schema())
+        utils.media_db_update(MediaSchema.validate(media_batch))
         log_status(media_batch)
 
     # batch filter multiple items
     else:
         # break into batches to avoid entire queue failure due to 1 item
-        number_of_batches = (media.df.height + (batch_size-1)) // batch_size  # Ceiling division by 50
+        number_of_batches = (media.height + (batch_size-1)) // batch_size  # Ceiling division by 50
 
         for batch in range(number_of_batches):
             logging.debug(f"starting media filtration batch {batch+1}/{number_of_batches}")
 
             # set batch indices
             batch_start_index = batch * batch_size
-            batch_end_index = min((batch + 1) * batch_size, media.df.height)
+            batch_end_index = min((batch + 1) * batch_size, media.height)
 
-            # create media batch as proper MediaDataFrame to perform data validation
-            media_batch = MediaDataFrame(media.df[batch_start_index:batch_end_index].clone())
+            # create media batch
+            media_batch = media[batch_start_index:batch_end_index].clone()
 
             try:
                 # attempt to hit the prediction batch API
                 media_batch = get_predictions(media_batch)
 
-                # update statuses, commit td db, and log
+                # update statuses, commit to db, and log
                 media_batch = update_status(media_batch)
-                utils.media_db_update(media=media_batch.to_schema())
+                utils.media_db_update(media=MediaSchema.validate(media_batch))
                 log_status(media_batch)
 
             except Exception as e:
@@ -426,21 +437,20 @@ def filter_media():
                 # attempt processing of items individually
                 updated_rows = []
 
-                for idx, row in enumerate(media_batch.df.iter_rows(named=True)):
+                for idx, row in enumerate(media_batch.iter_rows(named=True)):
                     updated_row = get_prediction(row)
                     updated_rows.append(updated_row)
 
                 # Create DataFrame and ensure probability is Float64
-                updated_df = pl.DataFrame(updated_rows)
-                if 'probability' in updated_df.columns:
-                    updated_df = updated_df.with_columns(
+                media_batch = pl.DataFrame(updated_rows)
+                if 'probability' in media_batch.columns:
+                    media_batch = media_batch.with_columns(
                         pl.col('probability').cast(pl.Float64)
                     )
-                media_batch.update(updated_df)
 
-                # update statuses, commit td db, and log
+                # update statuses, commit to db, and log
                 media_batch = update_status(media_batch)
-                utils.media_db_update(media=media_batch.to_schema())
+                utils.media_db_update(media=MediaSchema.validate(media_batch))
                 log_status(media_batch)
 
 

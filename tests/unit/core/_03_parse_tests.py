@@ -3,6 +3,7 @@ import yaml
 import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+import polars as pl
 from src.core._03_parse import *
 from src.data_models import *
 from tests.fixtures.core._03_parse_fixtures import *
@@ -13,7 +14,7 @@ class TestParseMediaItems:
     def test_parse_media_items(self, parse_media_items_cases):
         """Test all parse_media_items scenarios from fixture."""
         for case in parse_media_items_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = parse_media_items(input_media)
             expected_list = case["expected_fields"]
 
@@ -36,7 +37,7 @@ class TestParseMediaItems:
     def test_validate_parsed_media(self, validate_parsed_media_cases):
         """Test all validate_parsed_media scenarios from fixture."""
         for case in validate_parsed_media_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = validate_parsed_media(input_media)
             expected_list = case["expected_fields"]
 
@@ -60,15 +61,15 @@ class TestParseMediaItems:
     def test_update_status(self, update_status_cases):
         """Test all update_status scenarios from fixture."""
         for case in update_status_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = update_status(input_media)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -95,7 +96,7 @@ class TestParseMediaItems:
             if case["input_media"] is None:
                 mock_get_media.return_value = None
             else:
-                mock_get_media.return_value = MediaDataFrame(case["input_media"])
+                mock_get_media.return_value = pl.DataFrame(case["input_media"])
 
             # Execute the function
             parse_media()
@@ -111,19 +112,19 @@ class TestParseMediaItems:
             if "expected_output" in case and case["expected_output"]:
                 call_args = mock_db_update.call_args
                 actual_media = call_args.kwargs['media']
-                
-                assert isinstance(actual_media, MediaDataFrame)
-                assert actual_media.df.height == len(case["expected_output"]), (
+
+                assert isinstance(actual_media, pl.DataFrame)
+                assert actual_media.height == len(case["expected_output"]), (
                     f"Failed for {case['description']}: "
                     f"expected {len(case['expected_output'])} items in output, "
-                    f"got {actual_media.df.height}"
+                    f"got {actual_media.height}"
                 )
-                
+
                 # Sort both actual and expected by hash for consistent comparison
-                actual_sorted = actual_media.df.sort("hash")
-                expected_sorted = sorted(case["expected_output"], 
+                actual_sorted = actual_media.sort("hash")
+                expected_sorted = sorted(case["expected_output"],
                                        key=lambda x: x["hash"])
-                
+
                 for i, expected in enumerate(expected_sorted):
                     row = actual_sorted.row(i, named=True)
                     for field, expected_value in expected.items():

@@ -15,12 +15,12 @@ jobs:
           echo "Event: ${{ github.event_name }}"
           echo "Base ref: ${{ github.base_ref }}"
           echo "Head ref: ${{ github.head_ref }}"
-          echo "Selected environment: ${{ (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' || (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' || (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' || (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' || 'dev' }}"
+          echo "Selected environment: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' || (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' || 'dev' }}"
 
   test:
     runs-on: ubuntu-latest
     needs: debug
-    environment: ${{ (github.event_name == 'pull_request' && github.base_ref == 'main') && 'prod' || (github.event_name == 'pull_request' && github.base_ref == 'stg') && 'stg' || (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' || (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' || 'dev' }}
+    environment: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && 'prod' || (github.event_name == 'push' && github.ref == 'refs/heads/stg') && 'stg' || 'dev' }}
     env:
       STALE_METADATA_THRESHOLD: ${{ vars.STALE_METADATA_THRESHOLD }}
       BATCH_SIZE: ${{ vars.BATCH_SIZE }}

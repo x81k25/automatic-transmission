@@ -13,8 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import SAWarning
 
-# internal imports
-from src.data_models import MediaDataFrame
+# internal imports - none needed after MediaDataFrame removal
 
 # ------------------------------------------------------------------------------
 # load in environment variables
@@ -188,13 +187,13 @@ def return_rejected_hashes(hashes: List[str]) -> List[str]:
 def get_media_from_db(
     pipeline_status: str,
     with_timestamp: bool = False
-) -> MediaDataFrame | None:
+) -> pl.DataFrame | None:
     """
     Retrieves data from movies or tv_shows table based on pipeline_status.
 
     :param pipeline_status: pipeline_status to filter by
     :param with_timestamp: whether to return timestamp fields
-    :return: MediaDataFrame containing matching rows
+    :return: DataFrame containing matching rows
     """
     # assign engine
     engine = create_db_engine()
@@ -225,25 +224,19 @@ def get_media_from_db(
         # Convert to dict for polars
         data = [dict(zip(columns, row)) for row in rows]
 
-    # convert to MediaDataFrame with or without timestamp
-    if not with_timestamp:
-        return MediaDataFrame(data)
-    else:
-        return MediaDataFrame(pl.DataFrame(data))
+    return pl.DataFrame(data)
 
 
 def get_media_by_hash(
     hashes: list,
     with_timestamp: bool = False
-) -> MediaDataFrame | None:
+) -> pl.DataFrame | None:
     """
     retrieves data from media by hash
 
     :param hashes: list of hashes to retrieve, if available
     :param with_timestamp: whether to return timestamp fields
-    :return: MediaDataFrame containing matching rows
-
-    :debug: hashes = ["0c5ba8200b9f15d01002b10bcfe43a5b85bd2902", "dade75a46e5e127a55048fa1557ef9e4e164f4c5", "2d9d681152394ab7387ec68679e9f20671d40764"]
+    :return: DataFrame containing matching rows
     """
     # assign engine
     engine = create_db_engine()
@@ -273,11 +266,7 @@ def get_media_by_hash(
         # Convert to dict for polars
         data = [dict(zip(columns, row)) for row in rows]
 
-    # convert to MediaDataFrame with or without timestamp
-    if not with_timestamp:
-        return MediaDataFrame(data)
-    else:
-        return MediaDataFrame(pl.DataFrame(data))
+    return pl.DataFrame(data)
 
 
 def get_media_metadata(tmdb_ids: list) -> pl.DataFrame | None:
@@ -373,27 +362,23 @@ def get_training_labels(imdb_ids: list) -> pl.DataFrame | None:
 # insert statements
 # ------------------------------------------------------------------------------
 
-def insert_items_to_db(media: MediaDataFrame):
+def insert_items_to_db(media: pl.DataFrame):
     """
-    Writes a MediaDataFrame to the database using SQLAlchemy.
+    Writes a DataFrame to the database using SQLAlchemy.
 
-    :param media_type: Type of media ('movie', 'tv', etc.)
-    :param media: MediaDataFrame containing data to insert
+    :param media: DataFrame containing data to insert
     """
     # assign engine
     engine = create_db_engine()
-
-    # Get the polars DataFrame
-    pl_df = media.df
 
     # Create SQLAlchemy table metadata
     metadata = MetaData(schema=pg_schema)
     sa_table = Table('media', metadata, autoload_with=engine)
 
     # Convert polars DataFrame to records
-    records = pl_df.to_dicts()
+    records = media.to_dicts()
 
-    logging.debug(f"attempting insert of {len(media.df)} records to table")
+    logging.debug(f"attempting insert of {len(media)} records to table")
 
     # insert to database
     with engine.connect() as conn:
@@ -521,15 +506,15 @@ def update_rejection_status_by_hash(
         raise Exception(f"Error updating rejection_status: {str(e)}")
 
 
-def media_db_update(media: MediaDataFrame) -> None:
+def media_db_update(media: pl.DataFrame) -> None:
     """
     Updates database records for media entries using SQLAlchemy's ORM approach.
 
-    :param media: MediaDataFrame containing media records to update
+    :param media: DataFrame containing media records to update
     """
-    logging.debug(f"Starting database update for {len(media.df)} records")
+    logging.debug(f"Starting database update for {len(media)} records")
 
-    # warnings causeed by loading elements to the PostgreSQL CHAR type
+    # warnings caused by loading elements to the PostgreSQL CHAR type
     warnings.filterwarnings(
         'ignore',
         message="Did not recognize type 'bpchar'",
@@ -539,10 +524,8 @@ def media_db_update(media: MediaDataFrame) -> None:
     engine = create_db_engine()
 
     # Convert all polars nulls to None for SQLAlchemy compatibility
-    # First convert to Python objects row by row
     records = []
-    for row in media.df.iter_rows(named=True):
-        # Replace polars.Null with None in each row
+    for row in media.iter_rows(named=True):
         clean_row = {k: (None if v is None or str(v) == "None" else v) for k, v in row.items()}
         records.append(clean_row)
 
@@ -562,7 +545,7 @@ def media_db_update(media: MediaDataFrame) -> None:
         set_=update_cols
     )
 
-    logging.debug(f"Attempting upsert of {len(media.df)} records")
+    logging.debug(f"Attempting upsert of {len(media)} records")
 
     try:
         with engine.begin() as conn:

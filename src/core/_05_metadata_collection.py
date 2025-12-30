@@ -9,8 +9,9 @@ from dotenv import load_dotenv
 import requests
 
 # local/custom imports
-from src.data_models import *
+from src.data_models import MediaSchema, RejectionStatus, PipelineStatus
 import src.utils as utils
+import polars as pl
 
 # ------------------------------------------------------------------------------
 # API collection and processing functions
@@ -330,18 +331,18 @@ def collect_ratings(media_item: dict) -> dict:
 # ------------------------------------------------------------------------------
 
 def process_media_with_existing_metadata(
-    media: MediaDataFrame,
+    media: pl.DataFrame,
     existing_metadata: pl.DataFrame
-) -> MediaDataFrame:
+) -> pl.DataFrame:
     """
     combines the existing metadata with on imdb_id with the current
-        MediaDataFrame
+        DataFrame
 
     :param media: entire media set, or media batch set
     :param existing_metadata: existing metadata indexed IMDB
-    :return: MediaDataFrame with metadata attached and ready for upload
+    :return: DataFrame with metadata attached and ready for upload
     """
-    media_with_metadata = media.df.clone()
+    media_with_metadata = media.clone()
     metadata_to_join = existing_metadata.clone()
 
     # select which fields to not join
@@ -349,6 +350,15 @@ def process_media_with_existing_metadata(
         'media_type',
         'media_title'
     ])
+
+    # Ensure all columns from metadata exist in media (add nulls for missing columns)
+    for col in metadata_to_join.columns:
+        if col not in media_with_metadata.columns:
+            # Use the dtype from metadata_to_join for the new column
+            col_dtype = metadata_to_join.schema[col]
+            media_with_metadata = media_with_metadata.with_columns(
+                pl.lit(None).cast(col_dtype).alias(col)
+            )
 
     # if metadata is already collected and not stale, use previously collected data
     media_with_metadata = (
@@ -360,47 +370,47 @@ def process_media_with_existing_metadata(
             )
     )
 
-    return MediaDataFrame(media_with_metadata)
+    return media_with_metadata
 
 
 # ------------------------------------------------------------------------------
 # update and log status functions
 # ------------------------------------------------------------------------------
 
-def update_status(media: MediaDataFrame) -> MediaDataFrame:
+def update_status(media: pl.DataFrame) -> pl.DataFrame:
     """
     updates status flags based off of conditions
 
-    :param media: MediaDataFrame with old status flags
-    :return: updated MediaDataFrame with correct status flags
+    :param media: DataFrame with old status flags
+    :return: updated DataFrame with correct status flags
     """
-    media_with_updated_status = media.df.clone()
+    media_with_updated_status = media.clone()
 
     media_with_updated_status = media_with_updated_status.with_columns(
         pipeline_status = pl.when(
             (pl.col('rejection_status').is_in([RejectionStatus.ACCEPTED.value, RejectionStatus.OVERRIDE.value])) &
             (pl.col('error_status') == False)
-        ).then(pl.lit(PipelineStatus.METADATA_COLLECTED))
-        .when(pl.col('rejection_status') == RejectionStatus.REJECTED)
-            .then(pl.lit(PipelineStatus.REJECTED))
+        ).then(pl.lit(PipelineStatus.METADATA_COLLECTED.value))
+        .when(pl.col('rejection_status') == RejectionStatus.REJECTED.value)
+            .then(pl.lit(PipelineStatus.REJECTED.value))
         .otherwise(pl.col('pipeline_status'))
     )
 
-    return MediaDataFrame(media_with_updated_status)
+    return media_with_updated_status
 
 
-def log_status(media: MediaDataFrame) -> None:
+def log_status(media: pl.DataFrame) -> None:
     """
     logs current stats of all media items
 
-    :param media: MediaDataFrame contain process values to be printed
+    :param media: DataFrame contain process values to be printed
     :return: None
     """
     # log entries based on rejection status
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
+    for row in media.iter_rows(named=True):
         if row['error_status']:
             logging.error(f"{row['hash']} - {row['error_condition']}")
-        elif row['rejection_status'] == RejectionStatus.REJECTED:
+        elif row['rejection_status'] == RejectionStatus.REJECTED.value:
             logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
         else:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
@@ -428,30 +438,31 @@ def collect_metadata():
         return
 
     # batch up operations to avoid API rate limiting
-    number_of_batches = (media.df.height + (batch_size-1)) // batch_size
+    number_of_batches = (media.height + (batch_size-1)) // batch_size
 
     for batch in range(number_of_batches):
         logging.debug(f"starting metadata collection batch {batch+1}/{number_of_batches}")
 
         # set batch indices
         batch_start_index = batch * batch_size
-        batch_end_index = min((batch + 1) * batch_size, media.df.height)
+        batch_end_index = min((batch + 1) * batch_size, media.height)
 
-        # create media batch as proper MediaDataFrame to perform data validation
-        media_batch = MediaDataFrame(media.df[batch_start_index:batch_end_index])
+        # create media batch
+        media_batch = media[batch_start_index:batch_end_index]
 
         try:
             # search for media, and if not available reject
             updated_rows = []
 
-            for idx, row in enumerate(media_batch.df.iter_rows(named=True)):
+            for row in media_batch.iter_rows(named=True):
                 updated_row = media_search(row)
                 updated_rows.append(updated_row)
 
-            media_batch.update(pl.DataFrame(updated_rows))
+            media_batch = pl.DataFrame(updated_rows)
+            media_batch = MediaSchema.validate(media_batch)
 
             # determine if metadata is already collected
-            existing_metadata = utils.get_media_metadata(list(set(media_batch.df['tmdb_id'])))
+            existing_metadata = utils.get_media_metadata(list(set(media_batch['tmdb_id'])))
 
             # if metadata already collected, apply to df and commit to db
             if existing_metadata is not None:
@@ -461,45 +472,47 @@ def collect_metadata():
                 )
 
                 media_batch_with_metadata = update_status(media_batch_with_metadata)
-                utils.media_db_update(media_batch_with_metadata.to_schema())
+                media_batch_with_metadata = MediaSchema.validate(media_batch_with_metadata)
+                utils.media_db_update(media=media_batch_with_metadata)
                 log_status(media_batch_with_metadata)
 
                 # filter for items which still need metadata collection
-                media_batch.update(
-                    media_batch.df.filter(~pl.col('hash').is_in(media_batch_with_metadata.df['hash'].to_list()))
-                )
+                media_batch = media_batch.filter(~pl.col('hash').is_in(media_batch_with_metadata['hash'].to_list()))
 
             # if all items already collected, move on to next batch
-            if media_batch.df.height == 0:
+            if media_batch.height == 0:
                 continue
 
             # get additional media details
             updated_rows = []
 
-            for idx, row in enumerate(media_batch.df.iter_rows(named=True)):
+            for row in media_batch.iter_rows(named=True):
                 if not row['error_status'] and row['rejection_status'] != 'rejected':
                     updated_row = collect_details(row)
                     updated_rows.append(updated_row)
                 else:
                     updated_rows.append(row)
 
-            media_batch.update(pl.DataFrame(updated_rows))
+            media_batch = pl.DataFrame(updated_rows)
+            media_batch = MediaSchema.validate(media_batch)
 
             # get media rating metadata
             updated_rows = []
 
-            for idx, row in enumerate(media_batch.df.iter_rows(named=True)):
+            for row in media_batch.iter_rows(named=True):
                 if not row['error_status'] and row['rejection_status'] != 'rejected':
                     updated_row = collect_ratings(row)
                     updated_rows.append(updated_row)
                 else:
                     updated_rows.append(row)
 
-            media_batch.update(pl.DataFrame(updated_rows))
+            media_batch = pl.DataFrame(updated_rows)
+            media_batch = MediaSchema.validate(media_batch)
 
             # update status, commit to db, and log
             media_batch = update_status(media_batch)
-            utils.media_db_update(media=media_batch.to_schema())
+            media_batch = MediaSchema.validate(media_batch)
+            utils.media_db_update(media=media_batch)
             log_status(media_batch)
 
             logging.debug(f"completed metadata collection batch {batch+1}/{number_of_batches}")
