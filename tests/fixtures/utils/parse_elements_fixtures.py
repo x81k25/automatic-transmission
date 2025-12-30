@@ -357,6 +357,25 @@ def extract_title_cases():
             "raw_title": "Zootopia+2+2025",
             "media_type": "movie",
             "expected": "Zootopia 2"
+        },
+        # Issue 2: TV episode packs (from error investigation 2025-12-30)
+        {
+            "description": "TV episode pack title extraction",
+            "raw_title": "The Pitt S01E07-08 1080p WEB-DL ITA-ENG DDP5 1 DV HDR H 265-G66",
+            "media_type": "tv_episode_pack",
+            "expected": "The Pitt"
+        },
+        {
+            "description": "TV episode pack with dots as separators",
+            "raw_title": "High.Potential.S02E03-04.1080p.DSNP.WEB-DL",
+            "media_type": "tv_episode_pack",
+            "expected": "High Potential"
+        },
+        {
+            "description": "TV episode pack with year in title",
+            "raw_title": "Task 2025 S01E01-02 1080p AMZN WEB-DL",
+            "media_type": "tv_episode_pack",
+            "expected": "Task"
         }
     ]
 
@@ -579,6 +598,43 @@ def extract_season_from_season_cases():
             "expected": 2
         }
     ]
+
+@pytest.fixture
+def extract_season_from_episode_pack_cases():
+    """Test scenarios for extract_season_from_episode_pack function."""
+    return [
+        {
+            "description": "Standard episode pack S01E07-08",
+            "title": "The Pitt S01E07-08 1080p WEB-DL",
+            "expected": 1
+        },
+        {
+            "description": "Episode pack S01E01-02",
+            "title": "Task S01E01-02 1080p AMZN WEB-DL",
+            "expected": 1
+        },
+        {
+            "description": "Episode pack season 2 with dots",
+            "title": "High.Potential.S02E03-04.1080p.DSNP.WEB-DL",
+            "expected": 2
+        },
+        {
+            "description": "Lowercase episode pack",
+            "title": "some.show.s03e05-06.1080p.web.h264",
+            "expected": 3
+        },
+        {
+            "description": "No episode pack pattern returns None",
+            "title": "Regular Show S01E01 1080p",
+            "expected": None
+        },
+        {
+            "description": "Season without episode pack returns None",
+            "title": "Show S01 Complete 1080p",
+            "expected": None
+        }
+    ]
+
 
 @pytest.fixture
 def extract_resolution_cases():
