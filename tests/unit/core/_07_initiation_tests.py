@@ -1,4 +1,5 @@
 import pytest
+import polars as pl
 from src.core._07_initiation import *
 from src.data_models import *
 from tests.fixtures.core._07_initiation_fixtures import *
@@ -9,15 +10,15 @@ class TestInitiation:
     def test_update_status(self, update_status_cases):
         """Test all update_status scenarios from fixture."""
         for case in update_status_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = update_status(input_media)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (

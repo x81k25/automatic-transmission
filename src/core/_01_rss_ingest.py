@@ -9,7 +9,7 @@ from feedparser import FeedParserDict
 
 # local/custom imports
 import src.utils as utils
-from src.data_models import MediaDataFrame
+from src.data_models import MediaSchema
 
 # ------------------------------------------------------------------------------
 # rss ingest helper functions
@@ -98,14 +98,14 @@ def format_entries(entry: FeedParserDict) -> dict:
     return formatted_entry
 
 
-def log_status(media: MediaDataFrame) -> None:
+def log_status(media: pl.DataFrame) -> None:
     """
     logs acceptance/rejection of the media filtration process
 
-    :param media: MediaDataFrame contain process values to be printed
+    :param media: DataFrame containing process values to be printed
     :return: None
     """
-    for row in media.df.iter_rows(named=True):
+    for row in media.iter_rows(named=True):
         logging.info(f"ingested - {row['hash']}")
 
 # ------------------------------------------------------------------------------
@@ -148,18 +148,21 @@ def rss_ingest():
             seen_hashes.add(entry['hash'])
             unique_entries.append(entry)
 
-    # convert to MediaDataFrame object
-    #     conversion to MediaDataFrame object will handle element verification,
-    #     and define default values for status fields
-    media = MediaDataFrame(unique_entries)
+    # early return if no entries
+    if not unique_entries:
+        return
+
+    # convert to DataFrame
+    media = pl.DataFrame(unique_entries)
 
     # determine which feed entries are new entries
-    new_hashes = utils.compare_hashes_to_db(hashes=media.df['hash'].to_list())
-    media.update(media.df.filter(pl.col('hash').is_in(new_hashes)))
+    new_hashes = utils.compare_hashes_to_db(hashes=media['hash'].to_list())
+    media = media.filter(pl.col('hash').is_in(new_hashes))
 
-    if media.df.height > 0:
-        # write new items to the database
-        utils.insert_items_to_db(media=media.to_schema())
+    if media.height > 0:
+        # validate and write new items to the database
+        media = MediaSchema.validate(media)
+        utils.insert_items_to_db(media=media)
         log_status(media)
 
 

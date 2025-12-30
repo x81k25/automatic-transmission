@@ -7,7 +7,8 @@ import yaml
 
 # local/custom imports
 import src.utils as utils
-from src.data_models import *
+import polars as pl
+from src.data_models import MediaSchema, RejectionStatus, PipelineStatus
 
 # ------------------------------------------------------------------------------
 # support functions
@@ -67,45 +68,51 @@ def filter_by_file_metadata(media_item: dict) -> dict:
     return media_item
 
 
-def update_status(media: MediaDataFrame) -> MediaDataFrame:
+def update_status(media: pl.DataFrame) -> pl.DataFrame:
     """
     updates status flags based off of conditions
 
-    :param media: MediaDataFrame with old status flags
-    :return: updated MediaDataFrame with correct status flags
+    :param media: DataFrame with old status flags
+    :return: updated DataFrame with correct status flags
     """
-    media_with_updated_status = media.df.clone()
+    media_with_updated_status = media.clone()
 
-    # update status accordingly
-    media_with_updated_status = media_with_updated_status.with_columns(
-            rejection_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
-                .then(pl.lit(RejectionStatus.OVERRIDE))
-            .when(pl.col('rejection_status') == RejectionStatus.REJECTED)
-                .then(pl.lit(RejectionStatus.REJECTED))
-            .otherwise(pl.lit(RejectionStatus.ACCEPTED))
-        ).with_columns(
-            pipeline_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
-                .then(pl.lit(PipelineStatus.FILE_ACCEPTED))
-            .when(pl.col('rejection_status') == RejectionStatus.ACCEPTED)
-                .then(pl.lit(PipelineStatus.FILE_ACCEPTED))
-            .otherwise(pl.lit(PipelineStatus.REJECTED))
+    # Add rejection_reason column if missing
+    if 'rejection_reason' not in media_with_updated_status.columns:
+        media_with_updated_status = media_with_updated_status.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias('rejection_reason')
         )
 
-    return MediaDataFrame(media_with_updated_status)
+    # update status accordingly (check rejection_reason directly for status determination)
+    media_with_updated_status = media_with_updated_status.with_columns(
+            rejection_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE.value)
+                .then(pl.lit(RejectionStatus.OVERRIDE.value))
+            .when(~pl.col('rejection_reason').is_null())
+                .then(pl.lit(RejectionStatus.REJECTED.value))
+            .otherwise(pl.lit(RejectionStatus.ACCEPTED.value))
+        ).with_columns(
+            pipeline_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE.value)
+                .then(pl.lit(PipelineStatus.FILE_ACCEPTED.value))
+            .when(pl.col('rejection_status') == RejectionStatus.ACCEPTED.value)
+                .then(pl.lit(PipelineStatus.FILE_ACCEPTED.value))
+            .otherwise(pl.lit(PipelineStatus.REJECTED.value))
+        )
+
+    return media_with_updated_status
 
 
-def log_status(media: MediaDataFrame) -> None:
+def log_status(media: pl.DataFrame) -> None:
     """
     logs current stats of all media items
 
-    :param media: MediaDataFrame contain process values to be printed
+    :param media: DataFrame contain process values to be printed
     :return: None
     """
     # log entries based on rejection status
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
-        if row['rejection_status'] == RejectionStatus.OVERRIDE:
+    for row in media.iter_rows(named=True):
+        if row['rejection_status'] == RejectionStatus.OVERRIDE.value:
             logging.info(f"{row['rejection_status']} - {row['hash']}")
-        elif row['pipeline_status'] == PipelineStatus.REJECTED:
+        elif row['pipeline_status'] == PipelineStatus.REJECTED.value:
             logging.info(f"{row['pipeline_status']} - {row['hash']} - {row['rejection_reason']}")
         else:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
@@ -128,7 +135,7 @@ def filter_files():
 
     # filter based off of file parameters for all elements
     updated_rows = []
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
+    for row in media.iter_rows(named=True):
         try:
             updated_row = filter_by_file_metadata(media_item=row)
             updated_rows.append(updated_row)
@@ -138,17 +145,16 @@ def filter_files():
             row['error_condition'] = error_message
             updated_rows.append(row)
 
-    media = MediaDataFrame(updated_rows)
+    media = pl.DataFrame(updated_rows)
+    media = MediaSchema.validate(media)
 
     # commit any items with errors to db, if any remove from working data set
-    if media.df.filter(pl.col('error_status')).height > 0:
+    if media.filter(pl.col('error_status')).height > 0:
         utils.media_db_update(
-            MediaDataFrame(
-                media.df.filter(pl.col('error_status'))
-            )
+            media=media.filter(pl.col('error_status'))
         )
 
-    media.update(media.df.filter(~pl.col('error_status')))
+    media = media.filter(~pl.col('error_status'))
 
     # if no items without errors, return
     if media.height == 0:
@@ -158,7 +164,8 @@ def filter_files():
     media = update_status(media)
 
     # commit to db
-    utils.media_db_update(media=media.to_schema())
+    media = MediaSchema.validate(media)
+    utils.media_db_update(media=media)
 
     # log status
     log_status(media)

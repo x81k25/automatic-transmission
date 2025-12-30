@@ -6,17 +6,18 @@ from pathlib import Path
 import yaml
 
 # local/custom imports
-from src.data_models import *
+from src.data_models import MediaSchema, PipelineStatus
 import src.utils as utils
+import polars as pl
 
 # ------------------------------------------------------------------------------
 # title parse helper functions
 # ------------------------------------------------------------------------------
 
-def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
+def parse_media_items(media: pl.DataFrame) -> pl.DataFrame:
     """
     Parse the title of media items to extract relevant information
-    :param media: MediaDataFrame contain all elements to be parsed
+    :param media: DataFrame contain all elements to be parsed
     :returns: DataFrame with parsed elements
     """
     # For normal execution
@@ -30,7 +31,13 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
         special_conditions = yaml.safe_load(file)
 
     # Create a copy of the input DataFrame
-    parsed_media = media.df.clone()
+    parsed_media = media.clone()
+
+    # Add missing columns with null values (these columns will be populated during parsing)
+    optional_cols = ['release_year', 'season', 'episode']
+    for col in optional_cols:
+        if col not in parsed_media.columns:
+            parsed_media = parsed_media.with_columns(pl.lit(None).cast(pl.Int64).alias(col))
 
     # Apply pre-processing replacements
     parsed_media = parsed_media.with_columns(
@@ -101,14 +108,18 @@ def parse_media_items(media: MediaDataFrame) -> pl.DataFrame:
     return parsed_media
 
 
-def validate_parsed_media(media: MediaDataFrame) -> pl.DataFrame:
+def validate_parsed_media(media: pl.DataFrame) -> pl.DataFrame:
     """
     validates media data based on the media type and update error status columns.
-    :param media : MediaDataFrame containing parsed elements
-    :returns verified_media: MediaDataFrame with verification check elements
+    :param media : DataFrame containing parsed elements
+    :returns verified_media: DataFrame with verification check elements
         contained within
     """
-    verified_media = media.df.clone()
+    verified_media = media.clone()
+
+    # Add error_condition column if missing
+    if 'error_condition' not in verified_media.columns:
+        verified_media = verified_media.with_columns(pl.lit(None).cast(pl.Utf8).alias('error_condition'))
 
     # Define mandatory fields for each media type
     mandatory_fields = {
@@ -194,34 +205,35 @@ def validate_parsed_media(media: MediaDataFrame) -> pl.DataFrame:
     return verified_media
 
 
-def update_status(media: MediaDataFrame) -> MediaDataFrame:
+def update_status(media: pl.DataFrame) -> pl.DataFrame:
     """
     updates status flags based off of conditions
 
-    :param media: MediaDataFrame with old status flags
-    :return: updated MediaDataFrame with correct status flags
+    :param media: DataFrame with old status flags
+    :return: updated DataFrame with correct status flags
     """
-    # if by error no probability was ever assigned, assign it now
-    media_with_updated_status = media
+    # Add error_condition column if missing
+    updated_media = media.clone()
+    if 'error_condition' not in updated_media.columns:
+        updated_media = updated_media.with_columns(pl.lit(None).cast(pl.Utf8).alias('error_condition'))
 
-    # update status of successfully parsed items
-    media.update(media.df.with_columns(
-        pipeline_status=pl.when(~pl.col('error_status'))
-            .then(pl.lit(PipelineStatus.PARSED))
+    # update status of successfully parsed items (check error_condition directly
+    # since error_status is flipped later by MediaSchema.validate)
+    return updated_media.with_columns(
+        pipeline_status=pl.when(pl.col('error_condition').is_null())
+            .then(pl.lit(PipelineStatus.PARSED.value))
             .otherwise(pl.col('pipeline_status'))
-    ))
-
-    return media_with_updated_status
+    )
 
 
-def log_status(media: MediaDataFrame) -> None:
+def log_status(media: pl.DataFrame) -> None:
     """
     logs current stats of all media items
 
-    :param media: MediaDataFrame contain process values to be printed
+    :param media: DataFrame contain process values to be printed
     :return: None
     """
-    for row in media.df.iter_rows(named=True):
+    for row in media.iter_rows(named=True):
         if row['error_status']:
             logging.error(f"{row['hash']} - {row['error_condition']}")
         else:
@@ -244,12 +256,13 @@ def parse_media():
         return
 
     # parse and validate media items
-    media.update(parse_media_items(media))
-    media.update(validate_parsed_media(media))
+    media = parse_media_items(media)
+    media = validate_parsed_media(media)
 
     # write to db and update status
     media = update_status(media)
-    utils.media_db_update(media=media.to_schema())
+    media = MediaSchema.validate(media)
+    utils.media_db_update(media=media)
     log_status(media)
 
 
