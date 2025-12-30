@@ -180,6 +180,32 @@ def classify_media_type_cases():
             "description": "season that uses as + sign as a seperator",
             "title": "Sesame+Street.S53.h265.webdl-1080p",
             "expected": "tv_season"
+        },
+        # Issue 2: Multi-episode packs (from error investigation 2025-12-30)
+        {
+            "description": "TV episode pack with hyphenated episode range E07-08",
+            "title": "The Pitt S01E07-08 1080p WEB-DL ITA-ENG DDP5 1 DV HDR H 265-G66",
+            "expected": "tv_episode_pack"
+        },
+        {
+            "description": "TV episode pack with E01-02 range",
+            "title": "Task S01E01-02 1080p AMZN WEB-DL ITA-ENG DDP5 1 H 264-G66",
+            "expected": "tv_episode_pack"
+        },
+        {
+            "description": "TV episode pack with E03-04 range",
+            "title": "High Potential S02E03-04 1080p DSNP WEB-DL DDP5 1 ITA-ENG-G66",
+            "expected": "tv_episode_pack"
+        },
+        {
+            "description": "TV episode pack with lowercase pattern",
+            "title": "some.show.s02e05-06.1080p.web.h264-group",
+            "expected": "tv_episode_pack"
+        },
+        {
+            "description": "TV episode pack with dots as separators",
+            "title": "The.Show.S01E01-02.1080p.WEB-DL.x265",
+            "expected": "tv_episode_pack"
         }
     ]
 
