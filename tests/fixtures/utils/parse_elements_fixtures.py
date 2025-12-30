@@ -318,6 +318,19 @@ def extract_title_cases():
             "raw_title": "Sesame+Street.S53.h265.webdl-1080p",
             "media_type": "tv_season",
             "expected": "Sesame Street"
+        },
+        # Issue 1: URL-encoded + signs (from error investigation 2025-12-30)
+        {
+            "description": "Movie with URL-encoded + signs instead of spaces",
+            "raw_title": "Jackie+Brown+1997",
+            "media_type": "movie",
+            "expected": "Jackie Brown"
+        },
+        {
+            "description": "Movie sequel with URL-encoded + signs",
+            "raw_title": "Zootopia+2+2025",
+            "media_type": "movie",
+            "expected": "Zootopia 2"
         }
     ]
 
@@ -369,6 +382,17 @@ def extract_year_cases():
             "description": "Multiple years, first one extracted",
             "title": "Remake (2015) of Classic (1975)",
             "expected": 2015
+        },
+        # Issue 1: URL-encoded + signs (from error investigation 2025-12-30)
+        {
+            "description": "Year with URL-encoded + signs instead of spaces",
+            "title": "Jackie+Brown+1997",
+            "expected": 1997
+        },
+        {
+            "description": "Year in sequel title with URL-encoded + signs",
+            "title": "Zootopia+2+2025",
+            "expected": 2025
         }
     ]
 
