@@ -272,6 +272,11 @@ def generate_tv_season_target_path_cases():
     """Test scenarios for generate_tv_season_target_path function."""
     return [
         {
+            "description": "Season 0 for specials",
+            "input": {"season": 0},
+            "expected": "s00"
+        },
+        {
             "description": "Single digit season with padding",
             "input": {"season": 1},
             "expected": "s01"
@@ -323,11 +328,6 @@ def generate_tv_season_target_path_error_cases():
             "expected_error": ValueError
         },
         {
-            "description": "Zero season raises ValueError",
-            "input": {"season": 0},
-            "expected_error": ValueError
-        },
-        {
             "description": "Negative season raises ValueError",
             "input": {"season": -1},
             "expected_error": ValueError
@@ -348,6 +348,16 @@ def generate_tv_season_target_path_error_cases():
 def generate_tv_show_parent_path_cases():
     """Test scenarios for generate_tv_show_parent_path function."""
     return [
+        {
+            "description": "Season 0 for specials",
+            "input": {
+                "root_dir": "/k/media/video/tv/",
+                "tv_show_name": "South Park",
+                "release_year": 1997,
+                "season": 0
+            },
+            "expected": PurePosixPath("/k/media/video/tv/south-park-1997/s00")
+        },
         {
             "description": "Standard TV show parent path",
             "input": {
@@ -395,12 +405,12 @@ def generate_tv_show_parent_path_error_cases():
     """Error test scenarios for generate_tv_show_parent_path function."""
     return [
         {
-            "description": "Invalid season raises ValueError",
+            "description": "Negative season raises ValueError",
             "input": {
                 "root_dir": "/k/media/video/tv/",
                 "tv_show_name": "Test Show",
                 "release_year": 2020,
-                "season": 0
+                "season": -1
             },
             "expected_error": ValueError
         },
@@ -420,6 +430,11 @@ def generate_tv_show_parent_path_error_cases():
 def generate_tv_show_target_path_cases():
     """Test scenarios for generate_tv_show_target_path function."""
     return [
+        {
+            "description": "Season 0 for specials",
+            "input": {"season": 0, "episode": 43},
+            "expected": "s00e43"
+        },
         {
             "description": "Single digit season and episode",
             "input": {"season": 1, "episode": 5},
@@ -472,8 +487,8 @@ def generate_tv_show_target_path_error_cases():
             "expected_error": ValueError
         },
         {
-            "description": "Zero season raises ValueError",
-            "input": {"season": 0, "episode": 1},
+            "description": "Negative season raises ValueError",
+            "input": {"season": -1, "episode": 1},
             "expected_error": ValueError
         },
         {

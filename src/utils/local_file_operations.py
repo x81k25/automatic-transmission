@@ -211,8 +211,8 @@ def generate_tv_season_target_path(
     if season is None or not isinstance(season, int):
         raise ValueError("season must be a valid integer")
 
-    if season < 1:
-        raise ValueError("season must be greater than 0")
+    if season < 0:
+        raise ValueError("season cannot be negative")
 
     if season > 9999:
         raise ValueError("season must be 9999 or less")
@@ -262,8 +262,8 @@ def generate_tv_show_parent_path(
     if season is None or not isinstance(season, int):
         raise ValueError("season must be a valid integer")
 
-    if season < 1:
-        raise ValueError("season must be greater than 0")
+    if season < 0:
+        raise ValueError("season cannot be negative")
 
     if season > 9999:
         raise ValueError("season must be 9999 or less")
@@ -317,8 +317,8 @@ def generate_tv_show_target_path(
    if episode is None or not isinstance(episode, int):
        raise ValueError("episode must be a valid integer")
 
-   if season < 1:
-       raise ValueError("season must be greater than 0")
+   if season < 0:
+       raise ValueError("season cannot be negative")
 
    if episode < 1:
        raise ValueError("episode must be greater than 0")

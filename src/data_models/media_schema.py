@@ -248,12 +248,12 @@ class MediaSchema(pa.DataFrameModel):
                 .otherwise(pl.lit(True))
         )
 
-        # Check unique hashes
+        # Deduplicate by hash, keeping first occurrence
         duplicates = df.filter(pl.col('hash').is_duplicated())
         if duplicates.height > 0:
             for row in duplicates.iter_rows(named=True):
-                print(f"Duplicate hash: {row['hash']}, Title: {row.get('original_title', 'N/A')}")
-            raise ValueError(f"Found {duplicates.height} duplicate hash(es)")
+                print(f"Warning: deduplicating hash {row['hash']}, Title: {row.get('original_title', 'N/A')}")
+            df = df.unique(subset=['hash'], keep='first')
 
         # Select schema columns in order
         df = df.select(MEDIA_SCHEMA_COLUMNS)
