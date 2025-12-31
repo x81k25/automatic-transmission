@@ -351,6 +351,9 @@ def process_media_with_existing_metadata(
         'media_title'
     ])
 
+    # Deduplicate by tmdb_id to avoid row multiplication during update
+    metadata_to_join = metadata_to_join.unique(subset=['tmdb_id'], keep='first')
+
     # Ensure all columns from metadata exist in media (add nulls for missing columns)
     for col in metadata_to_join.columns:
         if col not in media_with_metadata.columns:
