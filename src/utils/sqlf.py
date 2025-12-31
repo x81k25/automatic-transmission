@@ -132,6 +132,7 @@ def compare_hashes_to_db(
             SELECT input_hashes.hash
             FROM input_hashes
             LEFT JOIN media ON media.hash = input_hashes.hash
+                AND media.deleted_at IS NULL
             WHERE media.hash IS NULL
             {pipeline_status_condition};
         """)
@@ -169,7 +170,8 @@ def return_rejected_hashes(hashes: List[str]) -> List[str]:
             SELECT input_hashes.hash
             FROM input_hashes
             JOIN media ON media.hash = input_hashes.hash
-            WHERE media.rejection_status = 'rejected';
+            WHERE media.rejection_status = 'rejected'
+            AND media.deleted_at IS NULL;
         """)
 
         # Execute query and fetch results
@@ -203,6 +205,7 @@ def get_media_from_db(
         FROM media
         WHERE pipeline_status = :pipeline_status
         AND error_status = FALSE
+        AND deleted_at IS NULL
         ORDER BY hash
     """)
 
@@ -246,6 +249,7 @@ def get_media_by_hash(
         FROM media
         WHERE hash IN :hashes
         AND error_status = FALSE
+        AND deleted_at IS NULL
     """)
 
     params = {'hashes': tuple(hashes)}
