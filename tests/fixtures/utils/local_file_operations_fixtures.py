@@ -104,6 +104,36 @@ def generate_movie_target_path_cases():
                 "video_codec": '"x265"'
             },
             "expected": "alien-1979-1080p-x265"
+        },
+        {
+            "description": "Movie with None resolution and no codec",
+            "input": {
+                "movie_title": "Zootopia 2",
+                "release_year": 2025,
+                "resolution": None,
+                "video_codec": None
+            },
+            "expected": "zootopia-2-2025"
+        },
+        {
+            "description": "Movie with None resolution but with codec",
+            "input": {
+                "movie_title": "Jackie Brown",
+                "release_year": 1997,
+                "resolution": None,
+                "video_codec": "x265"
+            },
+            "expected": "jackie-brown-1997-x265"
+        },
+        {
+            "description": "Movie with empty string resolution (treated as None)",
+            "input": {
+                "movie_title": "Test Movie",
+                "release_year": 2020,
+                "resolution": "",
+                "video_codec": None
+            },
+            "expected": "test-movie-2020"
         }
     ]
 
@@ -137,16 +167,6 @@ def generate_movie_target_path_error_cases():
                 "movie_title": "Test Movie",
                 "release_year": None,
                 "resolution": "1080p",
-                "video_codec": None
-            },
-            "expected_error": ValueError
-        },
-        {
-            "description": "Empty resolution raises ValueError",
-            "input": {
-                "movie_title": "Test Movie",
-                "release_year": 2020,
-                "resolution": "",
                 "video_codec": None
             },
             "expected_error": ValueError
