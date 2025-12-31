@@ -52,7 +52,7 @@ def media_search(media_item: dict) -> dict:
         # make a request to the API
         response = requests.get(movie_search_api_base_url, params=params)
 
-    elif media_item['media_type'] in ['tv_show', 'tv_season']:
+    elif media_item['media_type'] in ['tv_show', 'tv_season', 'tv_episode_pack']:
         params = {
             'query': media_item["media_title"],
             'api_key': tv_search_api_key
@@ -86,7 +86,7 @@ def media_search(media_item: dict) -> dict:
     query_title = None
     if media_item['media_type'] == 'movie':
         query_title = data.get('title')
-    elif media_item['media_type'] in ['tv_show', 'tv_season']:
+    elif media_item['media_type'] in ['tv_show', 'tv_season', 'tv_episode_pack']:
         query_title = data.get('name')
 
     if query_title != media_item['media_title']:
@@ -127,7 +127,7 @@ def collect_details(media_item: dict) -> dict:
         url = f"{movie_details_api_base_url}/{media_item['tmdb_id']}"
         logging.debug(f"collecting metadata details for: {media_item['hash']}")
         response = requests.get(url, params=params)
-    elif media_item['media_type'] in ['tv_show', 'tv_season']:
+    elif media_item['media_type'] in ['tv_show', 'tv_season', 'tv_episode_pack']:
         params = {'api_key': tv_details_api_key}
         url = f"{tv_details_api_base_url}/{media_item['tmdb_id']}"
         logging.debug(f"collecting metadata details for: {media_item['hash']}")
@@ -160,7 +160,7 @@ def collect_details(media_item: dict) -> dict:
             media_item['rejection_reason'] = f"release_year could not be extracted from tmdb details API"
             media_item['rejection_status'] = 'rejected'
             return media_item
-    elif media_item['media_type'] in ['tv_show', 'tv_season']:
+    elif media_item['media_type'] in ['tv_show', 'tv_season', 'tv_episode_pack']:
         release_year = re.search(year_pattern, data.get('first_air_date'))[0]
         media_item['release_year'] = int(release_year)
 
@@ -275,7 +275,7 @@ def collect_ratings(media_item: dict) -> dict:
         logging.debug(f"collecting ratings for: {media_item['hash']}")
         response = requests.get(movie_ratings_api_base_url, params=params)
 
-    elif media_item['media_type'] in ['tv_show', 'tv_season']:
+    elif media_item['media_type'] in ['tv_show', 'tv_season', 'tv_episode_pack']:
         # if available query by imdb_id
         if media_item['imdb_id'] is not None:
             params = {
