@@ -76,7 +76,7 @@ def set_permissions_and_ownership(
 def generate_movie_target_path(
     movie_title: str,
     release_year: int,
-    resolution: str,
+    resolution: str = None,
     video_codec: str = None
 ) -> str:
     """
@@ -97,9 +97,6 @@ def generate_movie_target_path(
     if not release_year or not isinstance(release_year, int):
         raise ValueError("release_year must be a valid integer")
 
-    if not resolution or not isinstance(resolution, str):
-        raise ValueError("resolution must be a non-empty string")
-
     try:
         # Clean and format movie title
         cleaned_title = movie_title.lower()
@@ -117,12 +114,15 @@ def generate_movie_target_path(
         if not cleaned_title:
             raise ValueError("movie_title resulted in empty string after cleaning")
 
-        # Format year and resolution
+        # Format year
         year_str = str(release_year).strip()
-        resolution_str = str(resolution).lower().strip()
 
-        # Build target path
-        movie_target_path = f"{cleaned_title}-{year_str}-{resolution_str}"
+        # Build target path (resolution is optional)
+        if resolution and isinstance(resolution, str) and resolution.strip():
+            resolution_str = resolution.lower().strip()
+            movie_target_path = f"{cleaned_title}-{year_str}-{resolution_str}"
+        else:
+            movie_target_path = f"{cleaned_title}-{year_str}"
 
         # Handle video codec if provided
         if video_codec is not None and isinstance(video_codec, str):
