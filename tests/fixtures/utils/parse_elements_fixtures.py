@@ -376,6 +376,25 @@ def extract_title_cases():
             "raw_title": "Task 2025 S01E01-02 1080p AMZN WEB-DL",
             "media_type": "tv_episode_pack",
             "expected": "Task"
+        },
+        # Issue 3: RARBG-style titles with year before resolution (from error investigation 2025-12-31)
+        {
+            "description": "Movie with year followed by period then resolution (RARBG style)",
+            "raw_title": "Raya.and.the.Last.Dragon.2021.1080p.WEBRip.x264-RARBG",
+            "media_type": "movie",
+            "expected": "Raya and the Last Dragon"
+        },
+        {
+            "description": "Movie with year followed by dash then resolution",
+            "raw_title": "Some-Movie-2023-1080p-BluRay-x264",
+            "media_type": "movie",
+            "expected": "Some Movie"
+        },
+        {
+            "description": "Movie with year followed by underscore then resolution",
+            "raw_title": "Another_Movie_2024_720p_WEB-DL",
+            "media_type": "movie",
+            "expected": "Another Movie"
         }
     ]
 
