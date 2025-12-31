@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
+import polars as pl
 from src.core._02_collect import *
 from src.data_models import *
 from tests.fixtures.core._02_collect_fixtures import *
@@ -13,11 +14,11 @@ class TestCollect:
             result = process_new_items(case["input"])
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
                 assert row["hash"] == expected["hash"], (
                     f"Failed for {case['description']}: "
@@ -43,16 +44,16 @@ class TestCollect:
     def test_update_rejected_status(self, update_rejected_status_cases):
         """Test all update_rejected_status scenarios from fixture."""
         for case in update_rejected_status_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = update_rejected_status(input_media)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
-                expected = expected_list[i]  # Get the i-th expected item
+            for i in range(result.height):
+                row = result.row(i, named=True)
+                expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
                     f"Failed for {case['description']}: "
@@ -93,50 +94,50 @@ class TestCollect:
 
             # Setup input mocks
             mock_return_current.return_value = case["current_transmission_items"]
-            
+
             if "new_hashes" in case:
                 mock_compare_hashes.return_value = case["new_hashes"]
-            
+
             if "rejected_hashes" in case:
                 mock_return_rejected.return_value = case["rejected_hashes"]
-            
+
             if "rejected_media" in case:
-                mock_get_media_by_hash.return_value = MediaDataFrame(case["rejected_media"])
-            
+                mock_get_media_by_hash.return_value = pl.DataFrame(case["rejected_media"])
+
             # Execute the function
             collect_media()
-            
+
             # Verify insert calls
             expected_insert_calls = case.get("expected_insert_calls", 0)
             assert mock_insert_db.call_count == expected_insert_calls, (
                 f"Failed for {case['description']}: "
                 f"expected {expected_insert_calls} insert calls, got {mock_insert_db.call_count}"
             )
-            
+
             # Verify update calls
             expected_update_calls = case.get("expected_update_calls", 0)
             assert mock_update_db.call_count == expected_update_calls, (
                 f"Failed for {case['description']}: "
                 f"expected {expected_update_calls} update calls, got {mock_update_db.call_count}"
             )
-            
+
             # Verify inserted items if any
             if "expected_insert_items" in case and case["expected_insert_items"]:
                 call_args = mock_insert_db.call_args
                 actual_media = call_args.kwargs['media']
-                
-                assert isinstance(actual_media, MediaDataFrame)
-                assert actual_media.df.height == len(case["expected_insert_items"]), (
+
+                assert isinstance(actual_media, pl.DataFrame)
+                assert actual_media.height == len(case["expected_insert_items"]), (
                     f"Failed for {case['description']}: "
                     f"expected {len(case['expected_insert_items'])} items to insert, "
-                    f"got {actual_media.df.height}"
+                    f"got {actual_media.height}"
                 )
-                
+
                 # Sort both actual and expected by hash for consistent comparison
-                actual_sorted = actual_media.df.sort("hash")
-                expected_sorted = sorted(case["expected_insert_items"], 
+                actual_sorted = actual_media.sort("hash")
+                expected_sorted = sorted(case["expected_insert_items"],
                                        key=lambda x: x["hash"])
-                
+
                 for i, expected in enumerate(expected_sorted):
                     row = actual_sorted.row(i, named=True)
                     for field, expected_value in expected.items():
@@ -144,24 +145,24 @@ class TestCollect:
                             f"Failed for {case['description']} item {i}: "
                             f"expected {field}={expected_value}, got {row.get(field)}"
                         )
-            
+
             # Verify updated items if any
             if "expected_update_items" in case and case["expected_update_items"]:
                 call_args = mock_update_db.call_args
                 actual_media = call_args.kwargs['media']
-                
-                assert isinstance(actual_media, MediaDataFrame)
-                assert actual_media.df.height == len(case["expected_update_items"]), (
+
+                assert isinstance(actual_media, pl.DataFrame)
+                assert actual_media.height == len(case["expected_update_items"]), (
                     f"Failed for {case['description']}: "
                     f"expected {len(case['expected_update_items'])} items to update, "
-                    f"got {actual_media.df.height}"
+                    f"got {actual_media.height}"
                 )
-                
+
                 # Sort both actual and expected by hash for consistent comparison
-                actual_sorted = actual_media.df.sort("hash")
-                expected_sorted = sorted(case["expected_update_items"], 
+                actual_sorted = actual_media.sort("hash")
+                expected_sorted = sorted(case["expected_update_items"],
                                        key=lambda x: x["hash"])
-                
+
                 for i, expected in enumerate(expected_sorted):
                     row = actual_sorted.row(i, named=True)
                     for field, expected_value in expected.items():

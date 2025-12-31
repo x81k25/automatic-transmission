@@ -9,6 +9,7 @@ dependencies = [
     "feedparser>=6.0.11",
     "numpy>=2.2.5",
     "pandas>=2.2.3",
+    "pandera[polars]>=0.20.0",
     "paramiko>=3.5.1",
     "polars[timezone]>=1.29.0",
     "psycopg2-binary>=2.9.10",
@@ -28,8 +29,8 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["src*", "tests*"]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.3.5",
     "pytest-cov>=6.1.1",
 ]

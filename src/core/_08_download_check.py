@@ -1,8 +1,11 @@
 # standard library imports
 import logging
 
+# third party imports
+import polars as pl
+
 # local/custom imports
-from src.data_models import *
+from src.data_models import MediaSchema, RejectionStatus, PipelineStatus
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
@@ -10,18 +13,21 @@ import src.utils as utils
 # ------------------------------------------------------------------------------
 
 def confirm_downloading_status(
-    media: MediaDataFrame,
+    media: pl.DataFrame,
     current_media_items: dict | None
-) -> MediaDataFrame:
+) -> pl.DataFrame:
     """
     determine if items tagged as pipeline_status = 'downloading' are in fact
         downloading
 
-    :param media: MediaDataFrame are all 'downloading' items
+    :param media: DataFrame are all 'downloading' items
     :param current_media_items: dict of media current items in transmission
     :return:
     """
-    media_not_downloading = media.df.clone()
+    if media.height == 0:
+        return media
+
+    media_not_downloading = media.clone()
 
     # if database items in downloading state, but no items with transmission
     #   label error condition, which will trigger re-ingest
@@ -40,21 +46,33 @@ def confirm_downloading_status(
             error_condition = pl.lit("not found within transmission")
         )
 
-    return MediaDataFrame(media_not_downloading)
+    return media_not_downloading
 
 
 def extract_and_verify_filename(
-    media: MediaDataFrame,
+    media: pl.DataFrame,
     downloaded_media_items: dict
-) -> MediaDataFrame:
+) -> pl.DataFrame:
     """
-    extracts, verifies, and inserts original_path to MediaDataFrame
+    extracts, verifies, and inserts original_path to DataFrame
 
-    :param media: MediaDataFrame without original_path
+    :param media: DataFrame without original_path
     :param downloaded_media_items: metadata for items in transmission
     :return: dict with updated file_name or error information
     """
-    media_with_paths = media.df.clone()
+    media_with_paths = media.clone()
+
+    # Add original_path column if missing
+    if 'original_path' not in media_with_paths.columns:
+        media_with_paths = media_with_paths.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias('original_path')
+        )
+
+    # Add error_condition column if missing
+    if 'error_condition' not in media_with_paths.columns:
+        media_with_paths = media_with_paths.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias('error_condition')
+        )
 
     # get file paths
     original_file_paths = pl.DataFrame([
@@ -83,68 +101,77 @@ def extract_and_verify_filename(
         on='hash'
     )
 
-    return MediaDataFrame(media_with_paths)
+    return media_with_paths
 
 
-def update_status(media: MediaDataFrame) -> MediaDataFrame:
+def update_status(media: pl.DataFrame) -> pl.DataFrame:
     """
     updates status flags based off of conditions
 
-    :param media: MediaDataFrame with old status flags
-    :return: updated MediaDataFrame with correct status flags
+    :param media: DataFrame with old status flags
+    :return: updated DataFrame with correct status flags
     """
-    media_with_updated_status = media.df.clone()
+    media_with_updated_status = media.clone()
+
+    # Add error_condition column if missing
+    if 'error_condition' not in media_with_updated_status.columns:
+        media_with_updated_status = media_with_updated_status.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias('error_condition')
+        )
+
+    # Add rejection_reason column if missing
+    if 'rejection_reason' not in media_with_updated_status.columns:
+        media_with_updated_status = media_with_updated_status.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias('rejection_reason')
+        )
 
     media_with_updated_status = media_with_updated_status.with_columns(
         pipeline_status = pl.when(pl.col('error_condition') == "not found within transmission")
-            .then(pl.lit(PipelineStatus.INGESTED))
+            .then(pl.lit(PipelineStatus.INGESTED.value))
         .when(
-            (~pl.col('error_status')) &
-            (pl.col('rejection_status') != RejectionStatus.REJECTED)
+            (pl.col('error_condition').is_null()) &
+            (pl.col('rejection_status') != RejectionStatus.REJECTED.value)
         )
-            .then(pl.lit(PipelineStatus.DOWNLOADED))
+            .then(pl.lit(PipelineStatus.DOWNLOADED.value))
         .otherwise(pl.col('pipeline_status'))
     )
 
     # if re-ingesting remove flags
     media_with_updated_status = media_with_updated_status.with_columns(
-        rejection_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE)
-            .then(pl.lit(RejectionStatus.OVERRIDE))
+        rejection_status = pl.when(pl.col('rejection_status') == RejectionStatus.OVERRIDE.value)
+            .then(pl.lit(RejectionStatus.OVERRIDE.value))
             .otherwise(
-                pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED)
-                    .then(pl.lit(RejectionStatus.UNFILTERED))
+                pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED.value)
+                    .then(pl.lit(RejectionStatus.UNFILTERED.value))
                 .otherwise(pl.col('rejection_status'))
             ),
-        rejection_reason = pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED)
+        rejection_reason = pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED.value)
             .then(pl.lit(None))
             .otherwise(pl.col('rejection_reason')),
-        error_status = pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED)
-            .then(pl.lit(False))
-            .otherwise(pl.col('error_status')),
-        error_condition = pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED)
+        error_condition = pl.when(pl.col('pipeline_status') == PipelineStatus.INGESTED.value)
             .then(pl.lit(None))
             .otherwise(pl.col('error_condition'))
     )
 
-    return MediaDataFrame(media_with_updated_status)
+    return media_with_updated_status
 
 
-def log_status(media: MediaDataFrame) -> None:
+def log_status(media: pl.DataFrame) -> None:
     """
     logs current stats of all media items
 
-    :param media: MediaDataFrame contain process values to be printed
+    :param media: DataFrame contain process values to be printed
     :return: None
     """
     # log entries based on rejection status
-    for idx, row in enumerate(media.df.iter_rows(named=True)):
-        if row['pipeline_status'] == PipelineStatus.INGESTED:
+    for idx, row in enumerate(media.iter_rows(named=True)):
+        if row['pipeline_status'] == PipelineStatus.INGESTED.value:
             logging.error(f"re-ingesting - {row['hash']}")
-        elif row['error_status']:
+        elif row['error_condition'] is not None:
             logging.error(f"{row['hash']} - {row['error_condition']}")
-        elif row['rejection_status'] == RejectionStatus.REJECTED:
+        elif row['rejection_status'] == RejectionStatus.REJECTED.value:
             logging.info(f"{row['rejection_status']} - {row['hash']} - {row['rejection_reason']}")
-        elif row['pipeline_status'] != PipelineStatus.TRANSFERRED:
+        elif row['pipeline_status'] != PipelineStatus.TRANSFERRED.value:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
 
 
@@ -169,12 +196,10 @@ def check_downloads():
     elif media_downloading is not None and media_transferred is None:
         media = media_downloading
     else:
-        media = MediaDataFrame(
-            pl.concat([
-                media_downloading.df,
-                media_transferred.df
-            ])
-        )
+        media = pl.concat([
+            media_downloading,
+            media_transferred
+        ])
 
     # get current media item info
     current_media_items = utils.return_current_media_items()
@@ -184,7 +209,7 @@ def check_downloads():
         return
 
     # if not items in downloading or transferred state, but items exist in
-    #   current_media_items, retrieve them bu hash
+    #   current_media_items, retrieve them by hash
     if media is None and current_media_items is not None:
         media = utils.get_media_by_hash(list(current_media_items.keys()))
 
@@ -197,18 +222,14 @@ def check_downloads():
     # re-ingest items not downloading if needed
     if media_not_downloading.height > 0:
         media_not_downloading = update_status(media_not_downloading)
-        utils.media_db_update(media=media_not_downloading.to_schema())
+        utils.media_db_update(media=MediaSchema.validate(media_not_downloading))
         log_status(media_not_downloading)
 
         # remove reingested items from processing
-        media.update(
-            media.df.join(media_not_downloading.df.select('hash'), on='hash', how='anti')
-        )
+        media = media.join(media_not_downloading.select('hash'), on='hash', how='anti')
 
     # remove transferred items from processing
-    media.update(
-        media.df.filter(pl.col('pipeline_status') != PipelineStatus.TRANSFERRED)
-    )
+    media = media.filter(pl.col('pipeline_status') != PipelineStatus.TRANSFERRED.value)
 
     # if no current_media_items, return
     if current_media_items is None:
@@ -228,7 +249,7 @@ def check_downloads():
 
     # update status, commit to db, and log
     media = update_status(media)
-    utils.media_db_update(media=media.to_schema())
+    utils.media_db_update(media=MediaSchema.validate(media))
     log_status(media)
 
 

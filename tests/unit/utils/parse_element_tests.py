@@ -77,6 +77,15 @@ class TestParseElements:
                 f"expected {case['expected']}, got {result}"
             )
 
+    def test_extract_season_from_episode_pack(self, extract_season_from_episode_pack_cases):
+        """Test all season extraction from episode pack scenarios from fixture."""
+        for case in extract_season_from_episode_pack_cases:
+            result = extract_season_from_episode_pack(case["title"])
+            assert result == case["expected"], (
+                f"Failed for {case['description']}: "
+                f"expected {case['expected']}, got {result}"
+            )
+
     def test_extract_resolution(self, extract_resolution_cases):
         """Test all resolution extraction scenarios from fixture."""
         for case in extract_resolution_cases:

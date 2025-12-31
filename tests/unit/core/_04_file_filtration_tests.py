@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch
+import polars as pl
 from src.core._04_file_filtration import *
 from src.data_models import *
 from tests.fixtures.core._04_file_filtration_fixtures import *
@@ -26,14 +27,14 @@ class TestFileFilteration:
     def test_update_status(self, update_status_cases):
         """Test all update_status scenarios from fixture."""
         for case in update_status_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = update_status(input_media)
             expected_list = case["expected_fields"]
 
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -62,7 +63,7 @@ class TestFileFilteration:
             if case["input_media"] is None:
                 mock_get_media.return_value = None
             else:
-                mock_get_media.return_value = MediaDataFrame(case["input_media"])
+                mock_get_media.return_value = pl.DataFrame(case["input_media"])
 
             # Execute the function
             filter_files()
@@ -79,15 +80,15 @@ class TestFileFilteration:
                 call_args = mock_db_update.call_args
                 actual_media = call_args.kwargs['media']
 
-                assert isinstance(actual_media, MediaDataFrame)
-                assert actual_media.df.height == len(case["expected_outputs"]), (
+                assert isinstance(actual_media, pl.DataFrame)
+                assert actual_media.height == len(case["expected_outputs"]), (
                     f"Failed for {case['description']}: "
                     f"expected {len(case['expected_outputs'])} items in output, "
-                    f"got {actual_media.df.height}"
+                    f"got {actual_media.height}"
                 )
 
                 # Sort both actual and expected by hash for consistent comparison
-                actual_sorted = actual_media.df.sort("hash")
+                actual_sorted = actual_media.sort("hash")
                 expected_sorted = sorted(case["expected_outputs"],
                                        key=lambda x: x["hash"])
 

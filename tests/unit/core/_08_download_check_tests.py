@@ -1,4 +1,5 @@
 import pytest
+import polars as pl
 from unittest.mock import patch
 from src.core._08_download_check import *
 from src.data_models import *
@@ -10,16 +11,16 @@ class TestDownloadCheck:
     def test_confirm_downloading_status(self, confirm_downloading_status_cases):
         """Test all confirm_downloading_status scenarios from fixture."""
         for case in confirm_downloading_status_cases:
-            input_media = MediaDataFrame(case["input_media_data"])
+            input_media = pl.DataFrame(case["input_media_data"])
             current_media_items = case["current_media_items"]
             result = confirm_downloading_status(input_media, current_media_items)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -35,16 +36,16 @@ class TestDownloadCheck:
     def test_extract_and_verify_filename(self, extract_and_verify_filename_cases):
         """Test all extract_and_verify_filename scenarios from fixture."""
         for case in extract_and_verify_filename_cases:
-            input_media = MediaDataFrame(case["input_media_data"])
+            input_media = pl.DataFrame(case["input_media_data"])
             downloaded_media_items = case["downloaded_media_items"]
             result = extract_and_verify_filename(input_media, downloaded_media_items)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -64,15 +65,15 @@ class TestDownloadCheck:
     def test_update_status(self, update_status_cases):
         """Test all update_status scenarios from fixture."""
         for case in update_status_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = update_status(input_media)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -94,11 +95,6 @@ class TestDownloadCheck:
                     assert row["rejection_reason"] == expected["rejection_reason"], (
                         f"Failed for {case['description']}: "
                         f"expected rejection_reason={expected['rejection_reason']}, got {row['rejection_reason']}"
-                    )
-                if "error_status" in expected:
-                    assert row["error_status"] == expected["error_status"], (
-                        f"Failed for {case['description']}: "
-                        f"expected error_status={expected['error_status']}, got {row['error_status']}"
                     )
                 if "error_condition" in expected:
                     assert row["error_condition"] == expected["error_condition"], (
@@ -130,14 +126,20 @@ class TestDownloadCheck:
                     if case["input_downloading_media"] is None:
                         return None
                     else:
-                        return MediaDataFrame(case["input_downloading_media"])
+                        df = pl.DataFrame(case["input_downloading_media"])
+                        # Add original_title if missing
+                        if 'original_title' not in df.columns:
+                            df = df.with_columns(
+                                pl.col('media_title').alias('original_title')
+                            )
+                        return df
                 elif pipeline_status == 'transferred':
                     # For most tests, assume no transferred items unless specified
                     return case.get("input_transferred_media", None)
                 return None
-            
+
             mock_get_media.side_effect = mock_get_media_side_effect
-            
+
             # Mock get_media_by_hash for orphaned items scenario
             if case["input_downloading_media"] is None and case["input_transmission_items"] is not None:
                 # Create fake media items for the orphaned hashes from transmission
@@ -147,14 +149,15 @@ class TestDownloadCheck:
                         "hash": hash_key,
                         "media_type": "movie",
                         "media_title": "Orphaned Item",
+                        "original_title": "Orphaned Item",
                         "pipeline_status": "downloading",
                         "rejection_status": "accepted",
                         "error_status": False
                     })
-                mock_get_media_by_hash.return_value = MediaDataFrame(orphaned_items)
+                mock_get_media_by_hash.return_value = pl.DataFrame(orphaned_items)
             else:
                 mock_get_media_by_hash.return_value = None
-                
+
             mock_return_current.return_value = case["input_transmission_items"]
 
             # Execute the function
@@ -166,23 +169,22 @@ class TestDownloadCheck:
                 f"expected {case['expected_db_update_calls']} db update calls, got {mock_db_update.call_count}"
             )
 
-            # If we expect outputs, verify the MediaDataFrame contents
+            # If we expect outputs, verify the DataFrame contents
             if "expected_outputs" in case and case["expected_outputs"]:
                 expected_list = case["expected_outputs"]
 
-                # Get the MediaDataFrame that was passed to the database update
-                # Get the MediaDataFrame that was passed to the database update
+                # Get the DataFrame that was passed to the database update
                 call_args = mock_db_update.call_args_list[-1]  # Get the last call
                 actual_media = call_args.kwargs['media']  # Always use kwargs
 
-                assert isinstance(actual_media, MediaDataFrame)
-                assert actual_media.df.height == len(expected_list), (
+                assert isinstance(actual_media, pl.DataFrame)
+                assert actual_media.height == len(expected_list), (
                     f"Failed for {case['description']}: "
-                    f"expected {len(expected_list)} items in output, got {actual_media.df.height}"
+                    f"expected {len(expected_list)} items in output, got {actual_media.height}"
                 )
 
-                for i in range(actual_media.df.height):
-                    row = actual_media.df.row(i, named=True)
+                for i in range(actual_media.height):
+                    row = actual_media.row(i, named=True)
                     expected = expected_list[i]
 
                     # Check all expected fields

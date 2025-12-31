@@ -11,15 +11,15 @@ class TestMediaFiltration:
     def test_process_exempt_items(self, process_exempt_items_cases):
         """Test all process_exempt_items scenarios from fixture."""
         for case in process_exempt_items_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = process_exempt_items(input_media)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -34,15 +34,15 @@ class TestMediaFiltration:
     def test_reject_media_without_imdb_id(self, reject_media_without_imdb_id_cases):
         """Test all reject_media_without_imdb_id scenarios from fixture."""
         for case in reject_media_without_imdb_id_cases:
-            input_media = MediaDataFrame(case["input_data"])
+            input_media = pl.DataFrame(case["input_data"])
             result = reject_media_without_imdb_id(input_media)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -57,16 +57,16 @@ class TestMediaFiltration:
     def test_process_prelabeled_items(self, process_prelabeled_items_cases):
         """Test all process_prefiltered_items scenarios from fixture."""
         for case in process_prelabeled_items_cases:
-            input_media = MediaDataFrame(case["input_media_data"])
+            input_media = pl.DataFrame(case["input_media_data"])
             media_labels = pl.DataFrame(case["media_labels_data"])
             result = process_prelabeled_items(input_media, media_labels)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -84,28 +84,28 @@ class TestMediaFiltration:
         threshold = float(os.getenv('AT_REEL_DRIVER_THRESHOLD') or "0.35")
 
         for case in update_status_cases:
-            # Create MediaDataFrame with standard schema (no probability)
-            input_media = MediaDataFrame(case["input_data"])
+            # Create DataFrame with standard schema (no probability)
+            input_media = pl.DataFrame(case["input_data"])
 
             # Add probability column with test values if not None
             probability_values = case["probability_values"]
             if probability_values[0] is not None:
-                input_media_with_probability = input_media.df.with_columns(
+                input_media_with_probability = input_media.with_columns(
                     probability=pl.Series(probability_values)
                 )
                 # Call update_status with the modified DataFrame
-                result = update_status(MediaDataFrame(input_media_with_probability))
+                result = update_status(input_media_with_probability)
             else:
                 # Call update_status without probability column
                 result = update_status(input_media)
 
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (
@@ -142,33 +142,33 @@ class TestMediaFiltration:
         threshold = float(os.getenv('AT_REEL_DRIVER_THRESHOLD') or "0.35")
 
         for case in probability_type_handling_cases:
-            # Create MediaDataFrame with standard schema (no probability)
-            input_media = MediaDataFrame(case["input_data"])
+            # Create DataFrame with standard schema (no probability)
+            input_media = pl.DataFrame(case["input_data"])
 
             # Add probability column with test values (may be strings or floats)
             probability_values = case["probability_values"]
             # Convert all values to strings first to simulate API response
             probability_strings = [str(v) for v in probability_values]
-            input_media_with_probability = input_media.df.with_columns(
+            input_media_with_probability = input_media.with_columns(
                 probability=pl.Series(probability_strings, dtype=pl.Utf8)
             )
-            
+
             # Call update_status with the modified DataFrame
-            result = update_status(MediaDataFrame(input_media_with_probability))
+            result = update_status(input_media_with_probability)
             expected_list = case["expected_fields"]
 
-            assert isinstance(result, MediaDataFrame)
-            assert result.df.height == len(expected_list), f"Row count mismatch for {case['description']}"
+            assert isinstance(result, pl.DataFrame)
+            assert result.height == len(expected_list), f"Row count mismatch for {case['description']}"
 
             # Check that probability column is Float64
-            if 'probability' in result.df.columns:
-                assert result.df['probability'].dtype == case["expected_probability_type"], (
+            if 'probability' in result.columns:
+                assert result['probability'].dtype == case["expected_probability_type"], (
                     f"Failed for {case['description']}: "
-                    f"expected probability dtype={case['expected_probability_type']}, got {result.df['probability'].dtype}"
+                    f"expected probability dtype={case['expected_probability_type']}, got {result['probability'].dtype}"
                 )
 
-            for i in range(result.df.height):
-                row = result.df.row(i, named=True)
+            for i in range(result.height):
+                row = result.row(i, named=True)
                 expected = expected_list[i]
 
                 assert row["hash"] == expected["hash"], (

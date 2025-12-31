@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import polars as pl
 
 # local/custom imports
+from src.data_models import MediaSchema
 import src.utils as utils
 
 # ------------------------------------------------------------------------------
@@ -59,8 +60,8 @@ def cleanup_transferred_media(modulated_transferred_item_cleanup_delay: float):
     if media is None:
         return
 
-    # create copy of media.df in order to add non template column
-    media_exceeded = media.df.with_columns(
+    # create copy of media to add non-template column
+    media_exceeded = media.with_columns(
         seconds_since_transfer=(
             (datetime.now(UTC) - pl.col('updated_at'))
             .dt.total_seconds()
@@ -86,7 +87,6 @@ def cleanup_transferred_media(modulated_transferred_item_cleanup_delay: float):
                     f"removed transferred item - {updated_row['hash']} - {updated_row['seconds_since_transfer']}s after transfer")
                 updated_rows.append(updated_row)
             except Exception as e:
-                updated_row['error_status'] = True
                 updated_row['error_condition'] = f"{e}"
                 logging.error(
                     f"could not remove{updated_row['hash']} - {updated_row['error_condition']}")
@@ -100,13 +100,11 @@ def cleanup_transferred_media(modulated_transferred_item_cleanup_delay: float):
     if len(updated_rows) < 1:
         return
 
-    # return to proper MediaDataFrame class for update
-    media.update(
-        pl.DataFrame(updated_rows).drop('seconds_since_transfer')
-    )
+    # create DataFrame from updated rows and drop temp column
+    media = pl.DataFrame(updated_rows).drop('seconds_since_transfer')
 
     # update status of successfully cleaned items
-    utils.media_db_update(media=media.to_schema())
+    utils.media_db_update(media=MediaSchema.validate(media))
 
 
 def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
@@ -134,8 +132,8 @@ def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
     if media is None:
         return
 
-    # create copy of media.df in order to add non-template column
-    media_exceeded = media.df.with_columns(
+    # create copy of media to add non-template column
+    media_exceeded = media.with_columns(
         seconds_since_transfer = (
             (datetime.now(UTC) - pl.col('updated_at'))
             .dt.total_seconds()
@@ -167,7 +165,6 @@ def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
                     f"removed hung item: {updated_row['hash']} - {updated_row['seconds_since_transfer']}s after last status update")
                 updated_rows.append(updated_row)
             except Exception as e:
-                updated_row['error_status'] = True
                 updated_row['error_condition'] = f"{e}"
                 logging.error(
                     f"could not remove{updated_row['hash']} - {updated_row['error_condition']}")
@@ -181,13 +178,11 @@ def cleanup_hung_items(modulated_hung_item_cleanup_delay: float):
     if len(updated_rows) < 1:
         return
 
-    # return to proper MediaDataFrame class for update
-    media.update(
-        pl.DataFrame(updated_rows).drop('seconds_since_transfer')
-    )
+    # create DataFrame from updated rows and drop temp column
+    media = pl.DataFrame(updated_rows).drop('seconds_since_transfer')
 
     # update status of successfully cleaned items
-    utils.media_db_update(media=media.to_schema())
+    utils.media_db_update(media=MediaSchema.validate(media))
 
 
 # ------------------------------------------------------------------------------
@@ -255,5 +250,5 @@ if __name__ == "__main__":
 
 
 # ------------------------------------------------------------------------------
-# end of _09_cleanup.py
+# end of _10_cleanup.py
 # ------------------------------------------------------------------------------
