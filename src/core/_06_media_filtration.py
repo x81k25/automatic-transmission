@@ -15,6 +15,15 @@ from src.data_models import MediaSchema, RejectionStatus, PipelineStatus, MediaT
 # support functions that operate on one media item at a time
 # -----------------------------------------------------------------------------
 
+def _to_json_safe(value):
+    """Convert Decimal and other non-JSON-serializable types to native Python types."""
+    if value is None:
+        return None
+    if hasattr(value, 'as_integer_ratio'):  # float-like (includes Decimal)
+        return float(value)
+    return value
+
+
 def get_prediction(media_item: dict) -> dict:
     """
     passes a single media_item to the reel-driver API and appends the
@@ -37,25 +46,25 @@ def get_prediction(media_item: dict) -> dict:
         # construct API URL
         api_url = f"http://{api_host}:{api_port}/{api_prefix}/api/predict"
 
-        # build payload
+        # build payload with numeric fields cast to native types for JSON serialization
         payload = {
             'imdb_id': media_item.get('imdb_id'),
-            'release_year': media_item.get('release_year'),
+            'release_year': _to_json_safe(media_item.get('release_year')),
             'genre': media_item.get('genre'),
             'spoken_languages': media_item.get('spoken_languages'),
             'original_language': media_item.get('original_language'),
             'origin_country': media_item.get('origin_country'),
             'production_countries': media_item.get('production_countries'),
             'production_status': media_item.get('production_status'),
-            'metascore': media_item.get('metascore'),
-            'rt_score': media_item.get('rt_score'),
-            'imdb_rating': media_item.get('imdb_rating'),
-            'imdb_votes': media_item.get('imdb_votes'),
-            'tmdb_rating': media_item.get('tmdb_rating'),
-            'tmdb_votes': media_item.get('tmdb_votes'),
-            'budget': media_item.get('budget'),
-            'revenue': media_item.get('revenue'),
-            'runtime': media_item.get('runtime'),
+            'metascore': _to_json_safe(media_item.get('metascore')),
+            'rt_score': _to_json_safe(media_item.get('rt_score')),
+            'imdb_rating': _to_json_safe(media_item.get('imdb_rating')),
+            'imdb_votes': _to_json_safe(media_item.get('imdb_votes')),
+            'tmdb_rating': _to_json_safe(media_item.get('tmdb_rating')),
+            'tmdb_votes': _to_json_safe(media_item.get('tmdb_votes')),
+            'budget': _to_json_safe(media_item.get('budget')),
+            'revenue': _to_json_safe(media_item.get('revenue')),
+            'runtime': _to_json_safe(media_item.get('runtime')),
             'tagline': media_item.get('tagline'),
             'overview': media_item.get('overview')
         }
@@ -178,6 +187,7 @@ def get_predictions(media: pl.DataFrame) -> pl.DataFrame:
     api_url = f"http://{api_host}:{api_port}/{api_prefix}/api/predict_batch"
 
     # create payload with distinct imdb_id's only
+    # cast numeric columns to Float64 for JSON serialization (avoids Decimal issues)
     payload = {
         'items':
             media_with_predictions.unique(subset='imdb_id')
@@ -202,7 +212,18 @@ def get_predictions(media: pl.DataFrame) -> pl.DataFrame:
                       'runtime',
                       'tagline',
                       'overview'
-                ]).to_dicts()
+                ]).cast({
+                    'release_year': pl.Float64,
+                    'metascore': pl.Float64,
+                    'rt_score': pl.Float64,
+                    'imdb_rating': pl.Float64,
+                    'imdb_votes': pl.Float64,
+                    'tmdb_rating': pl.Float64,
+                    'tmdb_votes': pl.Float64,
+                    'budget': pl.Float64,
+                    'revenue': pl.Float64,
+                    'runtime': pl.Float64,
+                }).to_dicts()
     }
 
     # Call the API

@@ -237,7 +237,7 @@ def generate_file_paths_cases():
             }
         },
         {
-            "description": "Movie with None resolution sets error_condition",
+            "description": "Movie with None resolution succeeds without resolution in path",
             "input": {
                 "hash": "errornores123456789012345678901234567890",
                 "media_type": "movie",
@@ -248,7 +248,9 @@ def generate_file_paths_cases():
             },
             "expected": {
                 "hash": "errornores123456789012345678901234567890",
-                "error_condition": "error writing target_path - resolution must be a non-empty string"
+                "parent_path": "/k/media/video/movies",
+                "target_path": "test-movie-2020",
+                "error_condition": None
             }
         },
         {

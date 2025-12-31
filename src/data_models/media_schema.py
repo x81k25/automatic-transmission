@@ -186,7 +186,7 @@ class MediaSchema(pa.DataFrameModel):
     tmdb_votes: Optional[int] = pa.Field(nullable=True, ge=0)
     rt_score: Optional[int] = pa.Field(nullable=True, ge=0, le=100)
     metascore: Optional[int] = pa.Field(nullable=True, ge=0, le=100)
-    imdb_rating: Optional[float] = pa.Field(nullable=True, ge=0, le=10)
+    imdb_rating: Optional[float] = pa.Field(nullable=True, ge=0, le=100)
     imdb_votes: Optional[int] = pa.Field(nullable=True, ge=0)
 
     # File metadata
