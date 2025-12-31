@@ -310,7 +310,7 @@ def collect_ratings(media_item: dict) -> dict:
             if data.get('Metascore', None) != "N/A":
                 media_item['metascore'] = data.get('Metascore')
             if data.get('imdbRating', None) != "N/A":
-                media_item['imdb_rating'] = float(re.sub(r"\D", "", data.get('imdbRating')))
+                media_item['imdb_rating'] = float(data.get('imdbRating'))
             if data.get('imdbVotes', None) != "N/A":
                 media_item['imdb_votes'] = int(re.sub(r"\D", "", data.get('imdbVotes')))
             media_item['imdb_id'] = data.get('imdbID', None)
