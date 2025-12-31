@@ -104,8 +104,8 @@ def extract_title(raw_title: str, media_type: str) -> str | None:
         if match:
             cleaned_title = match.group(1).strip()
         else:
-            # Try year without parentheses (space/delimiter before year)
-            match = re.search(r'(.+?)[\s._-]+((?:19|20)\d{2})(?:\s|$)', raw_title)
+            # Try year without parentheses (delimiter before year, delimiter/end after)
+            match = re.search(r'(.+?)[\s._-]+((?:19|20)\d{2})(?:[\s._-]|$)', raw_title)
             if match:
                 cleaned_title = match.group(1).strip()
             else:
