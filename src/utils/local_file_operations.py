@@ -358,7 +358,8 @@ def generate_tv_show_target_path(
 
 def move_dir_or_file(
     full_original_path: PurePosixPath,
-    full_target_path: PurePosixPath
+    full_target_path: PurePosixPath,
+    merge: bool = False
 ) -> None:
     """
     Copies a file or directory from original path to target path.
@@ -370,6 +371,8 @@ def move_dir_or_file(
     Args:
         full_original_path: Path to the source file or directory
         full_target_path: Path to the target directory (always treated as directory)
+        merge: If True, merge source contents into existing target directory
+               instead of overwriting. Individual files are still overwritten.
 
     Raises:
         ValueError: If paths are invalid or source doesn't exist
@@ -440,19 +443,38 @@ def move_dir_or_file(
             elif source_path.is_dir():
                 logging.debug(f"Source is a directory: {source_path}")
 
-                # Remove destination if it exists
-                if target_path.exists():
-                    shutil.rmtree(target_path)
-                    logging.debug(f"Removed existing destination directory: {target_path}")
+                if merge and target_path.exists():
+                    # Merge mode: copy contents into existing directory
+                    logging.debug(f"Merging directory contents into: {target_path}")
+                    for item in source_path.iterdir():
+                        dest_item = target_path / item.name
+                        if item.is_file():
+                            # Overwrite individual files
+                            if dest_item.exists():
+                                dest_item.unlink()
+                            shutil.copy2(item, dest_item)
+                            set_permissions_and_ownership(dest_item)
+                        elif item.is_dir():
+                            # Recursively merge subdirectories
+                            if dest_item.exists():
+                                shutil.rmtree(dest_item)
+                            shutil.copytree(item, dest_item)
+                            set_permissions_and_ownership(dest_item)
+                    logging.debug(f"Successfully merged {source_path} into {target_path}")
+                else:
+                    # Overwrite mode: remove destination if it exists
+                    if target_path.exists():
+                        shutil.rmtree(target_path)
+                        logging.debug(f"Removed existing destination directory: {target_path}")
 
-                # Copy entire directory
-                logging.debug(f"Copying directory to: {target_path}")
-                shutil.copytree(source_path, target_path)
+                    # Copy entire directory
+                    logging.debug(f"Copying directory to: {target_path}")
+                    shutil.copytree(source_path, target_path)
 
-                # Set permissions on copied directory and all contents
-                set_permissions_and_ownership(target_path)
+                    # Set permissions on copied directory and all contents
+                    set_permissions_and_ownership(target_path)
 
-                logging.debug(f"Successfully copied directory {source_path} to {target_path}")
+                    logging.debug(f"Successfully copied directory {source_path} to {target_path}")
 
             else:
                 raise ValueError(f"Source path is neither file nor directory: {source_path}")

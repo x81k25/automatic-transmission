@@ -40,6 +40,7 @@ class MediaType(str, Enum):
     MOVIE = 'movie'
     TV_SHOW = 'tv_show'
     TV_SEASON = 'tv_season'
+    TV_EPISODE_PACK = 'tv_episode_pack'
     UNKNOWN = 'unknown'
 
 

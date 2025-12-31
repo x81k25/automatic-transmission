@@ -94,6 +94,16 @@ def parse_media_items(media: pl.DataFrame) -> pl.DataFrame:
                 )).otherwise(pl.col('season'))
         )
 
+    tv_episode_pack_mask = parsed_media['media_type'] == "tv_episode_pack"
+    if tv_episode_pack_mask.any():
+        parsed_media = parsed_media.with_columns(
+            season=pl.when(tv_episode_pack_mask)
+                .then(pl.col('cleaned_title').map_elements(
+                    utils.extract_season_from_episode_pack,
+                    return_dtype=pl.Int32
+                )).otherwise(pl.col('season'))
+        )
+
     # extract media_title
     parsed_media = parsed_media.with_columns(
         media_title=pl.struct(["cleaned_title", "media_type"]).map_elements(
@@ -126,7 +136,8 @@ def validate_parsed_media(media: pl.DataFrame) -> pl.DataFrame:
         'all_media': ['media_title'],
         'movie': ['release_year'],
         'tv_show': ['season', 'episode'],
-        'tv_season': ['season']
+        'tv_season': ['season'],
+        'tv_episode_pack': ['season']
     }
 
     # verify mandatory fields for all media types
@@ -189,6 +200,25 @@ def validate_parsed_media(media: pl.DataFrame) -> pl.DataFrame:
             null_mask = pl.col(field).is_null()
             verified_media = verified_media.with_columns(
                 error_condition=pl.when(tv_season_mask).then(
+                    pl.when(null_mask)
+                        .then(
+                            pl.when(pl.col('error_condition').is_null())
+                            .then(pl.lit(f"{field} is null"))
+                            .otherwise(pl.concat_str(
+                                pl.col('error_condition'),
+                                pl.lit(f"; {field} is null")
+                            ))
+                        )
+                        .otherwise(pl.col('error_condition'))
+                ).otherwise('error_condition')
+            )
+
+    tv_episode_pack_mask = verified_media['media_type'] == "tv_episode_pack"
+    if tv_episode_pack_mask.any():
+        for field in mandatory_fields['tv_episode_pack']:
+            null_mask = pl.col(field).is_null()
+            verified_media = verified_media.with_columns(
+                error_condition=pl.when(tv_episode_pack_mask).then(
                     pl.when(null_mask)
                         .then(
                             pl.when(pl.col('error_condition').is_null())

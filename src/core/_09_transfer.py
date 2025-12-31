@@ -45,7 +45,9 @@ def generate_file_paths(media_item: dict) -> dict:
         except Exception as e:
             media_item['error_condition'] = f"error writing target_path - {e}"
 
-    elif media_item['media_type'] == 'tv_season':
+    elif media_item['media_type'] in ('tv_season', 'tv_episode_pack'):
+        # tv_episode_pack uses same path structure as tv_season
+        # (pack goes into season folder like s01/)
         try:
             parent_path = utils.generate_tv_season_parent_path(
                 root_dir=tv_show_dir,
@@ -96,10 +98,15 @@ def transfer_item(media_item: dict) -> dict:
     # set directory env vars
     download_dir = os.getenv('AT_DOWNLOAD_DIR')
 
+    # Use merge mode for episode packs (add to existing season folder)
+    # Use overwrite mode for seasons (full replacement)
+    merge_mode = media_item['media_type'] == 'tv_episode_pack'
+
     try:
         utils.move_dir_or_file(
             full_original_path=PurePosixPath(download_dir) / media_item['original_path'],
-            full_target_path=PurePosixPath(media_item['parent_path']) / media_item['target_path']
+            full_target_path=PurePosixPath(media_item['parent_path']) / media_item['target_path'],
+            merge=merge_mode
         )
     except Exception as e:
         if media_item['error_condition'] is None:

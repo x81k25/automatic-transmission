@@ -51,11 +51,14 @@ def extract_hash_from_magnet_link(href: str) -> str | None:
 
 def classify_media_type(raw_title:str) -> str | None:
     """
-    Classify media as either movie, tv_show, or tv_season based on the title
+    Classify media as either movie, tv_show, tv_season, or tv_episode_pack based on the title
     :param raw_title: raw title string of media item
     :return: string indicating media type
     """
     # Core patterns
+    # TV episode pack has SxxExx-xx pattern (episode range like S01E07-08)
+    episode_pack_pattern = r'[Ss]\d{1,4}[Ee]\d{1,4}-\d{1,4}'
+
     # TV show must have SxxExx pattern (case insensitive)
     tv_pattern = r'[Ss]\d{1,4}[Ee]\d{1,4}'
 
@@ -67,7 +70,10 @@ def classify_media_type(raw_title:str) -> str | None:
     # Matches 19xx or 20xx with similar delimiters on both sides
     movie_pattern = r'(?:^|\W)((?:19|20)\d{2})(?:$|\W)'
 
-    if re.search(tv_pattern, raw_title):
+    # Check episode pack first (before tv_show since it's more specific)
+    if re.search(episode_pack_pattern, raw_title):
+        return "tv_episode_pack"
+    elif re.search(tv_pattern, raw_title):
         return "tv_show"
     elif re.search(season_pattern, raw_title):
         return "tv_season"
@@ -87,18 +93,26 @@ def extract_title(raw_title: str, media_type: str) -> str | None:
     :param media_type: type of collection, either "movie", "tv_show", or "tv_season"
     :return: string of the cleaned media title
     """
+    # Normalize URL-encoded + to space before parsing
+    raw_title = raw_title.replace('+', ' ')
+
     cleaned_title = None
 
     if media_type == 'movie':
-        # Try to match everything before year pattern first
+        # Try to match everything before year pattern first (year in parentheses)
         match = re.search(r'(.+?)[\s._-]*\((?:19|20)\d{2}\)', raw_title)
         if match:
             cleaned_title = match.group(1).strip()
         else:
-            # If no year found, take everything before resolution pattern
-            match = re.search(r'(.+?)[\s._-]*\d{3,4}p', raw_title, re.IGNORECASE)
+            # Try year without parentheses (space/delimiter before year)
+            match = re.search(r'(.+?)[\s._-]+((?:19|20)\d{2})(?:\s|$)', raw_title)
             if match:
                 cleaned_title = match.group(1).strip()
+            else:
+                # If no year found, take everything before resolution pattern
+                match = re.search(r'(.+?)[\s._-]*\d{3,4}p', raw_title, re.IGNORECASE)
+                if match:
+                    cleaned_title = match.group(1).strip()
     elif media_type == 'tv_show':
         # Try to match everything before year in parentheses first
         match = re.search(r'(.+?)[\s._-]*\((?:19|20)\d{2}\).*?s\d{1,4}e\d{1,4}', raw_title, re.IGNORECASE)
@@ -112,6 +126,21 @@ def extract_title(raw_title: str, media_type: str) -> str | None:
             else:
                 # Fall back to original: get everything before the SxxExx pattern
                 match = re.search(r'(.+?)s\d{1,4}e\d{1,4}', raw_title, re.IGNORECASE)
+                if match:
+                    cleaned_title = match.group(1).strip()
+    elif media_type == 'tv_episode_pack':
+        # Try to match everything before year in parentheses first
+        match = re.search(r'(.+?)[\s._-]*\((?:19|20)\d{2}\).*?s\d{1,4}e\d{1,4}-\d{1,4}', raw_title, re.IGNORECASE)
+        if match:
+            cleaned_title = match.group(1).strip()
+        else:
+            # Try to match everything before standalone year then episode pack pattern
+            match = re.search(r'(.+?)[\s._-]+(?:19|20)\d{2}[\s._-]+s\d{1,4}e\d{1,4}-\d{1,4}', raw_title, re.IGNORECASE)
+            if match:
+                cleaned_title = match.group(1).strip()
+            else:
+                # Fall back: get everything before the SxxExx-xx pattern
+                match = re.search(r'(.+?)s\d{1,4}e\d{1,4}-\d{1,4}', raw_title, re.IGNORECASE)
                 if match:
                     cleaned_title = match.group(1).strip()
     elif media_type == 'tv_season':
@@ -147,11 +176,14 @@ def extract_title(raw_title: str, media_type: str) -> str | None:
 ################################################################################
 
 def extract_year(raw_title: str) -> str | None:
+    # Normalize URL-encoded + to space before parsing
+    raw_title = raw_title.replace('+', ' ')
+
     # Pattern matches:
-    # - Opening delimiter: (, [, ., -, or _
+    # - Opening delimiter: (, [, ., -, _, space, or start of string
     # - 19 or 20 followed by two digits
-    # - Closing delimiter: ), ], ., -, or _
-    pattern = re.compile(r'[\(\[\.\-_]((?:19|20)\d{2})[\)\]\.\-_]')
+    # - Closing delimiter: ), ], ., -, _, space, or end of string
+    pattern = re.compile(r'(?:[\(\[\.\-_\s]|^)((?:19|20)\d{2})(?:[\)\]\.\-_\s]|$)')
     match = pattern.search(raw_title)
     return int(match.group(1)) if match else None
 
@@ -168,6 +200,17 @@ def extract_season_from_episode(raw_title: str) -> str | None:
 
 def extract_episode_from_episode(raw_title: str) -> str | None:
     pattern = re.compile(r'[. ]s\d{1,4}e(\d{1,4})[. ]', re.IGNORECASE)
+    match = pattern.search(raw_title)
+    return int(match.group(1)) if match else None
+
+
+def extract_season_from_episode_pack(raw_title: str) -> int | None:
+    """
+    Extract season number from episode pack title (e.g., S01E07-08).
+    :param raw_title: raw title string of media item
+    :return: season number as integer or None if not found
+    """
+    pattern = re.compile(r'[. ]s(\d{1,4})e\d{1,4}-\d{1,4}', re.IGNORECASE)
     match = pattern.search(raw_title)
     return int(match.group(1)) if match else None
 

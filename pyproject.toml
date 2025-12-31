@@ -29,8 +29,8 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["src*", "tests*"]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.3.5",
     "pytest-cov>=6.1.1",
 ]
