@@ -268,17 +268,17 @@ def generate_file_paths_cases():
             }
         },
         {
-            "description": "TV season with invalid season (0) sets error_condition",
+            "description": "TV season with negative season sets error_condition",
             "input": {
                 "hash": "errortvs0123456789012345678901234567890123",
                 "media_type": "tv_season",
                 "media_title": "Test Show",
                 "release_year": 2020,
-                "season": 0
+                "season": -1
             },
             "expected": {
                 "hash": "errortvs0123456789012345678901234567890123",
-                "error_condition": "error writing target_path - season must be greater than 0"
+                "error_condition": "error writing target_path - season cannot be negative"
             }
         },
         {
