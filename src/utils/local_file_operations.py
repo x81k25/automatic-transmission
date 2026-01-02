@@ -154,14 +154,14 @@ def generate_movie_target_path(
 def generate_tv_season_parent_path(
     root_dir: str,
     tv_show_name: str,
-    release_year: int,
+    release_year: int | None = None,
 ) -> PurePosixPath:
     """
     generates the name of the parent directory for a tv_season
 
     :param root_dir: root dir for all tv content
     :param tv_show_name: tv show name string, if tv_season
-    :param release_year: release year of tv_season
+    :param release_year: release year of tv_season (optional)
     :return: PurePosixPath object of parent dir
     :raises ValueError: If required parameters are invalid
     """
@@ -172,8 +172,8 @@ def generate_tv_season_parent_path(
     if not tv_show_name or not isinstance(tv_show_name, str):
         raise ValueError("tv_show_name must be a non-empty string")
 
-    if not release_year or not isinstance(release_year, int):
-        raise ValueError("release_year must be a valid integer")
+    if release_year is not None and not isinstance(release_year, int):
+        raise ValueError("release_year must be a valid integer or None")
 
     try:
         # Apply title cleaning logic to show name
@@ -187,8 +187,11 @@ def generate_tv_season_parent_path(
         if not show_name_clean:
             raise ValueError("tv_show_name resulted in empty string after cleaning")
 
-        # Create show folder with year
-        show_folder = f"{show_name_clean}-{release_year}"
+        # Create show folder with or without year
+        if release_year is not None:
+            show_folder = f"{show_name_clean}-{release_year}"
+        else:
+            show_folder = show_name_clean
 
         # Use PurePosixPath operations to safely join
         return PurePosixPath(root_dir) / show_folder
@@ -236,7 +239,7 @@ def generate_tv_season_target_path(
 def generate_tv_show_parent_path(
     root_dir: str,
     tv_show_name: str,
-    release_year: int,
+    release_year: int | None,
     season: int,
 ) -> PurePosixPath:
     """
@@ -244,7 +247,7 @@ def generate_tv_show_parent_path(
 
     :param root_dir: root dir for all tv content
     :param tv_show_name: tv show name string, if tv_show or tv_season
-    :param release_year: release year of tv_show or tv_season
+    :param release_year: release year of tv_show or tv_season (optional)
     :param season: season of tv_show or tv_season
     :return: PurePosixPath object of parent dir
     :raises ValueError: If required parameters are invalid
@@ -256,8 +259,8 @@ def generate_tv_show_parent_path(
     if not tv_show_name or not isinstance(tv_show_name, str):
         raise ValueError("tv_show_name must be a non-empty string")
 
-    if not release_year or not isinstance(release_year, int):
-        raise ValueError("release_year must be a valid integer")
+    if release_year is not None and not isinstance(release_year, int):
+        raise ValueError("release_year must be a valid integer or None")
 
     if season is None or not isinstance(season, int):
         raise ValueError("season must be a valid integer")
@@ -280,8 +283,11 @@ def generate_tv_show_parent_path(
         if not show_name_clean:
             raise ValueError("tv_show_name resulted in empty string after cleaning")
 
-        # Create show folder with year
-        show_folder = f"{show_name_clean}-{release_year}"
+        # Create show folder with or without year
+        if release_year is not None:
+            show_folder = f"{show_name_clean}-{release_year}"
+        else:
+            show_folder = show_name_clean
 
         # Create season folder - determine padding based on season number
         if season < 100:

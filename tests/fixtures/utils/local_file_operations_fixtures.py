@@ -231,6 +231,24 @@ def generate_tv_season_parent_path_cases():
                 "release_year": 2011
             },
             "expected": PurePosixPath("/k/media/video/tv/game-of-thrones-2011")
+        },
+        {
+            "description": "TV season with None release_year - title only",
+            "input": {
+                "root_dir": "/k/media/video/tv/",
+                "tv_show_name": "Chad Powers",
+                "release_year": None
+            },
+            "expected": PurePosixPath("/k/media/video/tv/chad-powers")
+        },
+        {
+            "description": "TV season with None release_year and special characters",
+            "input": {
+                "root_dir": "/k/media/video/tv/",
+                "tv_show_name": "The Bear: Chicago",
+                "release_year": None
+            },
+            "expected": PurePosixPath("/k/media/video/tv/the-bear-chicago")
         }
     ]
 
@@ -397,6 +415,26 @@ def generate_tv_show_parent_path_cases():
                 "season": 5
             },
             "expected": PurePosixPath("/k/media/video/tv/marvel-s-agents-of-s-h-i-e-l-d-2013/s05")
+        },
+        {
+            "description": "TV show with None release_year - title only",
+            "input": {
+                "root_dir": "/k/media/video/tv/",
+                "tv_show_name": "Chad Powers",
+                "release_year": None,
+                "season": 1
+            },
+            "expected": PurePosixPath("/k/media/video/tv/chad-powers/s01")
+        },
+        {
+            "description": "TV show with None release_year and special characters",
+            "input": {
+                "root_dir": "/k/media/video/tv/",
+                "tv_show_name": "The Bear: Chicago",
+                "release_year": None,
+                "season": 3
+            },
+            "expected": PurePosixPath("/k/media/video/tv/the-bear-chicago/s03")
         }
     ]
 
