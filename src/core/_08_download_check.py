@@ -199,7 +199,7 @@ def check_downloads():
         media = pl.concat([
             media_downloading,
             media_transferred
-        ])
+        ], how="diagonal_relaxed")
 
     # get current media item info
     current_media_items = utils.return_current_media_items()
