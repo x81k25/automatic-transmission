@@ -380,16 +380,34 @@ def get_training_metadata(imdb_ids: list) -> pl.DataFrame | None:
 
 def get_training_labels(imdb_ids: list) -> pl.DataFrame | None:
     """
-    Gets training labels for items that should skip prediction.
-
-    Currently disabled - all items go through reel-driver prediction
-    regardless of existing labels.
+    Gets training data for items by imdb_id.
 
     :param imdb_ids: list of strings in the form of IMDB ID's
-    :return: None (all items should be predicted)
+    :return: DataFrame with training data, or None if no matches
     """
-    # All items should go through reel-driver prediction
-    return None
+    # assign engine
+    engine = create_db_engine()
+
+    # build query
+    query = text(f"""
+        SELECT *
+        FROM training
+        WHERE imdb_id IN :imdb_ids
+    """)
+
+    params = {'imdb_ids': tuple(imdb_ids)}
+
+    with engine.connect() as conn:
+        result = conn.execute(query, params)
+        columns = result.keys()
+        rows = result.fetchall()
+
+        if not rows:
+            return None
+
+        data = [dict(zip(columns, row)) for row in rows]
+
+    return pl.DataFrame(data)
 
 
 # ------------------------------------------------------------------------------

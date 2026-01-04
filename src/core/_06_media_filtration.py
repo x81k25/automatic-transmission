@@ -145,17 +145,24 @@ def reject_media_without_imdb_id(media: pl.DataFrame) -> pl.DataFrame:
 
 def process_prelabeled_items(
     media: pl.DataFrame,
-    media_labels: pl.DataFrame
+    training_data: pl.DataFrame
 ) -> pl.DataFrame:
     """
-    applies that retrieved media labels to the unprocessed DataFrame
+    Processes items with anomalous flag that should skip reel-driver prediction.
+
+    Only items marked as anomalous in the training table bypass reel-driver.
+    All other items go through reel-driver prediction regardless of existing labels.
 
     :param media: unprocessed DataFrame
-    :param media_labels: DataFrame containing training labels and the
-        corresponding imdb_id's
-    :return: updated DataFrame with the status updated to correspond
-        with the label
+    :param training_data: DataFrame containing training data including anomalous flag
+    :return: updated DataFrame with anomalous items processed
     """
+    # Filter training data to only anomalous items
+    anomalous_items = training_data.filter(pl.col('anomalous') == True)
+
+    if anomalous_items.height == 0:
+        return pl.DataFrame()  # No anomalous items to process
+
     media_prelabeled = media.clone()
 
     # Add rejection_reason column if missing
@@ -164,21 +171,24 @@ def process_prelabeled_items(
             pl.lit(None).cast(pl.Utf8).alias('rejection_reason')
         )
 
-    # join existing metadata with main DataFrame
+    # join only anomalous items with main DataFrame
     media_prelabeled = (
         media_prelabeled
-        .filter(pl.col('imdb_id').is_in(media_labels['imdb_id'].to_list()))
+        .filter(pl.col('imdb_id').is_in(anomalous_items['imdb_id'].to_list()))
         .join(
-            media_labels,
+            anomalous_items.select('imdb_id', 'label'),
             on='imdb_id',
             how='left'
         )
     )
 
-    # update rejection_reason if needed accordingly
+    if media_prelabeled.height == 0:
+        return pl.DataFrame()
+
+    # update rejection_reason based on existing label
     media_prefiltered = media_prelabeled.with_columns(
         rejection_reason = pl.when(pl.col('label') == 'would_not_watch')
-            .then(pl.lit('previously failed reel-driver'))
+            .then(pl.lit('anomalous - previously failed reel-driver'))
         .otherwise(pl.col('rejection_reason'))
     )
 
@@ -460,21 +470,22 @@ def filter_media():
     if media.height == 0:
         return
 
-    # get values for media which has previously been filtered
-    media_labels = utils.get_training_labels(list(set(media['imdb_id'])))
+    # get training data to check for anomalous items that should skip reel-driver
+    training_data = utils.get_training_labels(list(set(media['imdb_id'])))
 
-    # if any labels have already been set
-    if media_labels is not None:
-        prelabeled_media = process_prelabeled_items(media, media_labels)
+    # process anomalous items (they skip reel-driver prediction)
+    if training_data is not None:
+        anomalous_media = process_prelabeled_items(media, training_data)
 
-        # update status, commit to db, and log
-        prelabeled_media = update_status(prelabeled_media)
-        update_training_labels(prelabeled_media)
-        utils.media_db_update(media=MediaSchema.validate(prelabeled_media))
-        log_status(prelabeled_media)
+        if anomalous_media.height > 0:
+            # update status, commit to db, and log
+            anomalous_media = update_status(anomalous_media)
+            update_training_labels(anomalous_media)
+            utils.media_db_update(media=MediaSchema.validate(anomalous_media))
+            log_status(anomalous_media)
 
-        # remove from list of items to be filtered
-        media = media.join(prelabeled_media.select('hash'), on='hash', how='anti')
+            # remove from list of items to be filtered
+            media = media.join(anomalous_media.select('hash'), on='hash', how='anti')
 
     # if no more items need filtration, return
     if media.height == 0:

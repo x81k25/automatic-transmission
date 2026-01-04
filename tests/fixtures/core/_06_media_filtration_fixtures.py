@@ -231,10 +231,14 @@ def reject_media_without_imdb_id_cases():
 
 @pytest.fixture
 def process_prelabeled_items_cases():
-    """Test scenarios for process_prelabeled_items function."""
+    """Test scenarios for process_prelabeled_items function.
+
+    Note: Only items with anomalous=True are processed (bypass reel-driver).
+    Items with anomalous=False go through reel-driver prediction.
+    """
     return [
         {
-            "description": "Single item with matching imdb_id and would_not_watch label gets rejected",
+            "description": "Anomalous item with would_not_watch label gets rejected",
             "input_media_data": [
                 {
                     "hash": "prefiltered123456789012345678901234567890123",
@@ -248,17 +252,17 @@ def process_prelabeled_items_cases():
                 }
             ],
             "media_labels_data": [
-                {"imdb_id": "tt34493867", "label": "would_not_watch"}
+                {"imdb_id": "tt34493867", "label": "would_not_watch", "anomalous": True}
             ],
             "expected_fields": [
                 {
                     "hash": "prefiltered123456789012345678901234567890123",
-                    "rejection_reason": "previously failed reel-driver"
+                    "rejection_reason": "anomalous - previously failed reel-driver"
                 }
             ]
         },
         {
-            "description": "Single item with matching imdb_id and would_watch label does not get rejected",
+            "description": "Anomalous item with would_watch label does not get rejected",
             "input_media_data": [
                 {
                     "hash": "goodlabel123456789012345678901234567890123",
@@ -272,7 +276,7 @@ def process_prelabeled_items_cases():
                 }
             ],
             "media_labels_data": [
-                {"imdb_id": "tt2861424", "label": "would_watch"}
+                {"imdb_id": "tt2861424", "label": "would_watch", "anomalous": True}
             ],
             "expected_fields": [
                 {
@@ -282,7 +286,7 @@ def process_prelabeled_items_cases():
             ]
         },
         {
-            "description": "Single item with no matching imdb_id returns empty",
+            "description": "Non-anomalous item returns empty (goes through reel-driver)",
             "input_media_data": [
                 {
                     "hash": "nomatch123456789012345678901234567890123456",
@@ -296,12 +300,12 @@ def process_prelabeled_items_cases():
                 }
             ],
             "media_labels_data": [
-                {"imdb_id": "tt1234567", "label": "would_watch"}
+                {"imdb_id": "tt9999999", "label": "would_watch", "anomalous": False}
             ],
             "expected_fields": []
         },
         {
-            "description": "Mixed items with different labels",
+            "description": "Mixed anomalous items with different labels",
             "input_media_data": [
                 {
                     "hash": "wouldwatch123456789012345678901234567890123",
@@ -325,8 +329,8 @@ def process_prelabeled_items_cases():
                 }
             ],
             "media_labels_data": [
-                {"imdb_id": "tt30444310", "label": "would_watch"},
-                {"imdb_id": "tt31314296", "label": "would_not_watch"}
+                {"imdb_id": "tt30444310", "label": "would_watch", "anomalous": True},
+                {"imdb_id": "tt31314296", "label": "would_not_watch", "anomalous": True}
             ],
             "expected_fields": [
                 {
@@ -335,12 +339,12 @@ def process_prelabeled_items_cases():
                 },
                 {
                     "hash": "wouldnotwatch12345678901234567890123456789",
-                    "rejection_reason": "previously failed reel-driver"
+                    "rejection_reason": "anomalous - previously failed reel-driver"
                 }
             ]
         },
         {
-            "description": "Empty media labels returns empty result",
+            "description": "Empty media labels returns empty result (no anomalous items)",
             "input_media_data": [
                 {
                     "hash": "emptylabels123456789012345678901234567890123",
@@ -354,7 +358,7 @@ def process_prelabeled_items_cases():
                 }
             ],
             "media_labels_data": [
-                {"imdb_id": "tt0000000", "label": "would_watch"}  # Non-matching entry to avoid empty DataFrame
+                {"imdb_id": "tt0000000", "label": "would_watch", "anomalous": False}  # Non-matching & non-anomalous
             ],
             "expected_fields": []
         }
