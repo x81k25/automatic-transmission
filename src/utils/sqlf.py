@@ -380,43 +380,16 @@ def get_training_metadata(imdb_ids: list) -> pl.DataFrame | None:
 
 def get_training_labels(imdb_ids: list) -> pl.DataFrame | None:
     """
-    gets media metadata that already existing in the database training table
+    Gets training labels for items that should skip prediction.
+
+    Currently disabled - all items go through reel-driver prediction
+    regardless of existing labels.
 
     :param imdb_ids: list of strings in the form of IMDB ID's
-    :return: DataFrame containing the training label and imdb_id
+    :return: None (all items should be predicted)
     """
-    # assign engine
-    engine = create_db_engine()
-
-    # build query
-    query = text(f"""
-        SELECT
-            imdb_id, 
-            label
-        FROM training
-        WHERE imdb_id IN :imdb_ids
-    """)
-
-    params = {'imdb_ids': tuple(imdb_ids)}
-
-    with engine.connect() as conn:
-        # Execute the query
-        result = conn.execute(query, params)
-
-        # Get column names from the result
-        columns = result.keys()
-
-        # Fetch all rows
-        rows = result.fetchall()
-
-        if not rows:
-            return None
-
-        # Convert to dict for polars
-        data = [dict(zip(columns, row)) for row in rows]
-
-    # Convert to polars DataFrame and wrap in MediaDataFrame
-    return pl.DataFrame(data)
+    # All items should go through reel-driver prediction
+    return None
 
 
 # ------------------------------------------------------------------------------
