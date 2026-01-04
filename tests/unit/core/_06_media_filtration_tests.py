@@ -1,6 +1,7 @@
 import pytest
 import os
 import polars as pl
+from unittest.mock import patch, call
 from src.core._06_media_filtration import *
 from src.data_models import *
 from tests.fixtures.core._06_media_filtration_fixtures import *
@@ -198,3 +199,52 @@ class TestMediaFiltration:
                         f"Failed for {case['description']}: "
                         f"expected rejection_reason={expected_reason}, got {row['rejection_reason']}"
                     )
+
+    @patch('src.core._06_media_filtration.utils.training_db_update_label')
+    def test_update_training_labels(self, mock_update_label, update_training_labels_cases):
+        """Test all update_training_labels scenarios from fixture."""
+        for case in update_training_labels_cases:
+            # Reset mock for each case
+            mock_update_label.reset_mock()
+
+            input_media = pl.DataFrame(case["input_data"]) if case["input_data"] else pl.DataFrame()
+            expected_would_watch = case["expected_would_watch_ids"]
+            expected_would_not_watch = case["expected_would_not_watch_ids"]
+
+            # Call the function
+            update_training_labels(input_media)
+
+            # Verify the mock calls
+            if expected_would_watch:
+                # Check that would_watch call was made with correct ids
+                would_watch_calls = [c for c in mock_update_label.call_args_list if c[0][1] == 'would_watch']
+                assert len(would_watch_calls) == 1, f"Expected 1 would_watch call for {case['description']}"
+                actual_ids = sorted(would_watch_calls[0][0][0])
+                expected_ids = sorted(expected_would_watch)
+                assert actual_ids == expected_ids, (
+                    f"Failed for {case['description']}: "
+                    f"expected would_watch ids {expected_ids}, got {actual_ids}"
+                )
+            else:
+                # No would_watch call expected
+                would_watch_calls = [c for c in mock_update_label.call_args_list if c[0][1] == 'would_watch']
+                assert len(would_watch_calls) == 0, (
+                    f"Expected no would_watch calls for {case['description']}, got {would_watch_calls}"
+                )
+
+            if expected_would_not_watch:
+                # Check that would_not_watch call was made with correct ids
+                would_not_watch_calls = [c for c in mock_update_label.call_args_list if c[0][1] == 'would_not_watch']
+                assert len(would_not_watch_calls) == 1, f"Expected 1 would_not_watch call for {case['description']}"
+                actual_ids = sorted(would_not_watch_calls[0][0][0])
+                expected_ids = sorted(expected_would_not_watch)
+                assert actual_ids == expected_ids, (
+                    f"Failed for {case['description']}: "
+                    f"expected would_not_watch ids {expected_ids}, got {actual_ids}"
+                )
+            else:
+                # No would_not_watch call expected
+                would_not_watch_calls = [c for c in mock_update_label.call_args_list if c[0][1] == 'would_not_watch']
+                assert len(would_not_watch_calls) == 0, (
+                    f"Expected no would_not_watch calls for {case['description']}, got {would_not_watch_calls}"
+                )
