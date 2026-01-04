@@ -321,6 +321,63 @@ def get_media_metadata(tmdb_ids: list) -> pl.DataFrame | None:
     return media_metadata
 
 
+def get_training_metadata(imdb_ids: list) -> pl.DataFrame | None:
+    """
+    Gets training metadata by imdb_id for reel-driver predictions.
+
+    :param imdb_ids: list of IMDB IDs
+    :return: DataFrame containing metadata fields needed for predictions
+    """
+    # assign engine
+    engine = create_db_engine()
+
+    # build query - select only fields needed for reel-driver predictions
+    query = text("""
+        SELECT
+            imdb_id,
+            release_year,
+            genre,
+            spoken_languages,
+            original_language,
+            origin_country,
+            production_countries,
+            production_status,
+            metascore,
+            rt_score,
+            imdb_rating,
+            imdb_votes,
+            tmdb_rating,
+            tmdb_votes,
+            budget,
+            revenue,
+            runtime,
+            tagline,
+            overview
+        FROM training
+        WHERE imdb_id IN :imdb_ids
+    """)
+
+    params = {'imdb_ids': tuple(imdb_ids)}
+
+    with engine.connect() as conn:
+        # Execute the query
+        result = conn.execute(query, params)
+
+        # Get column names from the result
+        columns = result.keys()
+
+        # Fetch all rows
+        rows = result.fetchall()
+
+        if not rows:
+            return None
+
+        # Convert to dict for polars
+        data = [dict(zip(columns, row)) for row in rows]
+
+    return pl.DataFrame(data)
+
+
 def get_training_labels(imdb_ids: list) -> pl.DataFrame | None:
     """
     gets media metadata that already existing in the database training table
@@ -558,6 +615,122 @@ def media_db_update(media: pl.DataFrame) -> None:
 
     except Exception as e:
         logging.error(f"Error updating records: {str(e)}")
+        raise
+
+    finally:
+        engine.dispose()
+
+
+# ------------------------------------------------------------------------------
+# training table operations
+# ------------------------------------------------------------------------------
+
+def training_db_upsert(training: pl.DataFrame) -> None:
+    """
+    Upserts training records to the atp.training table.
+
+    On conflict (imdb_id), updates metadata fields only if human_labeled = false.
+    Preserves label, human_labeled, anomalous, and reviewed flags on conflict.
+
+    :param training: DataFrame containing training records to upsert
+    """
+    if training.height == 0:
+        return
+
+    logging.debug(f"Starting training upsert for {len(training)} records")
+
+    # warnings caused by loading elements to the PostgreSQL CHAR type
+    warnings.filterwarnings(
+        'ignore',
+        message="Did not recognize type 'bpchar'",
+        category=SAWarning
+    )
+
+    engine = create_db_engine()
+
+    # Convert all polars nulls to None for SQLAlchemy compatibility
+    records = []
+    for row in training.iter_rows(named=True):
+        clean_row = {k: (None if v is None or str(v) == "None" else v) for k, v in row.items()}
+        records.append(clean_row)
+
+    # Get table metadata
+    metadata = MetaData()
+    metadata.reflect(bind=engine, schema=pg_schema)
+    table = metadata.tables[f"{pg_schema}.training"]
+
+    # Create the insert statement
+    stmt = insert(table).values(records)
+
+    # On conflict, update metadata columns only where human_labeled = false
+    # Exclude: imdb_id (PK), label, human_labeled, anomalous, reviewed, created_at
+    excluded_from_update = {'imdb_id', 'label', 'human_labeled', 'anomalous', 'reviewed', 'created_at'}
+    update_cols = {
+        col.name: col
+        for col in stmt.excluded
+        if col.name not in excluded_from_update
+    }
+    update_cols['updated_at'] = func.current_timestamp()
+
+    # Create the upsert statement with condition
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['imdb_id'],
+        set_=update_cols,
+        where=table.c.human_labeled == False
+    )
+
+    logging.debug(f"Attempting training upsert of {len(training)} records")
+
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(upsert_stmt)
+            logging.debug(f"Successfully upserted {result.rowcount} training records")
+
+    except Exception as e:
+        logging.error(f"Error upserting training records: {str(e)}")
+        raise
+
+    finally:
+        engine.dispose()
+
+
+def training_db_update_label(imdb_ids: List[str], label: str) -> None:
+    """
+    Updates the label for training records by imdb_id.
+
+    Only updates records where human_labeled = false.
+
+    :param imdb_ids: List of IMDB IDs to update
+    :param label: New label value ('would_watch' or 'would_not_watch')
+    """
+    if not imdb_ids:
+        return
+
+    logging.debug(f"Updating label to '{label}' for {len(imdb_ids)} training records")
+
+    engine = create_db_engine()
+
+    try:
+        query = text("""
+            UPDATE training
+            SET label = :label,
+                updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+            WHERE imdb_id IN :imdb_ids
+            AND human_labeled = FALSE
+        """)
+
+        params = {
+            'label': label,
+            'imdb_ids': tuple(imdb_ids)
+        }
+
+        with engine.connect() as conn:
+            result = conn.execute(query, params)
+            conn.commit()
+            logging.debug(f"Successfully updated {result.rowcount} training labels")
+
+    except Exception as e:
+        logging.error(f"Error updating training labels: {str(e)}")
         raise
 
     finally:

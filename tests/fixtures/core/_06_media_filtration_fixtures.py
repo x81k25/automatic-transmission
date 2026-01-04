@@ -782,3 +782,176 @@ def probability_type_handling_cases():
             "expected_probability_type": pl.Float64
         }
     ]
+
+
+@pytest.fixture
+def update_training_labels_cases():
+    """Test scenarios for update_training_labels function."""
+    return [
+        {
+            "description": "Accepted item with valid imdb_id updates to would_watch",
+            "input_data": [
+                {
+                    "hash": "accepted1234567890123456789012345678901234",
+                    "imdb_id": "tt1234567",
+                    "media_type": "movie",
+                    "media_title": "Accepted Movie",
+                    "rejection_status": "accepted",
+                    "error_status": False
+                }
+            ],
+            "expected_would_watch_ids": ["tt1234567"],
+            "expected_would_not_watch_ids": []
+        },
+        {
+            "description": "Override item with valid imdb_id updates to would_watch",
+            "input_data": [
+                {
+                    "hash": "override1234567890123456789012345678901234",
+                    "imdb_id": "tt2345678",
+                    "media_type": "movie",
+                    "media_title": "Override Movie",
+                    "rejection_status": "override",
+                    "error_status": False
+                }
+            ],
+            "expected_would_watch_ids": ["tt2345678"],
+            "expected_would_not_watch_ids": []
+        },
+        {
+            "description": "Rejected item with valid imdb_id updates to would_not_watch",
+            "input_data": [
+                {
+                    "hash": "rejected1234567890123456789012345678901234",
+                    "imdb_id": "tt3456789",
+                    "media_type": "movie",
+                    "media_title": "Rejected Movie",
+                    "rejection_status": "rejected",
+                    "error_status": False
+                }
+            ],
+            "expected_would_watch_ids": [],
+            "expected_would_not_watch_ids": ["tt3456789"]
+        },
+        {
+            "description": "Item without imdb_id is skipped",
+            "input_data": [
+                {
+                    "hash": "noimdb12345678901234567890123456789012345",
+                    "imdb_id": None,
+                    "media_type": "movie",
+                    "media_title": "No IMDB Movie",
+                    "rejection_status": "accepted",
+                    "error_status": False
+                }
+            ],
+            "expected_would_watch_ids": [],
+            "expected_would_not_watch_ids": []
+        },
+        {
+            "description": "Item with error_status True is skipped",
+            "input_data": [
+                {
+                    "hash": "error12345678901234567890123456789012345678",
+                    "imdb_id": "tt4567890",
+                    "media_type": "movie",
+                    "media_title": "Error Movie",
+                    "rejection_status": "accepted",
+                    "error_status": True
+                }
+            ],
+            "expected_would_watch_ids": [],
+            "expected_would_not_watch_ids": []
+        },
+        {
+            "description": "Unfiltered item is skipped",
+            "input_data": [
+                {
+                    "hash": "unfiltered12345678901234567890123456789012",
+                    "imdb_id": "tt5678901",
+                    "media_type": "movie",
+                    "media_title": "Unfiltered Movie",
+                    "rejection_status": "unfiltered",
+                    "error_status": False
+                }
+            ],
+            "expected_would_watch_ids": [],
+            "expected_would_not_watch_ids": []
+        },
+        {
+            "description": "Mixed items - accepted, rejected, and invalid",
+            "input_data": [
+                {
+                    "hash": "accepted1234567890123456789012345678901234",
+                    "imdb_id": "tt1111111",
+                    "media_type": "movie",
+                    "media_title": "Accepted 1",
+                    "rejection_status": "accepted",
+                    "error_status": False
+                },
+                {
+                    "hash": "override1234567890123456789012345678901234",
+                    "imdb_id": "tt2222222",
+                    "media_type": "movie",
+                    "media_title": "Override 1",
+                    "rejection_status": "override",
+                    "error_status": False
+                },
+                {
+                    "hash": "rejected1234567890123456789012345678901234",
+                    "imdb_id": "tt3333333",
+                    "media_type": "movie",
+                    "media_title": "Rejected 1",
+                    "rejection_status": "rejected",
+                    "error_status": False
+                },
+                {
+                    "hash": "noimdb12345678901234567890123456789012345",
+                    "imdb_id": None,
+                    "media_type": "movie",
+                    "media_title": "No IMDB",
+                    "rejection_status": "accepted",
+                    "error_status": False
+                },
+                {
+                    "hash": "error12345678901234567890123456789012345678",
+                    "imdb_id": "tt4444444",
+                    "media_type": "movie",
+                    "media_title": "Error",
+                    "rejection_status": "accepted",
+                    "error_status": True
+                }
+            ],
+            "expected_would_watch_ids": ["tt1111111", "tt2222222"],
+            "expected_would_not_watch_ids": ["tt3333333"]
+        },
+        {
+            "description": "Empty DataFrame returns without calling db",
+            "input_data": [],
+            "expected_would_watch_ids": [],
+            "expected_would_not_watch_ids": []
+        },
+        {
+            "description": "Duplicate imdb_ids are deduplicated",
+            "input_data": [
+                {
+                    "hash": "dupe11234567890123456789012345678901234567",
+                    "imdb_id": "tt5555555",
+                    "media_type": "movie",
+                    "media_title": "Dupe 1",
+                    "rejection_status": "accepted",
+                    "error_status": False
+                },
+                {
+                    "hash": "dupe21234567890123456789012345678901234567",
+                    "imdb_id": "tt5555555",
+                    "media_type": "movie",
+                    "media_title": "Dupe 2",
+                    "rejection_status": "accepted",
+                    "error_status": False
+                }
+            ],
+            "expected_would_watch_ids": ["tt5555555"],
+            "expected_would_not_watch_ids": []
+        }
+    ]

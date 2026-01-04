@@ -1,10 +1,7 @@
 from decimal import Decimal
 import pytest
 from src.data_models import *
-
-import pytest
 import polars as pl
-from decimal import Decimal
 
 @pytest.fixture
 def process_media_with_existing_metadata_cases():
@@ -45,8 +42,7 @@ def process_media_with_existing_metadata_cases():
                     "imdb_id": "tt30444310",
                     "media_title": "Murderbot",
                     "media_type": "tv_show",
-                    "release_year": 2025,
-                    "tmdb_rating": 7.3
+                    "release_year": 2025
                 }
             ]
         },
@@ -347,20 +343,14 @@ def process_media_with_existing_metadata_cases():
                     "tmdb_id": 814776,
                     "imdb_id": "tt17527468",
                     "media_title": "Bottoms",
-                    "media_type": "movie",
-                    "budget": 11300000,
-                    "revenue": 12976079,
-                    "runtime": 91
+                    "media_type": "movie"
                 },
                 {
                     "hash": "tvshow123456789012345678901234567890123456",
                     "tmdb_id": 1667,
                     "imdb_id": "tt0072562",
                     "media_title": "Saturday Night Live",
-                    "media_type": "tv_show",
-                    "budget": None,
-                    "revenue": None,
-                    "runtime": None
+                    "media_type": "tv_show"
                 }
             ]
         },
@@ -396,10 +386,7 @@ def process_media_with_existing_metadata_cases():
                     "imdb_id": "tt0011071",
                     "media_title": "Old Title",  # Should be retained from input
                     "media_type": "movie",
-                    "release_year": 1920,
-                    "budget": 0,
-                    "revenue": 0,
-                    "runtime": 22
+                    "release_year": 1920
                 }
             ]
         }
@@ -669,6 +656,246 @@ def update_status_cases():
                 {
                     "hash": "allerrors2345678901234567890123456789012345",
                     "pipeline_status": "parsed"
+                }
+            ]
+        }
+    ]
+
+
+@pytest.fixture
+def build_training_records_cases():
+    """Test scenarios for build_training_records function."""
+    return [
+        {
+            "description": "Single item with valid imdb_id produces training record",
+            "input_data": [
+                {
+                    "hash": "training1234567890123456789012345678901234",
+                    "imdb_id": "tt1234567",
+                    "tmdb_id": 12345,
+                    "media_type": "movie",
+                    "media_title": "Test Movie",
+                    "release_year": 2023,
+                    "budget": 1000000,
+                    "revenue": 5000000,
+                    "runtime": 120,
+                    "genre": ["Action", "Drama"],
+                    "overview": "A test movie overview",
+                    "tmdb_rating": 7.5,
+                    "tmdb_votes": 1000,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "accepted",
+                    "error_status": False,
+                    "error_condition": None
+                }
+            ],
+            "expected_count": 1,
+            "expected_fields": [
+                {
+                    "imdb_id": "tt1234567",
+                    "tmdb_id": 12345,
+                    "media_type": "movie",
+                    "media_title": "Test Movie",
+                    "release_year": 2023,
+                    "label": None,
+                    "human_labeled": False,
+                    "anomalous": False,
+                    "reviewed": False
+                }
+            ]
+        },
+        {
+            "description": "Item without imdb_id is filtered out",
+            "input_data": [
+                {
+                    "hash": "noimdb12345678901234567890123456789012345",
+                    "imdb_id": None,
+                    "tmdb_id": 99999,
+                    "media_type": "movie",
+                    "media_title": "No IMDB Movie",
+                    "release_year": 2023,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "accepted",
+                    "error_status": False,
+                    "error_condition": None
+                }
+            ],
+            "expected_count": 0,
+            "expected_fields": []
+        },
+        {
+            "description": "Rejected item is filtered out",
+            "input_data": [
+                {
+                    "hash": "rejected123456789012345678901234567890123",
+                    "imdb_id": "tt7654321",
+                    "tmdb_id": 54321,
+                    "media_type": "movie",
+                    "media_title": "Rejected Movie",
+                    "release_year": 2023,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "rejected",
+                    "rejection_reason": "low quality",
+                    "error_status": False,
+                    "error_condition": None
+                }
+            ],
+            "expected_count": 0,
+            "expected_fields": []
+        },
+        {
+            "description": "Item with error is filtered out",
+            "input_data": [
+                {
+                    "hash": "error12345678901234567890123456789012345678",
+                    "imdb_id": "tt9999999",
+                    "tmdb_id": 11111,
+                    "media_type": "movie",
+                    "media_title": "Error Movie",
+                    "release_year": 2023,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "accepted",
+                    "error_status": True,
+                    "error_condition": "API timeout"
+                }
+            ],
+            "expected_count": 0,
+            "expected_fields": []
+        },
+        {
+            "description": "Multiple items with same imdb_id are deduplicated",
+            "input_data": [
+                {
+                    "hash": "dupe11234567890123456789012345678901234567",
+                    "imdb_id": "tt1111111",
+                    "tmdb_id": 11111,
+                    "media_type": "movie",
+                    "media_title": "Duplicate Movie 1",
+                    "release_year": 2023,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "accepted",
+                    "error_status": False,
+                    "error_condition": None
+                },
+                {
+                    "hash": "dupe21234567890123456789012345678901234567",
+                    "imdb_id": "tt1111111",
+                    "tmdb_id": 11111,
+                    "media_type": "movie",
+                    "media_title": "Duplicate Movie 2",
+                    "release_year": 2023,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "override",
+                    "error_status": False,
+                    "error_condition": None
+                }
+            ],
+            "expected_count": 1,
+            "expected_fields": [
+                {
+                    "imdb_id": "tt1111111",
+                    "media_title": "Duplicate Movie 1"
+                }
+            ]
+        },
+        {
+            "description": "Mixed valid and invalid items - only valid produce training records",
+            "input_data": [
+                {
+                    "hash": "valid1234567890123456789012345678901234567",
+                    "imdb_id": "tt2222222",
+                    "tmdb_id": 22222,
+                    "media_type": "tv_show",
+                    "media_title": "Valid TV Show",
+                    "release_year": 2022,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "accepted",
+                    "error_status": False,
+                    "error_condition": None
+                },
+                {
+                    "hash": "noimdb2345678901234567890123456789012345",
+                    "imdb_id": None,
+                    "tmdb_id": 33333,
+                    "media_type": "movie",
+                    "media_title": "No IMDB",
+                    "release_year": 2023,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "accepted",
+                    "error_status": False,
+                    "error_condition": None
+                },
+                {
+                    "hash": "rejected2345678901234567890123456789012345",
+                    "imdb_id": "tt4444444",
+                    "tmdb_id": 44444,
+                    "media_type": "movie",
+                    "media_title": "Rejected",
+                    "release_year": 2023,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "rejected",
+                    "rejection_reason": "bad quality",
+                    "error_status": False,
+                    "error_condition": None
+                },
+                {
+                    "hash": "valid2345678901234567890123456789012345678",
+                    "imdb_id": "tt5555555",
+                    "tmdb_id": 55555,
+                    "media_type": "movie",
+                    "media_title": "Valid Movie",
+                    "release_year": 2021,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "override",
+                    "error_status": False,
+                    "error_condition": None
+                }
+            ],
+            "expected_count": 2,
+            "expected_fields": [
+                {
+                    "imdb_id": "tt2222222",
+                    "media_title": "Valid TV Show",
+                    "media_type": "tv_show"
+                },
+                {
+                    "imdb_id": "tt5555555",
+                    "media_title": "Valid Movie",
+                    "media_type": "movie"
+                }
+            ]
+        },
+        {
+            "description": "Empty input returns empty DataFrame",
+            "input_data": [],
+            "expected_count": 0,
+            "expected_fields": []
+        },
+        {
+            "description": "TV show with season and episode produces training record",
+            "input_data": [
+                {
+                    "hash": "tvshow12345678901234567890123456789012345",
+                    "imdb_id": "tt6666666",
+                    "tmdb_id": 66666,
+                    "media_type": "tv_season",
+                    "media_title": "Test TV Show",
+                    "season": 2,
+                    "episode": None,
+                    "release_year": 2020,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "accepted",
+                    "error_status": False,
+                    "error_condition": None
+                }
+            ],
+            "expected_count": 1,
+            "expected_fields": [
+                {
+                    "imdb_id": "tt6666666",
+                    "media_type": "tv_season",
+                    "season": 2,
+                    "label": None
                 }
             ]
         }
