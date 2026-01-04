@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 import requests
 
 # local/custom imports
-from src.data_models import MediaSchema, RejectionStatus, PipelineStatus
+from src.data_models import MediaSchema, RejectionStatus, PipelineStatus, TrainingSchema, TRAINING_SCHEMA_COLUMNS
 import src.utils as utils
 import polars as pl
 
@@ -419,6 +419,59 @@ def log_status(media: pl.DataFrame) -> None:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
 
 
+def build_training_records(media: pl.DataFrame) -> pl.DataFrame:
+    """
+    Builds training records from media DataFrame after metadata collection.
+
+    Filters for items with valid imdb_id (no errors, not rejected) and
+    extracts training-relevant fields. Sets label=NULL for later update
+    in stage 06.
+
+    :param media: MediaSchema DataFrame with metadata collected
+    :return: TrainingSchema DataFrame ready for upsert
+    """
+    if media.height == 0:
+        return pl.DataFrame()
+
+    # Filter for items with valid imdb_id, no errors, not rejected
+    training_candidates = media.filter(
+        pl.col('imdb_id').is_not_null() &
+        (pl.col('error_status') == False) &
+        (pl.col('rejection_status') != RejectionStatus.REJECTED.value)
+    )
+
+    if training_candidates.height == 0:
+        return pl.DataFrame()
+
+    # Select columns that map to training schema
+    training_columns = [
+        'imdb_id', 'tmdb_id', 'media_type', 'media_title', 'season', 'episode',
+        'release_year', 'budget', 'revenue', 'runtime', 'origin_country',
+        'production_companies', 'production_countries', 'production_status',
+        'original_language', 'spoken_languages', 'genre', 'original_media_title',
+        'tagline', 'overview', 'tmdb_rating', 'tmdb_votes', 'rt_score',
+        'metascore', 'imdb_rating', 'imdb_votes'
+    ]
+
+    # Only select columns that exist in the input DataFrame
+    available_columns = [col for col in training_columns if col in training_candidates.columns]
+    training_df = training_candidates.select(available_columns)
+
+    # Add training-specific columns with defaults
+    training_df = training_df.with_columns([
+        pl.lit(None).cast(pl.Utf8).alias('label'),
+        pl.lit(False).alias('human_labeled'),
+        pl.lit(False).alias('anomalous'),
+        pl.lit(False).alias('reviewed'),
+    ])
+
+    # Deduplicate by imdb_id, keeping first occurrence
+    training_df = training_df.unique(subset=['imdb_id'], keep='first')
+
+    # Validate against TrainingSchema
+    return TrainingSchema.validate(training_df)
+
+
 # ------------------------------------------------------------------------------
 # full metadata collection pipeline
 # ------------------------------------------------------------------------------
@@ -474,6 +527,12 @@ def collect_metadata():
                     existing_metadata
                 )
 
+                # upsert to training table (metadata already exists, just ensure it's in training)
+                training_batch = build_training_records(media_batch_with_metadata)
+                if training_batch.height > 0:
+                    utils.training_db_upsert(training_batch)
+                    logging.debug(f"upserted {training_batch.height} existing metadata records to training table")
+
                 media_batch_with_metadata = update_status(media_batch_with_metadata)
                 media_batch_with_metadata = MediaSchema.validate(media_batch_with_metadata)
                 utils.media_db_update(media=media_batch_with_metadata)
@@ -497,7 +556,7 @@ def collect_metadata():
                     updated_rows.append(row)
 
             media_batch = pl.DataFrame(updated_rows)
-            media_batch = MediaSchema.validate(media_batch)
+            # Don't validate yet - need to preserve metadata for training table
 
             # get media rating metadata
             updated_rows = []
@@ -510,9 +569,13 @@ def collect_metadata():
                     updated_rows.append(row)
 
             media_batch = pl.DataFrame(updated_rows)
-            media_batch = MediaSchema.validate(media_batch)
+            # Build training records BEFORE MediaSchema strips metadata columns
+            training_batch = build_training_records(media_batch)
+            if training_batch.height > 0:
+                utils.training_db_upsert(training_batch)
+                logging.debug(f"upserted {training_batch.height} records to training table")
 
-            # update status, commit to db, and log
+            # Now validate for media table (strips metadata, which is expected)
             media_batch = update_status(media_batch)
             media_batch = MediaSchema.validate(media_batch)
             utils.media_db_update(media=media_batch)

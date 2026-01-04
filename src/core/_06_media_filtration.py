@@ -33,6 +33,9 @@ def get_prediction(media_item: dict) -> dict:
     :return: dict containing the original media item with probability attached
         or the error_condition if an error occurred
 
+    Note: Metadata is now fetched from the training table since MediaSchema
+    no longer contains metadata fields like genre, budget, etc.
+
     :debug: media_item=next(media.df.iter_rows(named=True))
     """
     # reel_driver_env vars
@@ -43,30 +46,44 @@ def get_prediction(media_item: dict) -> dict:
     media_item['probability'] = None
 
     try:
+        imdb_id = media_item.get('imdb_id')
+        if not imdb_id:
+            media_item['error_condition'] = "no imdb_id for prediction"
+            return media_item
+
+        # Fetch metadata from training table
+        training_metadata = utils.get_training_metadata([imdb_id])
+
+        if training_metadata is None or training_metadata.height == 0:
+            media_item['error_condition'] = f"no training metadata found for {imdb_id}"
+            return media_item
+
+        metadata = training_metadata.row(0, named=True)
+
         # construct API URL
         api_url = f"http://{api_host}:{api_port}/{api_prefix}/api/predict"
 
-        # build payload with numeric fields cast to native types for JSON serialization
+        # build payload with metadata from training table
         payload = {
-            'imdb_id': media_item.get('imdb_id'),
-            'release_year': _to_json_safe(media_item.get('release_year')),
-            'genre': media_item.get('genre'),
-            'spoken_languages': media_item.get('spoken_languages'),
-            'original_language': media_item.get('original_language'),
-            'origin_country': media_item.get('origin_country'),
-            'production_countries': media_item.get('production_countries'),
-            'production_status': media_item.get('production_status'),
-            'metascore': _to_json_safe(media_item.get('metascore')),
-            'rt_score': _to_json_safe(media_item.get('rt_score')),
-            'imdb_rating': _to_json_safe(media_item.get('imdb_rating')),
-            'imdb_votes': _to_json_safe(media_item.get('imdb_votes')),
-            'tmdb_rating': _to_json_safe(media_item.get('tmdb_rating')),
-            'tmdb_votes': _to_json_safe(media_item.get('tmdb_votes')),
-            'budget': _to_json_safe(media_item.get('budget')),
-            'revenue': _to_json_safe(media_item.get('revenue')),
-            'runtime': _to_json_safe(media_item.get('runtime')),
-            'tagline': media_item.get('tagline'),
-            'overview': media_item.get('overview')
+            'imdb_id': imdb_id,
+            'release_year': _to_json_safe(metadata.get('release_year')),
+            'genre': metadata.get('genre'),
+            'spoken_languages': metadata.get('spoken_languages'),
+            'original_language': metadata.get('original_language'),
+            'origin_country': metadata.get('origin_country'),
+            'production_countries': metadata.get('production_countries'),
+            'production_status': metadata.get('production_status'),
+            'metascore': _to_json_safe(metadata.get('metascore')),
+            'rt_score': _to_json_safe(metadata.get('rt_score')),
+            'imdb_rating': _to_json_safe(metadata.get('imdb_rating')),
+            'imdb_votes': _to_json_safe(metadata.get('imdb_votes')),
+            'tmdb_rating': _to_json_safe(metadata.get('tmdb_rating')),
+            'tmdb_votes': _to_json_safe(metadata.get('tmdb_votes')),
+            'budget': _to_json_safe(metadata.get('budget')),
+            'revenue': _to_json_safe(metadata.get('revenue')),
+            'runtime': _to_json_safe(metadata.get('runtime')),
+            'tagline': metadata.get('tagline'),
+            'overview': metadata.get('overview')
         }
 
         # Call the API
@@ -128,17 +145,24 @@ def reject_media_without_imdb_id(media: pl.DataFrame) -> pl.DataFrame:
 
 def process_prelabeled_items(
     media: pl.DataFrame,
-    media_labels: pl.DataFrame
+    training_data: pl.DataFrame
 ) -> pl.DataFrame:
     """
-    applies that retrieved media labels to the unprocessed DataFrame
+    Processes items with anomalous flag that should skip reel-driver prediction.
+
+    Only items marked as anomalous in the training table bypass reel-driver.
+    All other items go through reel-driver prediction regardless of existing labels.
 
     :param media: unprocessed DataFrame
-    :param media_labels: DataFrame containing training labels and the
-        corresponding imdb_id's
-    :return: updated DataFrame with the status updated to correspond
-        with the label
+    :param training_data: DataFrame containing training data including anomalous flag
+    :return: updated DataFrame with anomalous items processed
     """
+    # Filter training data to only anomalous items
+    anomalous_items = training_data.filter(pl.col('anomalous') == True)
+
+    if anomalous_items.height == 0:
+        return pl.DataFrame()  # No anomalous items to process
+
     media_prelabeled = media.clone()
 
     # Add rejection_reason column if missing
@@ -147,21 +171,24 @@ def process_prelabeled_items(
             pl.lit(None).cast(pl.Utf8).alias('rejection_reason')
         )
 
-    # join existing metadata with main DataFrame
+    # join only anomalous items with main DataFrame
     media_prelabeled = (
         media_prelabeled
-        .filter(pl.col('imdb_id').is_in(media_labels['imdb_id'].to_list()))
+        .filter(pl.col('imdb_id').is_in(anomalous_items['imdb_id'].to_list()))
         .join(
-            media_labels,
+            anomalous_items.select('imdb_id', 'label'),
             on='imdb_id',
             how='left'
         )
     )
 
-    # update rejection_reason if needed accordingly
+    if media_prelabeled.height == 0:
+        return pl.DataFrame()
+
+    # update rejection_reason based on existing label
     media_prefiltered = media_prelabeled.with_columns(
         rejection_reason = pl.when(pl.col('label') == 'would_not_watch')
-            .then(pl.lit('previously failed reel-driver'))
+            .then(pl.lit('anomalous - previously failed reel-driver'))
         .otherwise(pl.col('rejection_reason'))
     )
 
@@ -175,6 +202,9 @@ def get_predictions(media: pl.DataFrame) -> pl.DataFrame:
 
     :param media: DataFrame containing all items to be predicted
     :return: DataFrame with the probability appended
+
+    Note: Metadata is now fetched from the training table since MediaSchema
+    no longer contains metadata fields like genre, budget, etc.
     """
     # reel_driver_env vars
     api_host = os.getenv('REEL_DRIVER_HOST')
@@ -183,36 +213,35 @@ def get_predictions(media: pl.DataFrame) -> pl.DataFrame:
 
     media_with_predictions = media.clone()
 
+    # Get unique imdb_ids for metadata lookup
+    imdb_ids = media_with_predictions.filter(
+        pl.col('imdb_id').is_not_null()
+    )['imdb_id'].unique().to_list()
+
+    if not imdb_ids:
+        # No valid imdb_ids, return with null probabilities
+        return media_with_predictions.with_columns(
+            pl.lit(None).cast(pl.Float64).alias('probability')
+        )
+
+    # Fetch metadata from training table
+    training_metadata = utils.get_training_metadata(imdb_ids)
+
+    if training_metadata is None or training_metadata.height == 0:
+        # No metadata found, return with null probabilities
+        return media_with_predictions.with_columns(
+            pl.lit(None).cast(pl.Float64).alias('probability')
+        )
+
     # Construct API URL
     api_url = f"http://{api_host}:{api_port}/{api_prefix}/api/predict_batch"
 
-    # create payload with distinct imdb_id's only
+    # create payload with metadata from training table
     # cast numeric columns to Float64 for JSON serialization (avoids Decimal issues)
     payload = {
         'items':
-            media_with_predictions.unique(subset='imdb_id')
-                .select
-                    ([
-                     'imdb_id',
-                      'release_year',
-                      'genre',
-                      'spoken_languages',
-                      'original_language',
-                      'origin_country',
-                      'production_countries',
-                      'production_status',
-                      'metascore',
-                      'rt_score',
-                      'imdb_rating',
-                      'imdb_votes',
-                      'tmdb_rating',
-                      'tmdb_votes',
-                      'budget',
-                      'revenue',
-                      'runtime',
-                      'tagline',
-                      'overview'
-                ]).cast({
+            training_metadata.unique(subset='imdb_id')
+                .cast({
                     'release_year': pl.Float64,
                     'metascore': pl.Float64,
                     'rt_score': pl.Float64,
@@ -340,6 +369,49 @@ def log_status(media: pl.DataFrame) -> None:
             logging.info(f"{row['pipeline_status']} - {row['hash']}")
 
 
+def update_training_labels(media: pl.DataFrame) -> None:
+    """
+    Updates training table labels based on rejection_status.
+
+    - accepted/override → would_watch
+    - rejected → would_not_watch
+
+    Only updates records with valid imdb_id and where error_status is False.
+
+    :param media: DataFrame with rejection_status set
+    """
+    # Handle empty DataFrame
+    if media.height == 0 or 'imdb_id' not in media.columns:
+        return
+
+    # Filter for items with valid imdb_id and no errors
+    valid_media = media.filter(
+        pl.col('imdb_id').is_not_null() &
+        (pl.col('error_status') == False)
+    )
+
+    if valid_media.height == 0:
+        return
+
+    # Get accepted/override imdb_ids → would_watch
+    accepted_ids = valid_media.filter(
+        pl.col('rejection_status').is_in([RejectionStatus.ACCEPTED.value, RejectionStatus.OVERRIDE.value])
+    )['imdb_id'].unique().to_list()
+
+    if accepted_ids:
+        utils.training_db_update_label(accepted_ids, 'would_watch')
+        logging.debug(f"updated {len(accepted_ids)} training labels to 'would_watch'")
+
+    # Get rejected imdb_ids → would_not_watch
+    rejected_ids = valid_media.filter(
+        pl.col('rejection_status') == RejectionStatus.REJECTED.value
+    )['imdb_id'].unique().to_list()
+
+    if rejected_ids:
+        utils.training_db_update_label(rejected_ids, 'would_not_watch')
+        logging.debug(f"updated {len(rejected_ids)} training labels to 'would_not_watch'")
+
+
 # -----------------------------------------------------------------------------
 # full media filtration pipeline
 # -----------------------------------------------------------------------------
@@ -366,6 +438,7 @@ def filter_media():
     if media_exempt.height > 0:
         # update status, commit to db, and log
         media_exempt = update_status(media_exempt)
+        update_training_labels(media_exempt)
         utils.media_db_update(media=MediaSchema.validate(media_exempt))
         log_status(media_exempt)
 
@@ -382,6 +455,7 @@ def filter_media():
     if media_without_imdb_id.height > 0:
         # update status, commit to db, and log
         media_without_imdb_id = update_status(media_without_imdb_id)
+        update_training_labels(media_without_imdb_id)
         utils.media_db_update(media=MediaSchema.validate(media_without_imdb_id))
         log_status(media_without_imdb_id)
 
@@ -392,20 +466,22 @@ def filter_media():
     if media.height == 0:
         return
 
-    # get values for media which has previously been filtered
-    media_labels = utils.get_training_labels(list(set(media['imdb_id'])))
+    # get training data to check for anomalous items that should skip reel-driver
+    training_data = utils.get_training_labels(list(set(media['imdb_id'])))
 
-    # if any labels have already been set
-    if media_labels is not None:
-        prelabeled_media = process_prelabeled_items(media, media_labels)
+    # process anomalous items (they skip reel-driver prediction)
+    if training_data is not None:
+        anomalous_media = process_prelabeled_items(media, training_data)
 
-        # update status, commit to db, and log
-        prelabeled_media = update_status(prelabeled_media)
-        utils.media_db_update(media=MediaSchema.validate(prelabeled_media))
-        log_status(prelabeled_media)
+        if anomalous_media.height > 0:
+            # update status, commit to db, and log
+            anomalous_media = update_status(anomalous_media)
+            update_training_labels(anomalous_media)
+            utils.media_db_update(media=MediaSchema.validate(anomalous_media))
+            log_status(anomalous_media)
 
-        # remove from list of items to be filtered
-        media = media.join(prelabeled_media.select('hash'), on='hash', how='anti')
+            # remove from list of items to be filtered
+            media = media.join(anomalous_media.select('hash'), on='hash', how='anti')
 
     # if no more items need filtration, return
     if media.height == 0:
@@ -424,6 +500,7 @@ def filter_media():
 
         # update status, commit to db, and log
         media_batch = update_status(media_batch)
+        update_training_labels(media_batch)
         utils.media_db_update(MediaSchema.validate(media_batch))
         log_status(media_batch)
 
@@ -448,6 +525,7 @@ def filter_media():
 
                 # update statuses, commit to db, and log
                 media_batch = update_status(media_batch)
+                update_training_labels(media_batch)
                 utils.media_db_update(media=MediaSchema.validate(media_batch))
                 log_status(media_batch)
 
@@ -471,6 +549,7 @@ def filter_media():
 
                 # update statuses, commit to db, and log
                 media_batch = update_status(media_batch)
+                update_training_labels(media_batch)
                 utils.media_db_update(media=MediaSchema.validate(media_batch))
                 log_status(media_batch)
 

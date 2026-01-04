@@ -53,3 +53,37 @@ class TestMetadataCollection:
                     f"Failed for {case['description']}: "
                     f"expected pipeline_status={expected['pipeline_status']}, got {row['pipeline_status']}"
                 )
+
+
+    def test_build_training_records(self, build_training_records_cases):
+        """Test all build_training_records scenarios from fixture."""
+        for case in build_training_records_cases:
+            input_media = pl.DataFrame(case["input_data"]) if case["input_data"] else pl.DataFrame()
+            result = build_training_records(input_media)
+            expected_count = case["expected_count"]
+            expected_list = case["expected_fields"]
+
+            assert isinstance(result, pl.DataFrame), f"Result should be DataFrame for {case['description']}"
+            assert result.height == expected_count, (
+                f"Row count mismatch for {case['description']}: "
+                f"expected {expected_count}, got {result.height}"
+            )
+
+            if expected_count > 0:
+                for i in range(result.height):
+                    row = result.row(i, named=True)
+                    expected = expected_list[i]
+
+                    # Check all expected fields
+                    for field, expected_value in expected.items():
+                        actual_value = row.get(field)
+                        assert actual_value == expected_value, (
+                            f"Failed for {case['description']}: "
+                            f"expected {field}={expected_value}, got {actual_value}"
+                        )
+
+                # Verify training-specific defaults are set
+                for row in result.iter_rows(named=True):
+                    assert row.get('human_labeled') == False, f"human_labeled should be False for {case['description']}"
+                    assert row.get('anomalous') == False, f"anomalous should be False for {case['description']}"
+                    assert row.get('reviewed') == False, f"reviewed should be False for {case['description']}"
