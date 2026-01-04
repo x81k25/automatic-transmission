@@ -245,6 +245,10 @@ def get_predictions(media: pl.DataFrame) -> pl.DataFrame:
                 }).to_dicts()
     }
 
+    # Debug: log first item of payload to see what data is being sent
+    if payload['items']:
+        logging.debug(f"reel-driver payload sample (first item): {payload['items'][0]}")
+
     # Call the API
     response = requests.post(api_url, json=payload)
     response.raise_for_status()
