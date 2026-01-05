@@ -70,9 +70,15 @@ class TestMetadataCollection:
             )
 
             if expected_count > 0:
-                for i in range(result.height):
-                    row = result.row(i, named=True)
-                    expected = expected_list[i]
+                # Build lookup by imdb_id for order-independent comparison
+                expected_by_id = {e['imdb_id']: e for e in expected_list}
+
+                for row in result.iter_rows(named=True):
+                    imdb_id = row.get('imdb_id')
+                    assert imdb_id in expected_by_id, (
+                        f"Unexpected imdb_id {imdb_id} in result for {case['description']}"
+                    )
+                    expected = expected_by_id[imdb_id]
 
                     # Check all expected fields
                     for field, expected_value in expected.items():
