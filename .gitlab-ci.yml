@@ -12,7 +12,7 @@ test:
   tags:
     - k8s
     - docker
-  image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+  image: docker.io/astral/uv:python3.12-bookworm-slim
   before_script:
     - uv sync --dev
   script:
