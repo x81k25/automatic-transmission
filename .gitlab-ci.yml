@@ -1,0 +1,160 @@
+stages:
+  - test
+  - build-base
+  - build-services
+
+variables:
+  BASE_IMAGE_NAME: "${CI_REGISTRY_IMAGE}/at-00-base"
+
+# Test stage
+test:
+  stage: test
+  tags:
+    - k8s
+    - docker
+  image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+  before_script:
+    - uv sync --dev
+  script:
+    - uv run pytest tests/unit/utils/ -v
+    - uv run pytest tests/unit/core/ -v
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+
+# Build base image first
+build-base:
+  stage: build-base
+  tags:
+    - k8s
+    - docker
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.00_base"
+      --destination "${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${BASE_IMAGE_NAME}:sha-${CI_COMMIT_SHORT_SHA}"
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+
+# Template for service builds
+.build-service:
+  stage: build-services
+  tags:
+    - k8s
+    - docker
+  needs:
+    - build-base
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+
+build-01-rss-ingest:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.01_rss_ingest"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-01-rss-ingest:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-01-rss-ingest:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-02-collect:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.02_collect"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-02-collect:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-02-collect:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-03-parse:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.03_parse"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-03-parse:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-03-parse:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-04-file-filtration:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.04_file_filtration"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-04-file-filtration:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-04-file-filtration:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-05-metadata-collection:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.05_metadata_collection"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-05-metadata-collection:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-05-metadata-collection:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-06-media-filtration:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.06_media_filtration"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-06-media-filtration:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-06-media-filtration:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-07-initiation:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.07_initiation"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-07-initiation:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-07-initiation:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-08-download-check:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.08_download_check"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-08-download-check:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-08-download-check:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-09-transfer:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.09_transfer"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-09-transfer:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-09-transfer:sha-${CI_COMMIT_SHORT_SHA}"
+
+build-10-cleanup:
+  extends: .build-service
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/containerization/dockerfile.10_cleanup"
+      --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-10-cleanup:${CI_COMMIT_REF_NAME}"
+      --destination "${CI_REGISTRY_IMAGE}/at-10-cleanup:sha-${CI_COMMIT_SHORT_SHA}"
