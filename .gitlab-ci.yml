@@ -50,6 +50,7 @@ build-base:
     - docker
   needs:
     - build-base
+  resource_group: container-builds
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
