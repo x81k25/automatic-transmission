@@ -73,7 +73,7 @@ automatic-transmission/
 │   ├── fixtures/             # test fixtures
 │   ├── config/               # test configuration files
 │   └── conftest.py
-├── .github/workflows/        # GitHub Actions CI/CD
+├── .gitlab-ci.yml            # GitLab CI/CD pipeline
 ├── .venv/                    # virtual environment (gitignored)
 ├── .env                      # environment variables (gitignored)
 ├── .gitignore
@@ -99,7 +99,7 @@ The project centers around the `MediaDataFrame` class, which serves as a rigid s
 
 1. clone this repository:
    ```bash
-   git clone https://github.com/yourusername/automatic-transmission.git
+   git clone http://192.168.50.2:8929/media/at.git
    cd automatic-transmission
    ```
 
@@ -155,7 +155,7 @@ docker-compose -f containerization/docker-compose.yml run --rm collect
 - Multi-stage Dockerfiles for optimized builds
 - Environment variable support for all configuration
 - Local development and CI/CD compatible
-- Images published to GitHub Container Registry
+- Images published to GitLab Container Registry
 
 See `containerization/readme.md` for comprehensive Docker setup, usage examples, and deployment guidance.
 
@@ -325,10 +325,9 @@ uv run pytest tests/unit/utils/
 
 ### continuous integration
 
-Tests run automatically via GitHub Actions:
-- **push to `dev` branch** - triggers full test suite
-- **pull requests to `stg` or `main`** - triggers full test suite
-- environment-specific variables loaded based on target branch
+Tests run automatically via GitLab CI/CD:
+- **push to `dev`, `stg`, or `main` branch** - triggers full test suite
+- Pipeline defined in `.gitlab-ci.yml`
 
 **test configuration:**
 - fixtures organized by module in `tests/fixtures/`
