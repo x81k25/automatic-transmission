@@ -1,12 +1,18 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+
 stages:
   - test
   - build-base
   - build-services
+  - deploy-test
 
 variables:
   BASE_IMAGE_NAME: "${CI_REGISTRY_IMAGE}/at-00-base"
 
-# Test stage
+# Test stage - runs on MR only
 test:
   stage: test
   tags:
@@ -19,9 +25,9 @@ test:
     - uv run pytest tests/unit/utils/ -v
     - uv run pytest tests/unit/core/ -v
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
-# Build base image first
+# Build base image first - runs on push to dev/stg/main
 build-base:
   stage: build-base
   tags:
@@ -159,3 +165,73 @@ build-10-cleanup:
       --build-arg "BASE_IMAGE=${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
       --destination "${CI_REGISTRY_IMAGE}/at-10-cleanup:${CI_COMMIT_REF_NAME}"
       --destination "${CI_REGISTRY_IMAGE}/at-10-cleanup:sha-${CI_COMMIT_SHORT_SHA}"
+
+# Deploy-test template - E2E validation via Dagster job execution
+.deploy-test:
+  stage: deploy-test
+  tags:
+    - k8s
+    - docker
+  image: alpine/k8s:1.28.3
+  needs:
+    - build-01-rss-ingest
+    - build-02-collect
+    - build-03-parse
+    - build-04-file-filtration
+    - build-05-metadata-collection
+    - build-06-media-filtration
+    - build-07-initiation
+    - build-08-download-check
+    - build-09-transfer
+    - build-10-cleanup
+  timeout: 1h
+  before_script:
+    - apk add --no-cache bash curl
+  script:
+    - echo "Finding Dagster pod in ${NAMESPACE}..."
+    - |
+      DAGSTER_POD=$(kubectl get pods -n ${NAMESPACE} -l app=dagster --no-headers | grep Running | head -1 | awk '{print $1}')
+      if [ -z "$DAGSTER_POD" ]; then
+        echo "No running Dagster pod found in ${NAMESPACE}"
+        exit 1
+      fi
+      echo "Found Dagster pod: $DAGSTER_POD"
+
+    - echo "Executing at_full_pipeline_job via Dagster..."
+    - |
+      kubectl exec -n ${NAMESPACE} $DAGSTER_POD -c dagster-dagit -- sh -c \
+        "cd /opt/dagster/app/dagstributor && \
+         PYTHONPATH=/opt/dagster/app/dagstributor \
+         dagster job execute -m repositories.main -j at_full_pipeline_job" || {
+        echo "Full pipeline job failed"
+        exit 1
+      }
+
+    - echo "AT full pipeline E2E test passed!"
+
+# Deploy-test for dev
+deploy-test-dev:
+  extends: .deploy-test
+  resource_group: at-dev
+  variables:
+    NAMESPACE: "media-dev"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+
+# Deploy-test for stg
+deploy-test-stg:
+  extends: .deploy-test
+  resource_group: at-stg
+  variables:
+    NAMESPACE: "media-stg"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "stg"
+
+# Deploy-test for prod
+deploy-test-prod:
+  extends: .deploy-test
+  resource_group: at-prod
+  variables:
+    NAMESPACE: "media-prod"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
