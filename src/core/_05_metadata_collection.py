@@ -144,7 +144,7 @@ def collect_details(media_item: dict) -> dict:
     data = json.loads(response.content)
 
     # collect id fields
-    if 'imdb_id' in data:
+    if 'imdb_id' in data and data['imdb_id']:
         media_item['imdb_id'] = data['imdb_id']
 
     # collect time information
@@ -436,6 +436,7 @@ def build_training_records(media: pl.DataFrame) -> pl.DataFrame:
     # Filter for items with valid imdb_id, no errors, not rejected
     training_candidates = media.filter(
         pl.col('imdb_id').is_not_null() &
+        (pl.col('imdb_id') != '') &
         (pl.col('error_status') == False) &
         (pl.col('rejection_status') != RejectionStatus.REJECTED.value)
     )

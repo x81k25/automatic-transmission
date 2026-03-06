@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch, MagicMock
 import polars as pl
 from src.core._05_metadata_collection import *
 from src.data_models import *
@@ -93,3 +94,26 @@ class TestMetadataCollection:
                     assert row.get('human_labeled') == False, f"human_labeled should be False for {case['description']}"
                     assert row.get('anomalous') == False, f"anomalous should be False for {case['description']}"
                     assert row.get('reviewed') == False, f"reviewed should be False for {case['description']}"
+
+
+    @patch.dict('os.environ', {
+        'AT_MOVIE_DETAILS_API_BASE_URL': 'https://api.themoviedb.org/3/movie',
+        'AT_MOVIE_DETAILS_API_KEY': 'test_key',
+        'AT_TV_DETAILS_API_BASE_URL': 'https://api.themoviedb.org/3/tv',
+        'AT_TV_DETAILS_API_KEY': 'test_key'
+    })
+    @patch('src.core._05_metadata_collection.requests.get')
+    def test_collect_details_empty_imdb_id(self, mock_get, collect_details_empty_imdb_cases):
+        """Test that collect_details converts empty string imdb_id to None."""
+        for case in collect_details_empty_imdb_cases:
+            mock_response = MagicMock()
+            mock_response.status_code = case["mock_api_response"]["status_code"]
+            mock_response.content = case["mock_api_response"]["content"].encode()
+            mock_get.return_value = mock_response
+
+            result = collect_details(case["input_media_item"].copy())
+
+            assert result['imdb_id'] == case["expected_imdb_id"], (
+                f"Failed for {case['description']}: "
+                f"expected imdb_id={case['expected_imdb_id']}, got {result['imdb_id']}"
+            )

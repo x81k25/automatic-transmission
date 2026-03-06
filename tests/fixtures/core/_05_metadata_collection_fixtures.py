@@ -1,4 +1,5 @@
 from decimal import Decimal
+import json
 import pytest
 from src.data_models import *
 import polars as pl
@@ -898,5 +899,93 @@ def build_training_records_cases():
                     "label": None
                 }
             ]
+        },
+        {
+            "description": "Item with empty string imdb_id is filtered out (treated as no imdb_id)",
+            "input_data": [
+                {
+                    "hash": "emptyimdb1234567890123456789012345678901234",
+                    "imdb_id": "",
+                    "tmdb_id": 206828,
+                    "media_type": "tv_show",
+                    "media_title": "DTF St. Louis",
+                    "release_year": 2026,
+                    "pipeline_status": "file_accepted",
+                    "rejection_status": "override",
+                    "error_status": False,
+                    "error_condition": None
+                }
+            ],
+            "expected_count": 0,
+            "expected_fields": []
+        }
+    ]
+
+
+@pytest.fixture
+def collect_details_empty_imdb_cases():
+    """Test scenarios for collect_details handling of empty imdb_id from TMDB API."""
+    return [
+        {
+            "description": "TMDB returns empty string imdb_id - should be converted to None",
+            "input_media_item": {
+                "hash": "92afdf80fe1a790044bfb8c2e8e5c27f31263ff4",
+                "media_type": "tv_show",
+                "media_title": "DTF St. Louis",
+                "tmdb_id": 206828,
+                "release_year": None,
+                "imdb_id": None,
+                "error_status": False,
+                "error_condition": None,
+                "rejection_status": "override",
+                "rejection_reason": None
+            },
+            "mock_api_response": {
+                "status_code": 200,
+                "content": json.dumps({
+                    "imdb_id": "",
+                    "first_air_date": "2026-03-01",
+                    "origin_country": ["US"],
+                    "genres": [{"id": 80, "name": "Crime"}, {"id": 18, "name": "Drama"}],
+                    "overview": "A love triangle among three adults.",
+                    "vote_average": 4.231,
+                    "vote_count": 13,
+                    "original_language": "en",
+                    "status": "Returning Series"
+                })
+            },
+            "expected_imdb_id": None
+        },
+        {
+            "description": "TMDB returns valid imdb_id - should be preserved",
+            "input_media_item": {
+                "hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+                "media_type": "movie",
+                "media_title": "The Longest Ride",
+                "tmdb_id": 238713,
+                "release_year": None,
+                "imdb_id": None,
+                "error_status": False,
+                "error_condition": None,
+                "rejection_status": "accepted",
+                "rejection_reason": None
+            },
+            "mock_api_response": {
+                "status_code": 200,
+                "content": json.dumps({
+                    "imdb_id": "tt1486358",
+                    "release_date": "2015-04-10",
+                    "budget": 34000000,
+                    "revenue": 63443218,
+                    "runtime": 128,
+                    "genres": [{"id": 18, "name": "Drama"}, {"id": 10749, "name": "Romance"}],
+                    "overview": "A movie about love and rodeo.",
+                    "vote_average": 7.2,
+                    "vote_count": 2500,
+                    "original_language": "en",
+                    "status": "Released"
+                })
+            },
+            "expected_imdb_id": "tt1486358"
         }
     ]
