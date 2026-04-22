@@ -1,7 +1,7 @@
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|main)$/
 
 stages:
   - test
@@ -27,7 +27,7 @@ test:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
-# Build base image first - runs on push to dev/stg/main
+# Build base image first - runs on push to dev/main
 build-base:
   stage: build-base
   tags:
@@ -46,7 +46,7 @@ build-base:
       --destination "${BASE_IMAGE_NAME}:${CI_COMMIT_REF_NAME}"
       --destination "${BASE_IMAGE_NAME}:sha-${CI_COMMIT_SHORT_SHA}"
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|main)$/
 
 # Template for service builds
 .build-service:
@@ -64,7 +64,7 @@ build-base:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(dev|stg|main)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(dev|main)$/
 
 build-01-rss-ingest:
   extends: .build-service
@@ -217,15 +217,6 @@ deploy-test-dev:
     NAMESPACE: "media-dev"
   rules:
     - if: $CI_COMMIT_BRANCH == "dev"
-
-# Deploy-test for stg
-deploy-test-stg:
-  extends: .deploy-test
-  resource_group: at-stg
-  variables:
-    NAMESPACE: "media-stg"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "stg"
 
 # Deploy-test for prod
 deploy-test-prod:
