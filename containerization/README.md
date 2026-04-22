@@ -13,7 +13,7 @@ This project uses GitLab CI/CD to automatically build and push Docker images to 
 
 ### Automated Builds
 
-- **Trigger**: Pushes to `dev`, `stg`, `main` branches
+- **Trigger**: Pushes to `dev`, `main` branches
 - **Registry**: Images are pushed to `192.168.50.2:5050/media/at/`
 - **Tagging Strategy**:
   - Branch builds: `192.168.50.2:5050/media/at/[image-name]:[branch-name]`

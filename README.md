@@ -326,7 +326,7 @@ uv run pytest tests/unit/utils/
 ### continuous integration
 
 Tests run automatically via GitLab CI/CD:
-- **push to `dev`, `stg`, or `main` branch** - triggers full test suite
+- **push to `dev` or `main` branch** - triggers full test suite
 - Pipeline defined in `.gitlab-ci.yml`
 
 **test configuration:**
